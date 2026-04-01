@@ -101,12 +101,16 @@ const cssStyles = `
     100% { transform: scale(1); opacity: 0.4; }
   }
   .map-controls {
+    border-top: 1px solid #e5e5e5;
+  }
+  .map-controls-row {
     padding: 8px 12px;
     display: flex;
     align-items: center;
     gap: 12px;
-    flex-wrap: wrap;
-    border-top: 1px solid #e5e5e5;
+  }
+  .map-controls-row + .map-controls-row {
+    border-top: 1px solid #f0f0f0;
   }
   .map-controls label {
     display: flex;
@@ -121,10 +125,17 @@ const cssStyles = `
     height: 13px;
     accent-color: #46B962;
   }
+  .radius-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #949494;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    flex-shrink: 0;
+  }
   .radius-btns {
     display: flex;
     gap: 4px;
-    margin-left: auto;
   }
   .radius-btn {
     padding: 3px 8px;
@@ -140,6 +151,35 @@ const cssStyles = `
     background: #46B962;
     color: white;
     border-color: #46B962;
+  }
+  .radius-slider {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: 3px;
+    background: #e5e5e5;
+    outline: none;
+  }
+  .radius-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #46B962;
+    border: 2px solid white;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    cursor: pointer;
+  }
+  .radius-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #46B962;
+    border: 2px solid white;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    cursor: pointer;
   }
 
   /* MARKET CARD */
@@ -539,36 +579,52 @@ export default function Step2ContexteZone() {
         <div className="map-card">
           <div ref={mapRef} className="map-container" id="leaflet-map-zone" />
           <div className="map-controls">
-            {Object.entries(POI_STYLES).map(([cat, style]) => (
-              <label key={cat} style={{ color: activeLayers[cat] ? style.color : '#949494' }}>
-                <input type="checkbox" checked={activeLayers[cat]} onChange={() => toggleCategory(cat)} />
-                {style.label}
-              </label>
-            ))}
-            <div className="radius-btns">
-              {RADIUS_PRESETS.map((r) => (
-                <button
-                  key={r.label}
-                  className={`radius-btn ${radiusMeters === r.value ? 'active' : ''}`}
-                  onClick={() => setRadius(r.value)}
-                >
-                  {r.label}
-                </button>
+            {/* Ligne 1 : catégories POI */}
+            <div className="map-controls-row">
+              {Object.entries(POI_STYLES).map(([cat, style]) => (
+                <label key={cat} style={{ color: activeLayers[cat] ? style.color : '#949494' }}>
+                  <input type="checkbox" checked={activeLayers[cat]} onChange={() => toggleCategory(cat)} />
+                  {style.label}
+                </label>
               ))}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 4 }}>
+            </div>
+            {/* Ligne 2 : rayon — presets + slider + champ */}
+            <div className="map-controls-row">
+              <span className="radius-label">Rayon</span>
+              <div className="radius-btns">
+                {RADIUS_PRESETS.map((r) => (
+                  <button
+                    key={r.label}
+                    className={`radius-btn ${radiusMeters === r.value ? 'active' : ''}`}
+                    onClick={() => setRadius(r.value)}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+              <input
+                type="range"
+                className="radius-slider"
+                min={100}
+                max={3000}
+                step={50}
+                value={radiusMeters}
+                onChange={(e) => setRadius(parseInt(e.target.value, 10))}
+              />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
                 <input
                   type="number"
                   min={100}
                   max={5000}
-                  step={100}
+                  step={50}
                   value={radiusMeters}
                   onChange={(e) => {
                     const v = parseInt(e.target.value, 10);
                     if (v >= 100 && v <= 5000) setRadius(v);
                   }}
                   style={{
-                    width: 60,
-                    padding: '3px 6px',
+                    width: 56,
+                    padding: '3px 4px',
                     border: '1px solid #e5e5e5',
                     borderRadius: 5,
                     fontSize: 11,
