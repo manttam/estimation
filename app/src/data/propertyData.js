@@ -236,8 +236,16 @@ export const tensionMarche = {
     { adresse: "12 place Guichard", type: "T4 85m²", prix: "312 000 €", prixM2: "3 671 €", jours: 34 },
     { adresse: "3 rue Dauphiné", type: "T3 65m²", prix: "235 000 €", prixM2: "3 615 €", jours: 88 },
   ],
-  radarAxes: ["Budget", "Surface", "Localisation", "Pièces", "DPE", "Étage"],
-  radarValues: [0.85, 0.78, 0.92, 0.95, 0.60, 0.70],
+  radarAxes: [
+    "Espace & configuration",
+    "Localisation & mobilité",
+    "Budget & viabilité",
+    "Cadre de vie & environnement",
+    "Extérieur & autonomie",
+    "Sobriété & perf. énergétique",
+    "Modes de vie & usages",
+  ],
+  radarValues: [0.85, 0.92, 0.78, 0.88, 0.65, 0.60, 0.82],
 };
 
 export const avisValeur = {
