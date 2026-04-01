@@ -128,15 +128,7 @@ export default function Layout() {
 
       {/* Topbar */}
       <header style={styles.topbar}>
-        <div style={styles.topbarLogo}>
-          <svg width="80" height="24" viewBox="0 0 80 24">
-            <text x="0" y="19" fill="#46B962" fontFamily="Open Sans, sans-serif" fontWeight="700" fontSize="18">
-              ideeri
-            </text>
-          </svg>
-          <span style={{ color: '#e5e5e5', fontSize: 18 }}>|</span>
-          <span style={{ color: '#949494', fontSize: 12, fontWeight: 500 }}>Estimation</span>
-        </div>
+        <div style={styles.topbarLogo} />
         <div style={styles.topbarRight}>
           <div style={styles.avatar}>MM</div>
           <div>
