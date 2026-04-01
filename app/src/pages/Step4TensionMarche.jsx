@@ -357,10 +357,10 @@ function computeMatchScore(bienVals, acqVals) {
   return Math.round(total / totalPoids * 100);
 }
 
-function RadarChart({ axes, values, acqValues = ACQ_VALUES, size = 440 }) {
+function RadarChart({ axes, values, acqValues = ACQ_VALUES, size = 480 }) {
   const cx = size / 2;
   const cy = size / 2;
-  const R = size * 0.30;
+  const R = size * 0.28;
   const n = axes.length;
   const levels = 5;
 
@@ -376,7 +376,14 @@ function RadarChart({ axes, values, acqValues = ACQ_VALUES, size = 440 }) {
   const matchScore = computeMatchScore(values, acqValues);
   const scoreColor = matchScore >= 85 ? '#16A34A' : matchScore >= 70 ? '#D97706' : matchScore >= 55 ? '#EA580C' : '#DC2626';
 
-  const labelR = R + 38;
+  const labelR = R + 28;
+
+  // Split label into two lines at "&"
+  const splitLabel = (label) => {
+    const idx = label.indexOf('&');
+    if (idx === -1) return [label, ''];
+    return [label.substring(0, idx).trim(), '& ' + label.substring(idx + 1).trim()];
+  };
 
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
@@ -423,10 +430,12 @@ function RadarChart({ axes, values, acqValues = ACQ_VALUES, size = 440 }) {
         const [x, y] = pt(i, labelR);
         const cosA = Math.cos(angle(i));
         const anchor = cosA > 0.12 ? 'start' : cosA < -0.12 ? 'end' : 'middle';
+        const [line1, line2] = splitLabel(label);
         return (
           <g key={i}>
-            <text x={x} y={y - 5} textAnchor={anchor} dominantBaseline="middle" fontFamily="Inter,-apple-system,sans-serif" fontSize={10} fontWeight={700} fill="#374151">{label}</text>
-            <text x={x} y={y + 8} textAnchor={anchor} dominantBaseline="middle" fontFamily="Inter,-apple-system,sans-serif" fontSize={9} fill="#A5B4FC">{AXIS_POIDS[i]}%</text>
+            <text x={x} y={y - 10} textAnchor={anchor} dominantBaseline="middle" fontFamily="Inter,-apple-system,sans-serif" fontSize={10} fontWeight={700} fill="#374151">{line1}</text>
+            {line2 && <text x={x} y={y + 2} textAnchor={anchor} dominantBaseline="middle" fontFamily="Inter,-apple-system,sans-serif" fontSize={9.5} fontWeight={600} fill="#6B7280">{line2}</text>}
+            <text x={x} y={y + (line2 ? 15 : 5)} textAnchor={anchor} dominantBaseline="middle" fontFamily="Inter,-apple-system,sans-serif" fontSize={9} fill="#A5B4FC">{AXIS_POIDS[i]}%</text>
           </g>
         );
       })}
@@ -495,7 +504,7 @@ export default function Step4TensionMarche() {
             </div>
           </div>
           <div className="radar-wrap">
-            <RadarChart axes={radarAxes} values={radarValues} size={440} />
+            <RadarChart axes={radarAxes} values={radarValues} size={480} />
           </div>
           {/* Radar detail table — Bien vs Acquéreur */}
           <div style={{ marginTop: 12, border: '1px solid #E5E7EB', borderRadius: 10, overflow: 'hidden' }}>
