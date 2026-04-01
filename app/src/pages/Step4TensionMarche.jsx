@@ -386,7 +386,7 @@ function RadarChart({ axes, values, acqValues = ACQ_VALUES, size = 480 }) {
   };
 
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+    <svg width={size + 120} height={size + 40} viewBox={`-60 -20 ${size + 120} ${size + 40}`} style={{ overflow: 'visible' }}>
       {/* Grid polygons */}
       {Array.from({ length: levels }, (_, lv) => {
         const r = R * (lv + 1) / levels;
