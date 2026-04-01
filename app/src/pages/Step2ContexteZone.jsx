@@ -91,9 +91,14 @@ const cssStyles = `
     position: relative;
   }
   .map-container {
-    height: 260px;
+    height: 340px;
     width: 100%;
     z-index: 0;
+  }
+  @keyframes pulse {
+    0% { transform: scale(1); opacity: 0.4; }
+    50% { transform: scale(1.15); opacity: 0.15; }
+    100% { transform: scale(1); opacity: 0.4; }
   }
   .map-controls {
     padding: 8px 12px;
@@ -344,12 +349,56 @@ const cssStyles = `
   }
 `;
 
+const TARGET_COORDS = [45.7580, 4.8590];
+
+/* ─── POI simulés autour du bien cible ─── */
+const POI_DATA = {
+  transports: [
+    { name: 'Métro Saxe-Gambetta', coords: [45.7565, 4.8545], detail: 'Ligne B/D — 350 m' },
+    { name: 'Tram T1 — Guillotière', coords: [45.7558, 4.8570], detail: '500 m' },
+    { name: 'Bus C3 — Dauphiné', coords: [45.7595, 4.8615], detail: '180 m' },
+    { name: 'Vélo\'v — Place Guichard', coords: [45.7575, 4.8560], detail: '15 places — 200 m' },
+    { name: 'Bus C9 — Villette', coords: [45.7605, 4.8575], detail: '280 m' },
+  ],
+  commerces: [
+    { name: 'Carrefour City', coords: [45.7573, 4.8610], detail: 'Alimentation — 150 m' },
+    { name: 'Boulangerie Paul', coords: [45.7585, 4.8565], detail: '120 m' },
+    { name: 'Pharmacie des Lilas', coords: [45.7590, 4.8600], detail: '80 m' },
+    { name: 'Marché couvert Part-Dieu', coords: [45.7608, 4.8570], detail: '650 m' },
+    { name: 'Tabac Presse Liberté', coords: [45.7568, 4.8598], detail: '200 m' },
+    { name: 'La Poste Lyon 3', coords: [45.7555, 4.8585], detail: '400 m' },
+    { name: 'Banque LCL', coords: [45.7582, 4.8550], detail: '350 m' },
+  ],
+  education: [
+    { name: 'École maternelle Montbrillant', coords: [45.7600, 4.8555], detail: 'Maternelle — 500 m' },
+    { name: 'Collège Raoul Dufy', coords: [45.7545, 4.8610], detail: 'Collège — 800 m' },
+    { name: 'Lycée Lacassagne', coords: [45.7530, 4.8570], detail: 'Lycée — 950 m' },
+    { name: 'Crèche Les P\'tits Loups', coords: [45.7592, 4.8625], detail: '300 m' },
+  ],
+  sante: [
+    { name: 'Cabinet Dr. Martin', coords: [45.7572, 4.8605], detail: 'Médecin généraliste — 100 m' },
+    { name: 'Hôpital Édouard Herriot', coords: [45.7540, 4.8630], detail: 'Hôpital — 1.1 km' },
+    { name: 'Dentiste Dr. Roux', coords: [45.7588, 4.8555], detail: '250 m' },
+    { name: 'Laboratoire Biogroup', coords: [45.7578, 4.8620], detail: '200 m' },
+  ],
+};
+
+const POI_STYLES = {
+  transports: { color: '#2563EB', icon: '🚇', label: 'Transports' },
+  commerces:  { color: '#D97706', icon: '🛒', label: 'Commerces' },
+  education:  { color: '#7C3AED', icon: '🎓', label: 'Éducation' },
+  sante:      { color: '#DC2626', icon: '🏥', label: 'Santé' },
+};
+
 export default function Step2ContexteZone() {
   const navigate = useNavigate();
   const [openSections, setOpenSections] = useState({});
-  const [activeRadius, setActiveRadius] = useState('1km');
+  const [radiusMeters, setRadiusMeters] = useState(1000);
+  const [activeLayers, setActiveLayers] = useState({ transports: true, commerces: true, education: false, sante: false });
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  const circleRef = useRef(null);
+  const poiLayersRef = useRef({});
 
   const toggleSection = (idx) => {
     setOpenSections((prev) => ({ ...prev, [idx]: !prev[idx] }));
@@ -357,27 +406,102 @@ export default function Step2ContexteZone() {
 
   const { scores, market, sections } = contexteZone;
 
+  // Radius presets → meters
+  const RADIUS_PRESETS = [
+    { label: '500m', value: 500 },
+    { label: '1km', value: 1000 },
+    { label: '2km', value: 2000 },
+  ];
+
+  const setRadius = (meters) => {
+    setRadiusMeters(meters);
+    if (circleRef.current) {
+      circleRef.current.setRadius(meters);
+    }
+    const map = mapInstanceRef.current;
+    if (map) {
+      const zoom = meters <= 500 ? 16 : meters <= 1000 ? 15 : 14;
+      map.setView(TARGET_COORDS, zoom, { animate: true });
+    }
+  };
+
+  // Toggle POI category
+  const toggleCategory = (cat) => {
+    setActiveLayers(prev => {
+      const next = { ...prev, [cat]: !prev[cat] };
+      const map = mapInstanceRef.current;
+      if (map && poiLayersRef.current[cat]) {
+        if (next[cat]) {
+          poiLayersRef.current[cat].addTo(map);
+        } else {
+          map.removeLayer(poiLayersRef.current[cat]);
+        }
+      }
+      return next;
+    });
+  };
+
   // Initialize Leaflet map
   useEffect(() => {
-    if (mapInstanceRef.current) return; // already initialized
+    if (mapInstanceRef.current) return;
     const L = window.L;
     if (!L || !mapRef.current) return;
 
-    const map = L.map(mapRef.current, { zoomControl: false }).setView([45.7580, 4.8590], 15);
+    const map = L.map(mapRef.current, { zoomControl: false }).setView(TARGET_COORDS, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap',
     }).addTo(map);
     L.control.zoom({ position: 'topright' }).addTo(map);
-    L.marker([45.7580, 4.8590])
-      .addTo(map)
+
+    // Target marker
+    const targetIcon = L.divIcon({
+      className: 'target-marker-icon',
+      html: `<div style="width:36px;height:36px;position:relative;display:flex;align-items:center;justify-content:center">
+        <div style="position:absolute;inset:-6px;border:2px solid #46B962;border-radius:50%;opacity:0.4;animation:pulse 2s infinite"></div>
+        <div style="width:36px;height:36px;background:#46B962;border:3px solid white;border-radius:50%;box-shadow:0 3px 10px rgba(70,185,98,0.45);display:flex;align-items:center;justify-content:center">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        </div>
+      </div>`,
+      iconSize: [36, 36],
+      iconAnchor: [18, 18],
+    });
+    L.marker(TARGET_COORDS, { icon: targetIcon, zIndexOffset: 1000 }).addTo(map)
       .bindPopup('<strong>12 rue des Lilas</strong><br>69003 Lyon');
-    L.circle([45.7580, 4.8590], {
+
+    // Radius circle
+    const circle = L.circle(TARGET_COORDS, {
       radius: 1000,
       color: '#46B962',
       fillColor: '#46B962',
       fillOpacity: 0.06,
-      weight: 1.5,
+      weight: 2,
+      dashArray: '8, 6',
+      opacity: 0.6,
     }).addTo(map);
+    circleRef.current = circle;
+
+    // POI layers per category
+    Object.entries(POI_DATA).forEach(([cat, pois]) => {
+      const style = POI_STYLES[cat];
+      const layerGroup = L.layerGroup();
+
+      pois.forEach((poi) => {
+        const icon = L.divIcon({
+          className: 'poi-icon',
+          html: `<div style="width:26px;height:26px;background:${style.color};border:2.5px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;font-size:12px;line-height:1">${style.icon}</div>`,
+          iconSize: [26, 26],
+          iconAnchor: [13, 13],
+        });
+        L.marker(poi.coords, { icon }).addTo(layerGroup)
+          .bindPopup(`<div style="font-family:'Open Sans',sans-serif;font-size:12px"><strong style="color:${style.color}">${poi.name}</strong><br><span style="color:#666">${poi.detail}</span></div>`);
+      });
+
+      poiLayersRef.current[cat] = layerGroup;
+      // Add initially active layers
+      if (cat === 'transports' || cat === 'commerces') {
+        layerGroup.addTo(map);
+      }
+    });
 
     mapInstanceRef.current = map;
 
@@ -415,20 +539,46 @@ export default function Step2ContexteZone() {
         <div className="map-card">
           <div ref={mapRef} className="map-container" id="leaflet-map-zone" />
           <div className="map-controls">
-            <label><input type="checkbox" defaultChecked /> Transports</label>
-            <label><input type="checkbox" defaultChecked /> Commerces</label>
-            <label><input type="checkbox" /> &Eacute;ducation</label>
-            <label><input type="checkbox" /> Sant&eacute;</label>
+            {Object.entries(POI_STYLES).map(([cat, style]) => (
+              <label key={cat} style={{ color: activeLayers[cat] ? style.color : '#949494' }}>
+                <input type="checkbox" checked={activeLayers[cat]} onChange={() => toggleCategory(cat)} />
+                {style.label}
+              </label>
+            ))}
             <div className="radius-btns">
-              {['500m', '1km', '2km'].map((r) => (
+              {RADIUS_PRESETS.map((r) => (
                 <button
-                  key={r}
-                  className={`radius-btn ${activeRadius === r ? 'active' : ''}`}
-                  onClick={() => setActiveRadius(r)}
+                  key={r.label}
+                  className={`radius-btn ${radiusMeters === r.value ? 'active' : ''}`}
+                  onClick={() => setRadius(r.value)}
                 >
-                  {r}
+                  {r.label}
                 </button>
               ))}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 4 }}>
+                <input
+                  type="number"
+                  min={100}
+                  max={5000}
+                  step={100}
+                  value={radiusMeters}
+                  onChange={(e) => {
+                    const v = parseInt(e.target.value, 10);
+                    if (v >= 100 && v <= 5000) setRadius(v);
+                  }}
+                  style={{
+                    width: 60,
+                    padding: '3px 6px',
+                    border: '1px solid #e5e5e5',
+                    borderRadius: 5,
+                    fontSize: 11,
+                    fontFamily: 'Open Sans, sans-serif',
+                    textAlign: 'center',
+                    color: '#393939',
+                  }}
+                />
+                <span style={{ fontSize: 10, color: '#949494' }}>m</span>
+              </div>
             </div>
           </div>
         </div>
