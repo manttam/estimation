@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ideeri - Étape 4: Tension Marché</title>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+/* ═══ FIGMA HEADER — Compact ═══ */
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap');
+.prop-card { background: #fff !important; border: 1px solid #e5e5e5 !important; border-radius: 10px !important; margin-bottom: 12px !important; overflow: hidden !important; }
+.prop-header { padding: 14px 20px 0 !important; border: none !important; margin-bottom: 0 !important; display: block !important; }
+.prop-back { font-size: 11px; color: #949494; cursor: pointer; margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
+.prop-back:hover { color: #393939; }
+.prop-title { font-size: 18px; font-weight: 700; color: #393939; margin-bottom: 8px; line-height: 1.3; font-family: 'Open Sans', sans-serif; }
+.prop-meta-row { display: flex; align-items: center; gap: 18px; margin-bottom: 10px; flex-wrap: wrap; }
+.prop-meta-item { display: flex; align-items: center; gap: 5px; font-size: 12px; }
+.prop-meta-label { color: #949494; font-weight: 400; }
+.prop-meta-value { color: #393939; font-weight: 600; }
+.prop-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.prop-tag { background: #DEDEDE !important; color: #666 !important; font-size: 11px !important; font-weight: 600 !important; padding: 3px 10px !important; border-radius: 5px !important; border: none !important; }
+.prop-dispo { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.prop-dispo-label { font-size: 12px; color: #949494; font-weight: 400; }
+.prop-dispo-input { background: #F5F4F4; border: none; border-radius: 6px; padding: 6px 12px; font-size: 12px; color: #393939; font-family: 'Open Sans', sans-serif; }
+.completude-block { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.completude-label { font-size: 11px !important; color: #949494 !important; font-weight: 400 !important; }
+.completude-bar { width: 100px; height: 5px; background: #eee; border-radius: 3px; overflow: hidden; }
+.completude-fill { height: 100%; background: #46B962 !important; width: 64%; border-radius: 3px; }
+.completude-pct { font-size: 12px !important; font-weight: 700 !important; color: #46B962 !important; }
+.completude-detail { font-size: 10px !important; color: #949494 !important; }
+.tab-bar { border-top: 1px solid #e5e5e5 !important; border: none !important; border-top: 1px solid #e5e5e5 !important; border-radius: 0 !important; padding: 0 20px !important; display: flex; gap: 0; margin-top: 0 !important; margin-bottom: 0 !important; overflow-x: auto !important; }
+.tab { padding: 9px 12px !important; font-size: 12px !important; font-weight: 600 !important; color: #949494 !important; border-bottom: 3px solid transparent; cursor: pointer; white-space: nowrap; margin-bottom: -1px; }
+.tab:hover { color: #393939 !important; }
+.tab.active { color: #46B962 !important; border-bottom-color: #46B962 !important; }
+/* ═══ END FIGMA HEADER ═══ */
+
+/* ════ DESIGN OVERRIDE — ALLÈGEMENT ══════ */
+body, .shell { background: #fafafa !important; }
+.topbar { box-shadow: 0 1px 0 #eee !important; border-bottom: none !important; }
+.sidebar-icon { display: none !important; }
+.stepper, .card, .kpi-card, .gauge-card,
+.pdf-bar, .info-banner, .chart-card {
+    box-shadow: none !important;
+}
+.prop-header .meta { color: #888 !important; }
+.breadcrumb { color: #888 !important; }
+.stepper { padding: 10px 14px !important; }
+.stepper-badge { width: 22px !important; height: 22px !important; font-size: 10px !important; }
+.stepper-label { font-size: 11px !important; }
+.stepper-item { color: #888 !important; }
+.stepper-arrow { color: #bbb !important; font-size: 14px !important; }
+.tab { font-size: 12px !important; }
+.card-title, .kpi-title { font-size: 12px !important; font-weight: 500 !important; }
+.section-title { font-size: 12px !important; font-weight: 500 !important; color: #555 !important; }
+.kpi-value, .gauge-value { font-weight: 600 !important; }
+.kpi-label, .gauge-label, .stat-label { font-size: 10px !important; color: #777 !important; }
+.score-sub, .card-sub { color: #888 !important; }
+.chart-legend span { color: #777 !important; }
+.info-text, .hint-text { color: #888 !important; }
+.info-banner { background: #fafafa !important; border: 1px solid #eee !important; }
+.card { border: 1px solid #eee !important; border-radius: 8px !important; }
+.pdf-toggle label { font-size: 9px !important; }
+.pdf-bar { box-shadow: none !important; border-top: 1px solid #eee !important; }
+.chart-placeholder { opacity: 0.8 !important; }
+/* ══════════════════════════════════════════════ */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+    --green: #46B962;
+    --blue: #4a6cf7;
+    --orange: #f5a623;
+    --red: #e74c3c;
+    --dark: #3a3541;
+    --bg: #f5f5f5;
+    --white: #ffffff;
+    --text: #393939;
+    --muted: #949494;
+    --border: #eee;
+}
+body { font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", sans-serif; background: var(--bg); color: var(--text); font-size: 13px; line-height: 1.4; }
+.shell { display: flex; height: 100vh; overflow: hidden; }
+
+/* SIDEBAR */
+.sidebar { width: 220px; background: #4D4545; color: white; padding: 0; flex-shrink: 0; display: flex; flex-direction: column; }
+.sidebar-logo { padding: 24px 34px 32px; display: flex; align-items: center; gap: 0; }
+.sidebar-logo svg { height: 38px; width: auto; }
+.sidebar-nav { list-style: none; }
+.sidebar-nav li { padding: 14px 0 14px 24px; cursor: pointer; font-size: 14px; font-weight: 600; color: #D4CECE; display: flex; align-items: center; justify-content: space-between; font-family: 'Open Sans', sans-serif; }
+.sidebar-nav li:hover { background: rgba(255,255,255,0.04); }
+.sidebar-nav li.active { background: #595050; color: white; }
+.nav-left { display: flex; align-items: center; gap: 14px; }
+.nav-left svg { width: 16px; height: 16px; flex-shrink: 0; }
+.nav-active-bar { width: 4px; height: 25px; border-radius: 2.5px 0 0 2.5px; background: transparent; }
+.sidebar-nav li.active .nav-active-bar { background: #46B962; }
+
+/* MAIN */
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+/* TOPBAR */
+.topbar { background: var(--white); border-bottom: 1px solid #eee; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 56px; flex-shrink: 0; }
+.topbar-logo { font-size: 16px; font-weight: 700; color: var(--green); }
+.topbar-search { flex: 1; max-width: 360px; margin: 0 32px; padding: 7px 14px; border: 1px solid #eee; border-radius: 8px; background: var(--bg); font-size: 13px; }
+.topbar-user { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.topbar-right { display: flex; align-items: center; gap: 12px; }
+.topbar-photo { width: 34px; height: 34px; border-radius: 50%; background: #d4cece; overflow: hidden; flex-shrink: 0; }
+.topbar-user-info { display: flex; flex-direction: column; line-height: 1.3; }
+.topbar-user-name { font-size: 13px; font-weight: 600; color: #393939; }
+.topbar-user-role { font-size: 11px; color: #949494; }
+.topbar-logout { padding: 6px 14px; border: 1px solid #999; border-radius: 6px; font-size: 11px; color: #666; cursor: pointer; background: white; font-family: 'Open Sans', sans-serif; }
+
+/* SCROLLABLE AREA */
+.scroll-area { flex: 1; overflow-y: auto; padding: 20px 24px 60px 24px; }
+
+/* BREADCRUMB */
+.breadcrumb { font-size: 12px; color: #bbb; margin-bottom: 12px; }
+.breadcrumb a { color: var(--blue); text-decoration: none; }
+
+/* PROPERTY HEADER */
+.prop-header { background: var(--white); border-radius: 10px; padding: 16px 20px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; box-shadow: none; border: 1px solid #eee; }
+.prop-header h2 { font-size: 15px; font-weight: 500; }
+.prop-header .meta { font-size: 12px; color: #bbb; margin-top: 2px; }
+.completude { display: flex; align-items: center; gap: 8px; }
+.completude-bar { width: 100px; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.completude-fill { height: 100%; background: linear-gradient(90deg, var(--green), var(--blue)); width: 85%; }
+.completude-pct { font-size: 12px; font-weight: 700; color: var(--green); }
+
+/* TAB BAR — overridden by Figma header block */
+
+/* STEPPER */
+.stepper { display: flex; justify-content: center; align-items: center; gap: 14px; margin-bottom: 14px; background: var(--white); padding: 14px; border-radius: 10px; box-shadow: none; border: 1px solid #eee; }
+.stepper-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #999; }
+.stepper-item.completed .stepper-badge { background: var(--green); color: white; }
+.stepper-item.active .stepper-badge { background: var(--green); color: white; box-shadow: none; }
+.stepper-item.active .stepper-label { color: var(--green); font-weight: 600; }
+.stepper-badge { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #eee; color: #999; font-size: 11px; font-weight: 600; flex-shrink: 0; }
+.stepper-label { white-space: nowrap; }
+.stepper-arrow { color: #eee; font-size: 16px; }
+
+/* PDF TOGGLE */
+.pdf-toggle { position: absolute; top: 8px; right: 8px; display: flex; align-items: center; gap: 5px; z-index: 10; }
+.pdf-toggle input[type="checkbox"] { display: none; }
+.pdf-toggle label { display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 10px; color: #bbb; padding: 3px 8px; border-radius: 5px; border: 1px solid transparent; transition: all 0.2s; user-select: none; background: rgba(255,255,255,0.9); }
+.pdf-toggle label:hover { color: #888; background: rgba(245,245,245,0.95); }
+.pdf-toggle input:checked + label { color: var(--blue); background: rgba(238,242,255,0.95); border-color: #c7d2fe; }
+.pdf-toggle input:checked + label .pdf-icon { opacity: 1; }
+.pdf-icon { font-size: 12px; opacity: 0.4; transition: opacity 0.2s; }
+
+/* PDF BAR */
+.pdf-bar { position: fixed; bottom: 0; left: 200px; right: 0; background: var(--white); border-top: 1px solid #eee; padding: 10px 24px; display: flex; align-items: center; justify-content: space-between; z-index: 100; box-shadow: none; }
+.pdf-bar-left { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+.pdf-counter { background: var(--blue); color: white; padding: 2px 10px; border-radius: 12px; font-weight: 700; font-size: 12px; }
+.pdf-bar-actions { display: flex; align-items: center; gap: 10px; }
+.btn-select-all { padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; border: 1px solid #eee; background: white; color: #999; }
+.btn-pdf { padding: 8px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; background: var(--blue); color: white; display: flex; align-items: center; gap: 6px; }
+
+/* FOOTER */
+.footer-buttons { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; }
+.btn { padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; }
+.btn-primary { background: var(--green); color: white; }
+.btn-primary:hover { background: #1aa564; }
+.btn-ghost { background: transparent; color: var(--text); border: 1px solid #eee; }
+.btn-ghost:hover { background: var(--bg); }
+.min-note { font-size: 11px; color: var(--green); margin-top: 4px; }
+
+
+/* STEP 4 SPECIFIC */
+.info-banner { background: #fafafa; border: 1px solid #eee; border-radius: 10px; padding: 12px 16px; margin-bottom: 14px; font-size: 12px; color: #666; display: flex; align-items: center; gap: 8px; }
+.info-banner strong { font-weight: 600; }
+
+.kpi-row-wrap { position: relative; }
+.kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 14px; }
+.kpi-card { background: var(--white); border-radius: 10px; padding: 16px; box-shadow: none; border: 1px solid #eee; display: flex; flex-direction: column; }
+.kpi-number { font-size: 36px; font-weight: 700; line-height: 1; margin-bottom: 4px; }
+.kpi-card.green .kpi-number { color: var(--green); }
+.kpi-card.orange .kpi-number { color: #d97706; }
+.kpi-card.red .kpi-number { color: var(--red); }
+.kpi-subtitle { font-size: 12px; color: #999; margin-bottom: 8px; }
+.kpi-badge { display: inline-block; padding: 3px 8px; border-radius: 5px; font-size: 11px; font-weight: 500; width: fit-content; }
+.kpi-badge.green { background: #fafafa; border: 1px solid #eee; color: #666; }
+.kpi-badge.orange { background: #fafafa; border: 1px solid #eee; color: #666; }
+.kpi-badge.red { background: #fafafa; border: 1px solid #eee; color: #666; }
+.kpi-small { font-size: 10px; color: #bbb; margin-top: 6px; }
+
+.content-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+
+.card { background: var(--white); border-radius: 10px; padding: 16px; box-shadow: none; border: 1px solid #eee; position: relative; }
+.card-title { font-size: 13px; font-weight: 500; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+.card-desc { font-size: 12px; line-height: 1.6; color: #999; margin-bottom: 14px; }
+
+.card.verdict-red { border-left: 3px solid var(--red); }
+.card.verdict-green { border-left: 3px solid var(--green); }
+
+.gauges-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.gauge-label { font-size: 11px; font-weight: 500; margin-bottom: 6px; }
+.gauge-bar { width: 100%; height: 6px; background: #eee; border-radius: 3px; overflow: hidden; margin-bottom: 4px; }
+.gauge-fill { height: 100%; border-radius: 3px; }
+.gauge-fill.red { background: #d97706; }
+.gauge-fill.green { background: #10b981; }
+.gauge-fill.orange { background: #f59e0b; }
+.gauge-value { font-size: 11px; color: #999; font-weight: 400; }
+
+table { width: 100%; border-collapse: collapse; font-size: 11px; }
+th { background: #fafafa; padding: 8px 6px; text-align: left; font-weight: 500; color: #999; border-bottom: 1px solid #eee; white-space: nowrap; font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px; }
+td { padding: 8px 6px; border-bottom: 1px solid #eee; }
+.score-badge { display: inline-block; padding: 3px 6px; border-radius: 4px; font-weight: 500; font-size: 10px; }
+.score-badge.green { background: #fafafa; border: 1px solid #eee; color: #666; }
+.score-badge.orange { background: #fafafa; border: 1px solid #eee; color: #666; }
+.table-note { font-size: 10px; color: #bbb; margin-top: 8px; padding-top: 8px; border-top: 1px solid #eee; }
+.table-summary { background: #fafafa; font-weight: 500; }
+
+/* Radar */
+.radar-container { display: flex; justify-content: center; padding: 12px; background: #fafafa; border-radius: 8px; margin-bottom: 12px; }
+.radar-chart { width: 100%; max-width: 280px; height: 280px; }
+
+.score-breakdown { display: flex; flex-direction: column; gap: 10px; }
+.score-section { display: flex; gap: 8px; }
+.score-icon { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: 600; flex-shrink: 0; }
+.score-icon.matched { background: #10b981; }
+.score-icon.unmatched { background: #ef4444; }
+.score-icon.neutral { background: #d1d5db; }
+.score-items { flex: 1; }
+.score-item { font-size: 11px; line-height: 1.5; color: #666; padding: 2px 0; }
+.score-criteria { font-weight: 500; color: var(--text); margin-right: 8px; }
+
+</style>
+</head>
+<body>
+    <div class="shell">
+        <!-- SIDEBAR -->
+        <div class="sidebar">
+            <div class="sidebar-logo">
+                <svg viewBox="0 0 152 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <text x="0" y="24" font-family="Open Sans" font-weight="700" font-size="24" fill="#46B962" letter-spacing="-0.5">ideeri</text>
+                </svg>
+            </div>
+            <ul class="sidebar-nav">
+                <li class="active">
+                    <span class="nav-left">
+                        <svg viewBox="0 0 16 16" fill="none"><path d="M8 1L1 7v7a1 1 0 001 1h4v-5h4v5h4a1 1 0 001-1V7L8 1z" fill="currentColor" opacity="0.9"/></svg>
+                        <span>Dashboard</span>
+                    </span>
+                    <span class="nav-active-bar"></span>
+                </li>
+                <li>
+                    <span class="nav-left">
+                        <svg viewBox="0 0 16 16" fill="none"><rect x="1" y="2" width="14" height="13" rx="1.5" stroke="currentColor" stroke-width="1.4" fill="none"/><line x1="1" y1="6" x2="15" y2="6" stroke="currentColor" stroke-width="1.4"/><line x1="5" y1="2" x2="5" y2="0.5" stroke="currentColor" stroke-width="1.4"/><line x1="11" y1="2" x2="11" y2="0.5" stroke="currentColor" stroke-width="1.4"/></svg>
+                        <span>Agenda</span>
+                    </span>
+                    <span class="nav-active-bar"></span>
+                </li>
+                <li>
+                    <span class="nav-left">
+                        <svg viewBox="0 0 16 16" fill="none"><circle cx="6" cy="5" r="2.5" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M1 14c0-2.8 2.2-5 5-5s5 2.2 5 5" stroke="currentColor" stroke-width="1.3" fill="none"/><circle cx="11.5" cy="5.5" r="2" stroke="currentColor" stroke-width="1.2" fill="none"/><path d="M11.5 9c2.2 0 4 1.8 4 4" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>
+                        <span>Mes clients</span>
+                    </span>
+                    <span class="nav-active-bar"></span>
+                </li>
+                <li>
+                    <span class="nav-left">
+                        <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M2 15c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>
+                        <span>Collaborateurs</span>
+                    </span>
+                    <span class="nav-active-bar"></span>
+                </li>
+                <li>
+                    <span class="nav-left">
+                        <svg viewBox="0 0 16 16" fill="none"><rect x="1.5" y="1.5" width="13" height="13" rx="1.5" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M4.5 8l2.5 2.5L11.5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+                        <span>Mes tâches</span>
+                    </span>
+                    <span class="nav-active-bar"></span>
+                </li>
+                <li>
+                    <span class="nav-left">
+                        <svg viewBox="0 0 16 16" fill="none"><path d="M8 1.5C5 1.5 2.5 4 2.5 7c0 4 5.5 7.5 5.5 7.5s5.5-3.5 5.5-7.5c0-3-2.5-5.5-5.5-5.5z" stroke="currentColor" stroke-width="1.3" fill="none"/><circle cx="8" cy="7" r="2" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>
+                        <span>Secteurs</span>
+                    </span>
+                    <span class="nav-active-bar"></span>
+                </li>
+            </ul>
+        </div>
+
+        <!-- MAIN -->
+        <div class="main">
+            <!-- TOPBAR -->
+            <div class="topbar">
+                <div class="topbar-left">
+                    <div class="topbar-logo">ideeri</div>
+                </div>
+                <div class="topbar-right">
+                    <div class="topbar-photo"></div>
+                    <div class="topbar-user-info">
+                        <span class="topbar-user-name">Manon MATRAT</span>
+                        <span class="topbar-user-role">Administratif</span>
+                    </div>
+                    <button class="topbar-logout">Déconnexion</button>
+                </div>
+            </div>
+
+            <!-- SCROLLABLE -->
+            <div class="scroll-area">
+                <!-- ═══ PROPERTY CARD — Figma ═══ -->
+                <div class="prop-card">
+                    <!-- PROPERTY HEADER -->
+                    <div class="prop-header">
+                        <div class="prop-back">&#8592; Retour</div>
+                        <div class="prop-title">Vente Appartement T3 à Lyon 3ème</div>
+                        <div class="prop-meta-row">
+                            <div class="prop-meta-item">
+                                <span class="prop-meta-label">Collaborateur</span>
+                                <span class="prop-meta-value">Marie Dupont</span>
+                            </div>
+                            <div class="prop-meta-item">
+                                <span class="prop-meta-label">Référence</span>
+                                <span class="prop-meta-value">LYN-2026-00847</span>
+                            </div>
+                            <div class="prop-meta-item">
+                                <span class="prop-meta-label">Créé le</span>
+                                <span class="prop-meta-value">25 Mars 2026</span>
+                            </div>
+                            <div class="prop-meta-item">
+                                <span class="prop-meta-label">Source</span>
+                                <span class="prop-meta-value">Ideeri</span>
+                            </div>
+                        </div>
+                        <div class="prop-tags">
+                            <span class="prop-tag">Appartement</span>
+                            <span class="prop-tag">3 pièces</span>
+                            <span class="prop-tag">72.5 m²</span>
+                            <span class="prop-tag">Lyon 3ème</span>
+                            <span class="prop-tag">DPE D</span>
+                        </div>
+                        <div class="prop-dispo">
+                            <span class="prop-dispo-label">Disponibilité du bien</span>
+                            <input type="date" class="prop-dispo-input" value="2026-06-01">
+                        </div>
+                        <div class="completude-block">
+                            <span class="completude-label">Complétude pondérée</span>
+                            <div class="completude-bar"><div class="completude-fill"></div></div>
+                            <span class="completude-pct">64%</span>
+                            <span class="completude-detail">14/19 critiques · 38/50 importants</span>
+                        </div>
+                    </div>
+
+                    <!-- TAB BAR -->
+                    <div class="tab-bar">
+                        <div class="tab">Dashboard</div>
+                        <div class="tab">Détails du projet</div>
+                        <div class="tab">Documents</div>
+                        <div class="tab active">Estimation</div>
+                        <div class="tab">Publication</div>
+                        <div class="tab">Participants</div>
+                        <div class="tab">Administration</div>
+                        <div class="tab">Notes</div>
+                        <div class="tab">Mandat</div>
+                    </div>
+                </div>
+
+                <!-- STEPPER -->
+                <div class="stepper">
+                    <div class="stepper-item completed">
+                        <div class="stepper-badge">&#10003;</div>
+                        <div class="stepper-label">Bien cible</div>
+                    </div>
+                    <div class="stepper-arrow">&#8250;</div>
+                    <div class="stepper-item completed">
+                        <div class="stepper-badge">&#10003;</div>
+                        <div class="stepper-label">Contexte zone</div>
+                    </div>
+                    <div class="stepper-arrow">&#8250;</div>
+                    <div class="stepper-item completed">
+                        <div class="stepper-badge">&#10003;</div>
+                        <div class="stepper-label">Comparables</div>
+                    </div>
+                    <div class="stepper-arrow">&#8250;</div>
+                    <div class="stepper-item active">
+                        <div class="stepper-badge">4</div>
+                        <div class="stepper-label">Tension march&eacute;</div>
+                    </div>
+                    <div class="stepper-arrow">&#8250;</div>
+                    <div class="stepper-item ">
+                        <div class="stepper-badge">5</div>
+                        <div class="stepper-label">Avis de valeur</div>
+                    </div>
+                </div>
+
+                <!-- INFO BANNER -->
+                <div class="info-banner">
+                    &#128202; <strong>Analyse bas&eacute;e sur 312 acqu&eacute;reurs actifs</strong> dans Ideeri &middot; Zone Lyon 3&egrave;me et communes limitrophes &middot; Scoring radar <strong>31 crit&egrave;res</strong>
+                </div>
+
+                <!-- KPI CARDS -->
+                <div class="kpi-row-wrap">
+                    <div class="pdf-toggle"><input type="checkbox" id="pdf-kpi" class="pdf-cb" checked><label for="pdf-kpi"><span class="pdf-icon">&#128196;</span> PDF</label></div>
+                    <div class="kpi-row">
+                        <div class="kpi-card green">
+                            <div class="kpi-number">23</div>
+                            <div class="kpi-subtitle">acqu&eacute;reurs match&eacute;s</div>
+                            <div class="kpi-small">score &gt; seuil minimal</div>
+                            <div class="kpi-small">sur 312 actifs dans la zone</div>
+                        </div>
+                        <div class="kpi-card orange">
+                            <div class="kpi-number">7</div>
+                            <div class="kpi-subtitle">forte compatibilit&eacute;</div>
+                            <div class="kpi-small">score &gt; 0,75</div>
+                            <div class="kpi-badge orange" style="margin-top:6px;">Pr&ecirc;ts &agrave; visiter demain</div>
+                        </div>
+                        <div class="kpi-card red">
+                            <div class="kpi-number">3,2x</div>
+                            <div class="kpi-subtitle">ratio demande/offre</div>
+                            <div class="kpi-badge red" style="margin-top:6px;">Tension FORTE</div>
+                            <div class="kpi-small">3,2 acqu&eacute;reurs pour chaque T3 similaire</div>
+                        </div>
+                        <div class="kpi-card green">
+                            <div class="kpi-number">42j</div>
+                            <div class="kpi-subtitle">vente estim&eacute;e</div>
+                            <div class="kpi-small">vs 68 jours moyenne zone</div>
+                            <div class="kpi-badge green" style="margin-top:6px;">&#8595; &minus;38% vs moyenne</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CONTENT GRID -->
+                <div class="content-grid">
+                    <!-- LEFT: Verdict + Acquéreurs -->
+                    <div style="display:flex;flex-direction:column;gap:14px;">
+                        <!-- VERDICT TENSION -->
+                        <div class="card verdict-red">
+                            <div class="pdf-toggle"><input type="checkbox" id="pdf-verdict" class="pdf-cb" checked><label for="pdf-verdict"><span class="pdf-icon">&#128196;</span> PDF</label></div>
+                            <div class="card-title" style="color:var(--red);">&#9889; Tension du march&eacute; : FORTE</div>
+                            <div class="card-desc">
+                                La demande pour ce type de bien d&eacute;passe significativement l'offre. 3,2 acqu&eacute;reurs actifs pour chaque T3 similaire en vente dans la zone. Ce ratio soutient un positionnement prix dans le haut de la fourchette.
+                            </div>
+                            <div class="gauges-row">
+                                <div>
+                                    <div class="gauge-label">Tension</div>
+                                    <div class="gauge-bar"><div class="gauge-fill red" style="width:80%;"></div></div>
+                                    <div class="gauge-value">8/10</div>
+                                </div>
+                                <div>
+                                    <div class="gauge-label">Liquidit&eacute;</div>
+                                    <div class="gauge-bar"><div class="gauge-fill green" style="width:70%;"></div></div>
+                                    <div class="gauge-value">7/10</div>
+                                </div>
+                                <div>
+                                    <div class="gauge-label">Concurrence (offre)</div>
+                                    <div class="gauge-bar"><div class="gauge-fill green" style="width:30%;"></div></div>
+                                    <div class="gauge-value">3/10 (peu d'offre)</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TOP 5 ACQUEREURS -->
+                        <div class="card">
+                            <div class="pdf-toggle"><input type="checkbox" id="pdf-acq" class="pdf-cb" checked><label for="pdf-acq"><span class="pdf-icon">&#128196;</span> PDF</label></div>
+                            <div class="card-title">&#128101; Top 5 acqu&eacute;reurs compatibles</div>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Profil</th>
+                                        <th>Budget</th>
+                                        <th>Score</th>
+                                        <th>Crit&egrave;res match&eacute;s</th>
+                                        <th>Crit&egrave;res bloquants</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>1</td>
+                                        <td>Couple 30-40 ans</td>
+                                        <td>280-320k&euro;</td>
+                                        <td><span class="score-badge green">0,89</span></td>
+                                        <td>T3, Lyon 3, &eacute;tage &eacute;lev&eacute;, balcon &#10004;</td>
+                                        <td style="color:var(--red);">DPE souhait&eacute; C &#10008;</td>
+                                    </tr>
+                                    <tr>
+                                        <td>2</td>
+                                        <td>Investisseur</td>
+                                        <td>250-350k&euro;</td>
+                                        <td><span class="score-badge green">0,82</span></td>
+                                        <td>T3, rentabilit&eacute; OK, zone tendue &#10004;</td>
+                                        <td style="color:var(--red);">Parking souhait&eacute; &#10008;</td>
+                                    </tr>
+                                    <tr>
+                                        <td>3</td>
+                                        <td>Primo-acc&eacute;dant</td>
+                                        <td>270-310k&euro;</td>
+                                        <td><span class="score-badge green">0,78</span></td>
+                                        <td>T3, proche m&eacute;tro, ascenseur &#10004;</td>
+                                        <td style="color:var(--red);">Surface min 75m&sup2; &#10008;</td>
+                                    </tr>
+                                    <tr>
+                                        <td>4</td>
+                                        <td>Famille monoparentale</td>
+                                        <td>260-300k&euro;</td>
+                                        <td><span class="score-badge orange">0,76</span></td>
+                                        <td>Lyon 3, &eacute;coles proches &#10004;</td>
+                                        <td style="color:var(--red);">RdC avec jardin souhait&eacute; &#10008;</td>
+                                    </tr>
+                                    <tr>
+                                        <td>5</td>
+                                        <td>Couple retrait&eacute;</td>
+                                        <td>290-340k&euro;</td>
+                                        <td><span class="score-badge orange">0,71</span></td>
+                                        <td>Calme, ascenseur, balcon &#10004;</td>
+                                        <td style="color:var(--red);">Plain-pied pr&eacute;f&eacute;r&eacute; &#10008;</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <div class="table-note">
+                                Profils anonymis&eacute;s &mdash; donn&eacute;es nominatives accessibles via le module Clients &middot; <a href="#" style="color:var(--blue);text-decoration:none;font-weight:500;">&rarr; Voir d&eacute;tail scoring</a>
+                            </div>
+                        </div>
+
+                        <!-- BIENS SIMILAIRES EN VENTE -->
+                        <div class="card">
+                            <div class="pdf-toggle"><input type="checkbox" id="pdf-biens" class="pdf-cb" checked><label for="pdf-biens"><span class="pdf-icon">&#128196;</span> PDF</label></div>
+                            <div class="card-title">&#127968; 7 biens similaires actuellement en vente</div>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Adresse</th>
+                                        <th>Type</th>
+                                        <th>Surface</th>
+                                        <th>Prix</th>
+                                        <th>Prix/m&sup2;</th>
+                                        <th>Jours</th>
+                                        <th>Source</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td>5 rue Duguesclin</td><td>T3</td><td>70 m&sup2;</td><td>295 000&euro;</td><td>4 214&euro;</td><td>32j</td><td>Portail</td></tr>
+                                    <tr><td>18 cours Lafayette</td><td>T4</td><td>85 m&sup2;</td><td>340 000&euro;</td><td>4 000&euro;</td><td>58j</td><td>Portail</td></tr>
+                                    <tr><td>42 av. F&eacute;lix Faure</td><td>T3</td><td>69 m&sup2;</td><td>289 000&euro;</td><td>4 188&euro;</td><td>21j</td><td>Portail</td></tr>
+                                    <tr><td>15 rue Paul Bert</td><td>T2</td><td>62 m&sup2;</td><td>265 000&euro;</td><td>4 274&euro;</td><td>45j</td><td>Ideeri</td></tr>
+                                    <tr><td>8 rue Montesquieu</td><td>T3</td><td>73 m&sup2;</td><td>308 000&euro;</td><td>4 219&euro;</td><td>12j</td><td>Ideeri</td></tr>
+                                    <tr><td>29 rue Dauphin&eacute;</td><td>T3</td><td>67 m&sup2;</td><td>279 000&euro;</td><td>4 164&euro;</td><td>67j</td><td>Portail</td></tr>
+                                    <tr><td>3 place Voltaire</td><td>T3</td><td>74 m&sup2;</td><td>315 000&euro;</td><td>4 257&euro;</td><td>38j</td><td>Portail</td></tr>
+                                    <tr class="table-summary"><td colspan="4"><strong>Moyenne zone</strong></td><td>4 188 &euro;/m&sup2;</td><td>39j</td><td style="color:var(--green);">&#10003; Bien positionn&eacute;</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- RIGHT: Radar + Score breakdown -->
+                    <div style="display:flex;flex-direction:column;gap:14px;">
+                        <!-- RADAR CHART -->
+                        <div class="card">
+                            <div class="pdf-toggle"><input type="checkbox" id="pdf-radar" class="pdf-cb" checked><label for="pdf-radar"><span class="pdf-icon">&#128196;</span> PDF</label></div>
+                            <div class="card-title">Compatibilit&eacute; acqu&eacute;reur #1 vs Bien cible</div>
+                            <div class="radar-container">
+                                <svg class="radar-chart" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="200" cy="200" r="150" fill="none" stroke="#eee" stroke-width="1" opacity="0.5"/>
+                                    <circle cx="200" cy="200" r="120" fill="none" stroke="#eee" stroke-width="1" opacity="0.5"/>
+                                    <circle cx="200" cy="200" r="90" fill="none" stroke="#eee" stroke-width="1" opacity="0.5"/>
+                                    <circle cx="200" cy="200" r="60" fill="none" stroke="#eee" stroke-width="1" opacity="0.5"/>
+                                    <line x1="200" y1="50" x2="200" y2="350" stroke="#eee" stroke-width="1"/>
+                                    <line x1="50" y1="200" x2="350" y2="200" stroke="#eee" stroke-width="1"/>
+                                    <line x1="92" y1="92" x2="308" y2="308" stroke="#eee" stroke-width="1"/>
+                                    <line x1="308" y1="92" x2="92" y2="308" stroke="#eee" stroke-width="1"/>
+                                    <line x1="125" y1="63" x2="275" y2="337" stroke="#eee" stroke-width="1"/>
+                                    <line x1="275" y1="63" x2="125" y2="337" stroke="#eee" stroke-width="1"/>
+                                    <polygon points="200,80 260,110 290,160 280,220 230,260 160,250 120,190 140,130"
+                                             fill="#46B962" fill-opacity="0.2" stroke="#46B962" stroke-width="2"/>
+                                    <polygon points="200,70 270,105 310,175 300,240 240,280 150,260 100,170 130,100"
+                                             fill="#4a6cf7" fill-opacity="0.1" stroke="#4a6cf7" stroke-width="2" stroke-dasharray="5,5"/>
+                                    <text x="200" y="40" text-anchor="middle" font-size="11" fill="#999" font-weight="500">Budget</text>
+                                    <text x="330" y="205" text-anchor="start" font-size="11" fill="#999" font-weight="500">Surface</text>
+                                    <text x="305" y="345" text-anchor="middle" font-size="11" fill="#999" font-weight="500">Localisation</text>
+                                    <text x="95" y="345" text-anchor="middle" font-size="11" fill="#999" font-weight="500">Pi&egrave;ces</text>
+                                    <text x="70" y="205" text-anchor="end" font-size="11" fill="#999" font-weight="500">DPE</text>
+                                    <text x="95" y="55" text-anchor="middle" font-size="11" fill="#999" font-weight="500">&Eacute;tage</text>
+                                    <g transform="translate(30, 320)">
+                                        <rect x="0" y="0" width="12" height="12" fill="#46B962" opacity="0.2" stroke="#46B962" stroke-width="2"/>
+                                        <text x="18" y="10" font-size="10" fill="#999">Bien cible</text>
+                                        <rect x="0" y="18" width="12" height="12" fill="#4a6cf7" opacity="0.1" stroke="#4a6cf7" stroke-width="2" stroke-dasharray="2,2"/>
+                                        <text x="18" y="28" font-size="10" fill="#999">Acqu&eacute;reur #1</text>
+                                    </g>
+                                </svg>
+                            </div>
+                        </div>
+
+                        <!-- SCORE BREAKDOWN -->
+                        <div class="card">
+                            <div class="pdf-toggle"><input type="checkbox" id="pdf-score" class="pdf-cb" checked><label for="pdf-score"><span class="pdf-icon">&#128196;</span> PDF</label></div>
+                            <div class="card-title">D&eacute;tail scoring &mdash; Acqu&eacute;reur #1</div>
+                            <div class="score-breakdown">
+                                <div class="score-section">
+                                    <div class="score-icon matched">&#10003;</div>
+                                    <div class="score-items">
+                                        <div style="font-weight:600;margin-bottom:6px;">Crit&egrave;res match&eacute;s (8)</div>
+                                        <div class="score-item"><span class="score-criteria">Budget:</span> 280-320k&euro; &harr; ~305k&euro; &#10004;</div>
+                                        <div class="score-item"><span class="score-criteria">Type:</span> Appartement &#10004;</div>
+                                        <div class="score-item"><span class="score-criteria">Pi&egrave;ces:</span> T3 &#10004;</div>
+                                        <div class="score-item"><span class="score-criteria">Zone:</span> Lyon 3&egrave;me &#10004;</div>
+                                        <div class="score-item"><span class="score-criteria">&Eacute;tage:</span> &ge;3 &#10004;</div>
+                                        <div class="score-item"><span class="score-criteria">Ascenseur:</span> Oui &#10004;</div>
+                                        <div class="score-item"><span class="score-criteria">Balcon:</span> Oui &#10004;</div>
+                                        <div class="score-item"><span class="score-criteria">Transports:</span> M&eacute;tro &lt;500m &#10004;</div>
+                                    </div>
+                                </div>
+                                <div class="score-section">
+                                    <div class="score-icon unmatched">&#10007;</div>
+                                    <div class="score-items">
+                                        <div style="font-weight:600;margin-bottom:6px;">Crit&egrave;res non match&eacute;s (2)</div>
+                                        <div class="score-item"><span class="score-criteria">DPE:</span> Souhait&eacute; C, bien = D &#10008;</div>
+                                        <div class="score-item"><span class="score-criteria">Parking:</span> Souhait&eacute; box, bien = ext. &#10008;</div>
+                                    </div>
+                                </div>
+                                <div class="score-section">
+                                    <div class="score-icon neutral">&minus;</div>
+                                    <div class="score-items">
+                                        <div style="font-weight:600;margin-bottom:6px;">Crit&egrave;res neutres (21)</div>
+                                        <div class="score-item">Non discriminants pour ce profil</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FOOTER -->
+                <div class="footer-buttons">
+                    <button class="btn btn-ghost">&larr; &Eacute;tape pr&eacute;c&eacute;dente : Comparables</button>
+                    <div style="text-align:right;">
+                        <button class="btn btn-primary">&Eacute;tape suivante : Avis de valeur &rarr;</button>
+                    </div>
+                </div>
+
+                <!-- END CONTENT -->
+
+            </div>
+        </div>
+    </div>
+
+    <!-- PDF FLOATING BAR -->
+    <div class="pdf-bar">
+        <div class="pdf-bar-left">
+            <span>&#128196;</span>
+            <span>Rapport vendeur :</span>
+            <span class="pdf-counter" id="pdfCount">7</span>
+            <span style="color:#666;font-size:12px;">sections s&eacute;lectionn&eacute;es sur 7</span>
+        </div>
+        <div class="pdf-bar-actions">
+            <button class="btn-select-all" onclick="toggleAllPdf()">Tout d&eacute;s&eacute;lectionner</button>
+            <button class="btn-pdf" onclick="alert('Aper&ccedil;u PDF &mdash; wireframe')">&#128196; G&eacute;n&eacute;rer le rapport PDF</button>
+        </div>
+    </div>
+
+    <script>
+        const pdfCbs = document.querySelectorAll('.pdf-cb');
+        const pdfCounter = document.getElementById('pdfCount');
+        let allPdfSelected = true;
+
+        function updatePdfCount() {
+            const checked = document.querySelectorAll('.pdf-cb:checked').length;
+            pdfCounter.textContent = checked;
+            pdfCbs.forEach(function(cb) {
+                const card = cb.closest('.card, .kpi-row-wrap, .hero-section, .summary-card');
+                if (card) {
+                    card.style.opacity = cb.checked ? '1' : '0.45';
+                    card.style.transition = 'opacity 0.2s';
+                }
+            });
+        }
+        pdfCbs.forEach(function(cb) { cb.addEventListener('change', updatePdfCount); });
+
+        function toggleAllPdf() {
+            allPdfSelected = !allPdfSelected;
+            pdfCbs.forEach(function(cb) { cb.checked = allPdfSelected; });
+            document.querySelector('.btn-select-all').textContent = allPdfSelected ? 'Tout désélectionner' : 'Tout sélectionner';
+            updatePdfCount();
+        }
+        updatePdfCount();
+    </script>
+
+</body>
+</html>

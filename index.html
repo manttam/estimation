@@ -1,0 +1,1742 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ideeri — Estimation immobilière</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root {
+  --green: #46B962;
+  --green-light: #e8f5ec;
+  --green-dark: #3a9e53;
+  --sidebar-dark: #4D4545;
+  --bg: #fafafa;
+  --text: #393939;
+  --muted: #949494;
+  --border: #e5e5e5;
+  --blue: #4a6cf7;
+  --blue-light: #eef1fe;
+  --orange: #f5a623;
+  --orange-dark: #d97706;
+  --orange-light: #fef3e0;
+  --red: #e74c3c;
+  --red-light: #fdeaea;
+  --white: #ffffff;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08);
+  --shadow-lg: 0 4px 12px rgba(0,0,0,0.1);
+  --radius: 8px;
+  --radius-sm: 4px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Open Sans', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; }
+a { color: var(--blue); text-decoration: none; }
+button { font-family: inherit; cursor: pointer; border: none; background: none; font-size: 14px; }
+input, select, textarea { font-family: inherit; font-size: 14px; }
+
+/* ========== LAYOUT ========== */
+.app-layout { display: flex; min-height: 100vh; }
+.sidebar { width: 220px; background: var(--sidebar-dark); color: #fff; flex-shrink: 0; display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; }
+.sidebar-logo { padding: 20px 24px; font-size: 22px; font-weight: 700; color: var(--green); letter-spacing: -0.5px; }
+.sidebar-nav { flex: 1; padding: 8px 0; }
+.sidebar-nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 24px; color: rgba(255,255,255,0.65); font-size: 13px; transition: all 0.15s; cursor: pointer; }
+.sidebar-nav-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
+.sidebar-nav-item.active { background: rgba(70,185,98,0.15); color: var(--green); border-right: 3px solid var(--green); }
+.sidebar-nav-item svg { width: 18px; height: 18px; flex-shrink: 0; }
+.sidebar-footer { padding: 16px 24px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 11px; color: rgba(255,255,255,0.4); }
+
+.main-area { margin-left: 220px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+
+/* Top bar */
+.topbar { background: #fff; border-bottom: 1px solid var(--border); padding: 0 28px; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 90; }
+.topbar-left { display: flex; align-items: center; gap: 12px; }
+.topbar-logo { font-size: 18px; font-weight: 700; color: var(--green); }
+.topbar-breadcrumb { color: var(--muted); font-size: 12px; }
+.topbar-right { display: flex; align-items: center; gap: 16px; }
+.topbar-user { font-size: 13px; color: var(--text); }
+.topbar-user span { color: var(--muted); font-size: 12px; }
+.btn-disconnect { font-size: 12px; color: var(--muted); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 5px 12px; transition: all 0.15s; }
+.btn-disconnect:hover { color: var(--red); border-color: var(--red); }
+
+/* Property card header */
+.property-header { background: #fff; border-bottom: 1px solid var(--border); padding: 20px 28px; }
+.property-header-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap; }
+.property-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+.property-meta { display: flex; flex-wrap: wrap; gap: 16px; font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+.property-meta strong { color: var(--text); font-weight: 600; }
+.property-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.tag { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; background: #f0f0f0; color: var(--text); }
+.tag.green { background: var(--green-light); color: var(--green-dark); }
+.tag.blue { background: var(--blue-light); color: var(--blue); }
+.completude-bar-wrap { display: flex; align-items: center; gap: 10px; }
+.completude-label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.completude-track { flex: 1; max-width: 260px; height: 8px; background: #eee; border-radius: 4px; overflow: hidden; }
+.completude-fill { height: 100%; border-radius: 4px; background: var(--green); transition: width 1s ease; }
+.completude-value { font-size: 13px; font-weight: 700; color: var(--green); }
+
+/* Tab bar */
+.tab-bar { background: #fff; border-bottom: 1px solid var(--border); padding: 0 28px; display: flex; gap: 0; overflow-x: auto; }
+.tab-item { padding: 12px 16px; font-size: 13px; color: var(--muted); border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.15s; cursor: pointer; }
+.tab-item:hover { color: var(--text); }
+.tab-item.active { color: var(--green); border-bottom-color: var(--green); font-weight: 600; }
+
+/* Stepper */
+.stepper-wrap { background: #fff; border-bottom: 1px solid var(--border); padding: 20px 28px; }
+.stepper { display: flex; align-items: center; justify-content: center; gap: 0; max-width: 800px; margin: 0 auto; }
+.stepper-step { display: flex; align-items: center; gap: 0; cursor: pointer; }
+.stepper-circle { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; border: 2px solid var(--border); color: var(--muted); background: #fff; transition: all 0.2s; flex-shrink: 0; }
+.stepper-step.completed .stepper-circle { background: var(--green); border-color: var(--green); color: #fff; }
+.stepper-step.active .stepper-circle { background: var(--green); border-color: var(--green); color: #fff; box-shadow: 0 0 0 4px rgba(70,185,98,0.2); }
+.stepper-step.future .stepper-circle { border-color: var(--border); color: var(--muted); }
+.stepper-label { margin-left: 8px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.stepper-step.active .stepper-label { color: var(--green); font-weight: 600; }
+.stepper-step.completed .stepper-label { color: var(--text); }
+.stepper-line { width: 48px; height: 2px; background: var(--border); margin: 0 4px; flex-shrink: 0; }
+.stepper-line.done { background: var(--green); }
+
+/* Content area */
+.content-area { flex: 1; padding: 24px 28px 40px; }
+
+/* Cards */
+.card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 16px; }
+.card-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+.card-header h3 { font-size: 14px; font-weight: 600; }
+.card-body { padding: 16px 20px; }
+.card-body.collapsed { display: none; }
+
+/* Form fields */
+.form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+.form-group { display: flex; flex-direction: column; gap: 4px; }
+.form-group label { font-size: 12px; color: var(--muted); font-weight: 500; }
+.form-group input, .form-group select, .form-group textarea { padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; background: #fff; transition: border-color 0.15s; }
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px rgba(70,185,98,0.1); }
+
+/* Toggle */
+.toggle-wrap { display: flex; align-items: center; gap: 8px; }
+.toggle { position: relative; width: 38px; height: 20px; background: #ccc; border-radius: 10px; cursor: pointer; transition: background 0.2s; }
+.toggle.on { background: var(--green); }
+.toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: #fff; border-radius: 50%; transition: transform 0.2s; }
+.toggle.on::after { transform: translateX(18px); }
+.toggle-label { font-size: 13px; }
+
+/* Badges */
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.badge-green { background: var(--green-light); color: var(--green-dark); }
+.badge-orange { background: var(--orange-light); color: var(--orange-dark); }
+.badge-red { background: var(--red-light); color: var(--red); }
+.badge-blue { background: var(--blue-light); color: var(--blue); }
+
+/* Completion indicator */
+.completion-ind { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.completion-bar { width: 60px; height: 6px; background: #eee; border-radius: 3px; overflow: hidden; }
+.completion-bar-fill { height: 100%; border-radius: 3px; }
+.fill-green { background: var(--green); }
+.fill-orange { background: var(--orange); }
+.fill-red { background: var(--red); }
+
+/* Score cards */
+.score-cards { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+.score-card { flex: 1; min-width: 140px; background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; text-align: center; box-shadow: var(--shadow); }
+.score-card .score-value { font-size: 28px; font-weight: 700; line-height: 1; margin-bottom: 4px; }
+.score-card .score-label { font-size: 12px; color: var(--muted); }
+.score-green { color: var(--green); border-top: 3px solid var(--green); }
+.score-orange { color: var(--orange); border-top: 3px solid var(--orange); }
+.score-red { color: var(--red); border-top: 3px solid var(--red); }
+
+/* KPI cards */
+.kpi-cards { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; }
+.kpi-card { flex: 1; min-width: 160px; background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
+.kpi-card .kpi-value { font-size: 24px; font-weight: 700; line-height: 1.2; }
+.kpi-card .kpi-label { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.kpi-card .kpi-sub { font-size: 11px; margin-top: 4px; }
+
+/* Split view */
+.split-view { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.split-view-map { min-height: 400px; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); }
+
+/* Comparable cards */
+.comp-card { border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; background: #fff; box-shadow: var(--shadow); }
+.comp-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+.comp-card-title { font-weight: 600; font-size: 14px; }
+.comp-card-source { font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+.source-dvf { background: #e8f5ec; color: #2d7a42; }
+.source-ideeri { background: var(--green-light); color: var(--green); }
+.source-encours { background: var(--blue-light); color: var(--blue); }
+.comp-card-details { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; font-size: 12px; margin-bottom: 10px; }
+.comp-detail-item { display: flex; flex-direction: column; }
+.comp-detail-item .label { color: var(--muted); font-size: 11px; }
+.comp-detail-item .value { font-weight: 600; }
+.comp-metrics { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.comp-metric { padding: 4px 10px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 600; }
+.comp-adjustments { font-size: 12px; color: var(--muted); }
+.comp-adjustments span { margin-right: 8px; }
+.adj-pos { color: var(--green); }
+.adj-neg { color: var(--red); }
+
+/* Tables */
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.data-table th { background: #f7f7f7; padding: 10px 12px; text-align: left; font-weight: 600; border-bottom: 2px solid var(--border); font-size: 12px; }
+.data-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table .fw-bold { font-weight: 700; }
+
+/* Right sidebar */
+.step-layout { display: grid; grid-template-columns: 1fr 280px; gap: 20px; }
+.step-main { min-width: 0; }
+.step-sidebar { display: flex; flex-direction: column; gap: 16px; }
+.sidebar-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
+.sidebar-card h4 { font-size: 13px; font-weight: 600; margin-bottom: 10px; }
+.photo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.photo-placeholder { width: 100%; aspect-ratio: 4/3; background: #e9e9e9; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 20px; }
+.btn-add-photos { width: 100%; padding: 8px; border: 1px dashed var(--border); border-radius: var(--radius-sm); font-size: 12px; color: var(--muted); text-align: center; cursor: pointer; }
+.btn-add-photos:hover { border-color: var(--green); color: var(--green); }
+.mini-map { width: 100%; height: 180px; border-radius: var(--radius-sm); overflow: hidden; }
+.missing-fields { border-left: 3px solid var(--orange); padding-left: 12px; }
+.missing-field-item { font-size: 12px; color: var(--orange-dark); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+.missing-field-item::before { content: '⚠'; font-size: 11px; }
+.sidebar-notes textarea { width: 100%; height: 80px; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px; font-size: 12px; resize: vertical; }
+
+/* Buttons */
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; border-radius: var(--radius-sm); font-weight: 600; font-size: 13px; transition: all 0.15s; }
+.btn-green { background: var(--green); color: #fff; }
+.btn-green:hover { background: var(--green-dark); }
+.btn-blue { background: var(--blue); color: #fff; }
+.btn-blue:hover { background: #3a5ce6; }
+.btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+.btn-ghost:hover { border-color: var(--text); }
+.btn-green-outline { background: transparent; border: 1px solid var(--green); color: var(--green); }
+.btn-green-outline:hover { background: var(--green-light); }
+.btn-sm { padding: 6px 12px; font-size: 12px; }
+
+.step-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border); }
+
+/* Info banner */
+.info-banner { display: flex; align-items: center; gap: 8px; padding: 12px 16px; background: var(--blue-light); border: 1px solid rgba(74,108,247,0.2); border-radius: var(--radius); margin-bottom: 20px; font-size: 13px; color: var(--blue); }
+.info-banner svg { flex-shrink: 0; }
+
+/* Collapsible section */
+.collapsible { border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 10px; background: #fff; box-shadow: var(--shadow); }
+.collapsible-header { padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: background 0.1s; }
+.collapsible-header:hover { background: #fafafa; }
+.collapsible-header h4 { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.collapsible-body { padding: 0 16px 16px; display: none; }
+.collapsible.open .collapsible-body { display: block; }
+.collapsible-chevron { transition: transform 0.2s; font-size: 10px; color: var(--muted); }
+.collapsible.open .collapsible-chevron { transform: rotate(180deg); }
+
+/* Market card */
+.market-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
+.market-card h4 { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+.market-stat { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.market-stat:last-child { border-bottom: none; }
+.market-stat .label { color: var(--muted); }
+.market-stat .value { font-weight: 700; }
+
+/* Filter panel */
+.filter-panel { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 16px; box-shadow: var(--shadow); }
+.filter-panel h4 { font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+.filter-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
+.filter-group { display: flex; flex-direction: column; gap: 4px; }
+.filter-group label { font-size: 11px; color: var(--muted); font-weight: 500; }
+.filter-group input[type="range"] { width: 120px; accent-color: var(--green); }
+.filter-group input, .filter-group select { padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12px; }
+.checkbox-group { display: flex; gap: 10px; flex-wrap: wrap; }
+.checkbox-group label { display: flex; align-items: center; gap: 4px; font-size: 12px; cursor: pointer; }
+.checkbox-group input[type="checkbox"] { accent-color: var(--green); }
+
+/* Summary table for comparables */
+.summary-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--green-light); border-radius: var(--radius); margin-top: 12px; }
+.summary-row .label { font-weight: 600; color: var(--text); }
+.summary-row .value { font-size: 20px; font-weight: 700; color: var(--green); }
+
+/* Radar chart */
+.radar-wrap { display: flex; justify-content: center; padding: 16px; }
+.radar-wrap svg { max-width: 100%; height: auto; }
+
+/* Tension verdict */
+.tension-verdict { border: 2px solid var(--red); border-radius: var(--radius); padding: 20px; text-align: center; margin-bottom: 16px; background: #fff; }
+.tension-verdict .tension-label { font-size: 28px; font-weight: 700; color: var(--red); }
+.tension-gauges { display: flex; justify-content: center; gap: 24px; margin-top: 12px; }
+.gauge-item { text-align: center; }
+.gauge-bar { width: 60px; height: 6px; background: #eee; border-radius: 3px; overflow: hidden; margin: 4px auto 0; }
+.gauge-bar-fill { height: 100%; border-radius: 3px; }
+
+/* Estimation summary */
+.estimation-hero { background: linear-gradient(135deg, #f0faf2 0%, #e8f5ec 100%); border: 2px solid var(--green); border-radius: var(--radius); padding: 28px; margin-bottom: 20px; text-align: center; }
+.price-range { display: flex; justify-content: center; align-items: flex-end; gap: 32px; margin-bottom: 16px; }
+.price-item { text-align: center; }
+.price-item .price-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.price-item .price-value { font-size: 22px; font-weight: 700; color: var(--text); }
+.price-item.main .price-value { font-size: 32px; color: var(--green); }
+.estimation-meta { display: flex; justify-content: center; gap: 28px; flex-wrap: wrap; }
+.estimation-meta-item { text-align: center; }
+.estimation-meta-item .label { font-size: 11px; color: var(--muted); }
+.estimation-meta-item .value { font-size: 15px; font-weight: 700; }
+
+/* Confidence bar */
+.confidence-items { display: flex; flex-direction: column; gap: 10px; }
+.confidence-item { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.confidence-item .ci-label { flex: 1; }
+.confidence-item .ci-value { font-weight: 600; min-width: 80px; text-align: right; }
+.confidence-item .ci-icon { font-size: 16px; width: 20px; text-align: center; }
+
+/* Arguments section */
+.arguments-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.arg-list { list-style: none; }
+.arg-list li { padding: 6px 0; font-size: 13px; display: flex; align-items: flex-start; gap: 8px; }
+.arg-list li::before { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+.arg-list.green li::before { content: '✓'; color: var(--green); font-weight: 700; }
+.arg-list.orange li::before { content: '⚠'; color: var(--orange); }
+
+/* Compte rendu */
+.compte-rendu { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 32px; box-shadow: var(--shadow-lg); margin-top: 24px; }
+.cr-title { font-size: 18px; font-weight: 700; text-align: center; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid var(--green); padding-bottom: 12px; margin-bottom: 8px; }
+.cr-subtitle { font-size: 14px; text-align: center; color: var(--muted); margin-bottom: 24px; }
+.cr-section { margin-bottom: 20px; }
+.cr-section h4 { font-size: 14px; font-weight: 700; color: var(--green); border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-bottom: 10px; }
+.cr-footer { text-align: center; font-size: 11px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 12px; margin-top: 24px; }
+
+/* Action buttons */
+.action-buttons { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 24px; }
+
+/* Toast */
+.toast { position: fixed; bottom: 24px; right: 24px; background: var(--text); color: #fff; padding: 10px 20px; border-radius: var(--radius-sm); font-size: 13px; opacity: 0; transition: opacity 0.3s; z-index: 9999; pointer-events: none; }
+.toast.visible { opacity: 1; }
+
+/* Step hidden */
+.step-content { display: none; }
+.step-content.active { display: block; }
+
+/* Responsive */
+@media (max-width: 900px) {
+  .sidebar { display: none; }
+  .main-area { margin-left: 0; }
+  .step-layout { grid-template-columns: 1fr; }
+  .split-view { grid-template-columns: 1fr; }
+  .arguments-grid { grid-template-columns: 1fr; }
+}
+
+/* Print styles */
+@media print {
+  .sidebar, .topbar, .tab-bar, .stepper-wrap, .step-footer, .property-header, .action-buttons, .no-print { display: none !important; }
+  .main-area { margin-left: 0; }
+  .content-area { padding: 0; }
+  .step-content { display: none !important; }
+  .step-content[data-step="5"] { display: block !important; }
+  .estimation-hero { border: 1px solid #333; }
+  .compte-rendu { box-shadow: none; border: none; padding: 0; }
+  body { font-size: 12px; }
+  .card { break-inside: avoid; box-shadow: none; }
+}
+
+/* Section list items */
+.section-list { list-style: none; }
+.section-list li { padding: 6px 0; font-size: 13px; display: flex; justify-content: space-between; border-bottom: 1px solid #f0f0f0; }
+.section-list li:last-child { border-bottom: none; }
+.section-list .sl-label { color: var(--muted); }
+.section-list .sl-value { font-weight: 600; }
+
+/* Two column layout for step 4 */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 900px) {
+  .two-col { grid-template-columns: 1fr; }
+}
+
+/* Positioning card */
+.positioning-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); margin-bottom: 16px; }
+.positioning-card .pos-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; font-size: 13px; }
+
+/* Leaflet fix */
+.leaflet-container { font-family: 'Open Sans', sans-serif; }
+</style>
+</head>
+<body>
+
+<div class="app-layout">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">ideeri</div>
+    <nav class="sidebar-nav">
+      <div class="sidebar-nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        Dashboard
+      </div>
+      <div class="sidebar-nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Agenda
+      </div>
+      <div class="sidebar-nav-item active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        Mes clients
+      </div>
+      <div class="sidebar-nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        Collaborateurs
+      </div>
+      <div class="sidebar-nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+        Mes tâches
+      </div>
+      <div class="sidebar-nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="3"/><path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 10-16 0c0 3 2.7 6.9 8 11.7z"/></svg>
+        Secteurs
+      </div>
+    </nav>
+    <div class="sidebar-footer">Ideeri v2.4 · © 2026</div>
+  </aside>
+
+  <!-- MAIN AREA -->
+  <div class="main-area">
+    <!-- TOP BAR -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <span class="topbar-logo">ideeri</span>
+        <span class="topbar-breadcrumb">/ Mes clients / Vente Appartement T3</span>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-user">Manon MATRAT <span>/ Administratif</span></div>
+        <button class="btn-disconnect">Déconnexion</button>
+      </div>
+    </header>
+
+    <!-- PROPERTY HEADER -->
+    <div class="property-header">
+      <div class="property-header-top">
+        <div>
+          <h1 class="property-title">Vente Appartement T3 à Lyon 3ème</h1>
+          <div class="property-meta">
+            <span>Collaborateur : <strong>Marie Dupont</strong></span>
+            <span>Référence : <strong>LYN-2026-00847</strong></span>
+            <span>Créé le : <strong>25 Mars 2026</strong></span>
+            <span>Source : <strong>Ideeri</strong></span>
+          </div>
+          <div class="property-tags">
+            <span class="tag">Appartement</span>
+            <span class="tag">3 pièces</span>
+            <span class="tag">72.5 m²</span>
+            <span class="tag green">Lyon 3ème</span>
+            <span class="tag blue">DPE D</span>
+          </div>
+        </div>
+        <div class="completude-bar-wrap">
+          <span class="completude-label">Complétude</span>
+          <div class="completude-track">
+            <div class="completude-fill" id="completude-fill" style="width:0%"></div>
+          </div>
+          <span class="completude-value" id="completude-value">64%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB BAR -->
+    <div class="tab-bar">
+      <div class="tab-item">Dashboard</div>
+      <div class="tab-item">Détails du projet</div>
+      <div class="tab-item">Documents</div>
+      <div class="tab-item active">Estimation</div>
+      <div class="tab-item">Publication</div>
+      <div class="tab-item">Participants</div>
+      <div class="tab-item">Administration</div>
+      <div class="tab-item">Notes</div>
+      <div class="tab-item">Mandat</div>
+    </div>
+
+    <!-- STEPPER -->
+    <div class="stepper-wrap">
+      <div class="stepper" id="stepper">
+        <div class="stepper-step active" data-step="1" onclick="goToStep(1)">
+          <div class="stepper-circle">1</div>
+          <span class="stepper-label">Bien cible</span>
+        </div>
+        <div class="stepper-line" id="line-1-2"></div>
+        <div class="stepper-step future" data-step="2" onclick="goToStep(2)">
+          <div class="stepper-circle">2</div>
+          <span class="stepper-label">Contexte zone</span>
+        </div>
+        <div class="stepper-line" id="line-2-3"></div>
+        <div class="stepper-step future" data-step="3" onclick="goToStep(3)">
+          <div class="stepper-circle">3</div>
+          <span class="stepper-label">Comparables</span>
+        </div>
+        <div class="stepper-line" id="line-3-4"></div>
+        <div class="stepper-step future" data-step="4" onclick="goToStep(4)">
+          <div class="stepper-circle">4</div>
+          <span class="stepper-label">Tension marché</span>
+        </div>
+        <div class="stepper-line" id="line-4-5"></div>
+        <div class="stepper-step future" data-step="5" onclick="goToStep(5)">
+          <div class="stepper-circle">5</div>
+          <span class="stepper-label">Avis de valeur</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONTENT AREA -->
+    <div class="content-area">
+
+      <!-- ===================== ÉTAPE 1 ===================== -->
+      <div class="step-content active" data-step="1" id="step-1">
+        <div class="step-layout">
+          <div class="step-main">
+
+            <!-- Accordion 1: Identification -->
+            <div class="card" id="acc-1">
+              <div class="card-header" onclick="toggleAccordion('acc-1')">
+                <h3>1. Identification et Statut Juridique</h3>
+                <div class="completion-ind">
+                  <span class="badge badge-green">9/10</span>
+                  <div class="completion-bar"><div class="completion-bar-fill fill-green" style="width:90%"></div></div>
+                  <span style="font-size:12px;color:var(--green);font-weight:600">90%</span>
+                  <span class="collapsible-chevron">▼</span>
+                </div>
+              </div>
+              <div class="card-body collapsed">
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label>Adresse complète</label>
+                    <input type="text" value="12 rue des Lilas, 69003 Lyon">
+                  </div>
+                  <div class="form-group">
+                    <label>Référence cadastrale</label>
+                    <input type="text" value="69383000BW0042">
+                  </div>
+                  <div class="form-group">
+                    <label>Type de bien</label>
+                    <select><option selected>Appartement</option><option>Maison</option><option>Terrain</option><option>Local commercial</option></select>
+                  </div>
+                  <div class="form-group">
+                    <label>Régime de propriété</label>
+                    <select><option selected>Copropriété</option><option>Pleine propriété</option><option>Indivision</option></select>
+                  </div>
+                  <div class="form-group">
+                    <label>Numéro de lot</label>
+                    <input type="text" value="Lot 42">
+                  </div>
+                  <div class="form-group">
+                    <label>Quote-part (millièmes)</label>
+                    <input type="number" value="85">
+                  </div>
+                  <div class="form-group">
+                    <label>Servitudes</label>
+                    <input type="text" value="Aucune">
+                  </div>
+                  <div class="form-group">
+                    <label>Hypothèques</label>
+                    <div class="toggle-wrap">
+                      <div class="toggle" onclick="this.classList.toggle('on')"></div>
+                      <span class="toggle-label">Non</span>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label>Bail en cours</label>
+                    <div class="toggle-wrap">
+                      <div class="toggle" onclick="this.classList.toggle('on')"></div>
+                      <span class="toggle-label">Non</span>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label>Droits de préemption</label>
+                    <div class="toggle-wrap">
+                      <div class="toggle" onclick="this.classList.toggle('on')"></div>
+                      <span class="toggle-label">Non</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Accordion 2: Caractéristiques Générales (starts open) -->
+            <div class="card" id="acc-2">
+              <div class="card-header" onclick="toggleAccordion('acc-2')">
+                <h3>2. Caractéristiques Générales</h3>
+                <div class="completion-ind">
+                  <span class="badge badge-green">17/20</span>
+                  <div class="completion-bar"><div class="completion-bar-fill fill-green" style="width:85%"></div></div>
+                  <span style="font-size:12px;color:var(--green);font-weight:600">85%</span>
+                  <span class="collapsible-chevron">▼</span>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label>Surface Carrez (m²)</label>
+                    <input type="number" value="72.5" step="0.1">
+                  </div>
+                  <div class="form-group">
+                    <label>Surface SHAB (m²)</label>
+                    <input type="number" value="70.1" step="0.1">
+                  </div>
+                  <div class="form-group">
+                    <label>Nombre de pièces</label>
+                    <input type="number" value="3">
+                  </div>
+                  <div class="form-group">
+                    <label>Nombre de chambres</label>
+                    <input type="number" value="2">
+                  </div>
+                  <div class="form-group">
+                    <label>Nombre SDB</label>
+                    <input type="number" value="1">
+                  </div>
+                  <div class="form-group">
+                    <label>Étage</label>
+                    <input type="number" value="4">
+                  </div>
+                  <div class="form-group">
+                    <label>Nombre d'étages immeuble</label>
+                    <input type="number" value="6">
+                  </div>
+                  <div class="form-group">
+                    <label>Orientation</label>
+                    <select><option>Nord</option><option>Nord-Est</option><option>Est</option><option selected>Sud-Est</option><option>Sud</option><option>Sud-Ouest</option><option>Ouest</option><option>Nord-Ouest</option></select>
+                  </div>
+                  <div class="form-group">
+                    <label>Ascenseur</label>
+                    <div class="toggle-wrap">
+                      <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+                      <span class="toggle-label">Oui</span>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label>Hauteur sous plafond (cm)</label>
+                    <input type="number" value="265">
+                  </div>
+                  <div class="form-group">
+                    <label>Cave (m²)</label>
+                    <input type="number" value="4.5" step="0.1">
+                  </div>
+                  <div class="form-group">
+                    <label>Balcon (m²)</label>
+                    <input type="number" value="5.2" step="0.1">
+                  </div>
+                  <div class="form-group">
+                    <label>Parking extérieur</label>
+                    <div class="toggle-wrap">
+                      <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+                      <span class="toggle-label">Oui</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Accordion 3: Structure & Gros Oeuvre -->
+            <div class="card" id="acc-3">
+              <div class="card-header" onclick="toggleAccordion('acc-3')">
+                <h3>3. Structure &amp; Gros Œuvre</h3>
+                <div class="completion-ind">
+                  <span class="badge badge-red">8/22</span>
+                  <div class="completion-bar"><div class="completion-bar-fill fill-red" style="width:36%"></div></div>
+                  <span style="font-size:12px;color:var(--red);font-weight:600">36%</span>
+                  <span class="collapsible-chevron">▼</span>
+                </div>
+              </div>
+              <div class="card-body collapsed">
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label>Année construction</label>
+                    <input type="number" value="1972">
+                  </div>
+                  <div class="form-group">
+                    <label>État général</label>
+                    <input type="text" value="Bon — rafraîchissement prévu">
+                  </div>
+                  <div class="form-group">
+                    <label>Amiante</label>
+                    <input type="text" value="Non détecté">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Accordion 4: Énergie & DPE -->
+            <div class="card" id="acc-4">
+              <div class="card-header" onclick="toggleAccordion('acc-4')">
+                <h3>4. Énergie &amp; DPE</h3>
+                <div class="completion-ind">
+                  <span class="badge badge-green">12/15</span>
+                  <div class="completion-bar"><div class="completion-bar-fill fill-green" style="width:80%"></div></div>
+                  <span style="font-size:12px;color:var(--green);font-weight:600">80%</span>
+                  <span class="collapsible-chevron">▼</span>
+                </div>
+              </div>
+              <div class="card-body collapsed">
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label>DPE</label>
+                    <input type="text" value="D (215 kWh/m²/an)">
+                  </div>
+                  <div class="form-group">
+                    <label>Type chauffage</label>
+                    <select><option>Individuel</option><option selected>Collectif</option></select>
+                  </div>
+                  <div class="form-group">
+                    <label>Énergie principale</label>
+                    <select><option selected>Gaz</option><option>Électrique</option><option>Fioul</option><option>Bois</option></select>
+                  </div>
+                  <div class="form-group">
+                    <label>Vitrage</label>
+                    <select><option>Simple vitrage</option><option selected>Double vitrage</option><option>Triple vitrage</option></select>
+                  </div>
+                  <div class="form-group">
+                    <label>Ventilation</label>
+                    <select><option selected>VMC simple flux</option><option>VMC double flux</option><option>Naturelle</option></select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Accordion 5: Copropriété -->
+            <div class="card" id="acc-5">
+              <div class="card-header" onclick="toggleAccordion('acc-5')">
+                <h3>5. Copropriété</h3>
+                <div class="completion-ind">
+                  <span class="badge badge-green">5/5</span>
+                  <div class="completion-bar"><div class="completion-bar-fill fill-green" style="width:100%"></div></div>
+                  <span style="font-size:12px;color:var(--green);font-weight:600">100%</span>
+                  <span class="collapsible-chevron">▼</span>
+                </div>
+              </div>
+              <div class="card-body collapsed">
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label>Charges mensuelles (€)</label>
+                    <input type="number" value="180">
+                  </div>
+                  <div class="form-group">
+                    <label>Fonds travaux ALUR (€)</label>
+                    <input type="number" value="2400">
+                  </div>
+                  <div class="form-group" style="grid-column: span 2">
+                    <label>Travaux votés</label>
+                    <input type="text" value="Ravalement façade arrière — 15 000€ quote-part">
+                  </div>
+                  <div class="form-group">
+                    <label>Taux impayés (%)</label>
+                    <input type="number" value="3.2" step="0.1">
+                  </div>
+                  <div class="form-group">
+                    <label>Nombre de lots</label>
+                    <input type="number" value="48">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- RIGHT SIDEBAR -->
+          <div class="step-sidebar">
+            <div class="sidebar-card">
+              <h4>Photos</h4>
+              <div class="photo-grid">
+                <div class="photo-placeholder">📷</div>
+                <div class="photo-placeholder">📷</div>
+                <div class="photo-placeholder">📷</div>
+                <div class="photo-placeholder">📷</div>
+              </div>
+              <button class="btn-add-photos">+ Ajouter des photos</button>
+            </div>
+
+            <div class="sidebar-card">
+              <h4>Localisation</h4>
+              <div class="mini-map" id="map-step1"></div>
+            </div>
+
+            <div class="sidebar-card">
+              <h4>Champs critiques manquants</h4>
+              <div class="missing-fields">
+                <div class="missing-field-item">Surface totale manquante</div>
+                <div class="missing-field-item">Diagnostics plomb incomplet</div>
+                <div class="missing-field-item">État des installations gaz</div>
+                <div class="missing-field-item">Diagnostic termites absent</div>
+                <div class="missing-field-item">Type fondation non renseigné</div>
+              </div>
+            </div>
+
+            <div class="sidebar-card sidebar-notes">
+              <h4>Notes</h4>
+              <textarea placeholder="Ajouter des notes sur ce bien...">Propriétaire motivé. Visite effectuée le 20/03. Rafraîchissement peinture prévu avant mise en vente.</textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-footer">
+          <div></div>
+          <button class="btn btn-green" onclick="goToStep(2)">Étape suivante : Contexte zone →</button>
+        </div>
+      </div>
+
+      <!-- ===================== ÉTAPE 2 ===================== -->
+      <div class="step-content" data-step="2" id="step-2">
+
+        <div class="info-banner">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          Données enrichies automatiquement · 33 sources data.gouv / INSEE · MAJ : 25 mars 2026
+        </div>
+
+        <!-- Score cards -->
+        <div class="score-cards">
+          <div class="score-card score-green"><div class="score-value">82</div><div class="score-label">Accessibilité</div></div>
+          <div class="score-card score-green"><div class="score-value">71</div><div class="score-label">Services</div></div>
+          <div class="score-card score-orange"><div class="score-value">58</div><div class="score-label">Environnement</div></div>
+          <div class="score-card score-red"><div class="score-value">34</div><div class="score-label">Risques</div></div>
+          <div class="score-card score-green"><div class="score-value">76</div><div class="score-label">Socio-éco</div></div>
+        </div>
+
+        <!-- Map + Market -->
+        <div class="split-view" style="margin-bottom:20px">
+          <div class="split-view-map" id="map-step2" style="min-height:350px"></div>
+          <div class="market-card">
+            <h4>Marché immobilier — Lyon 3ème</h4>
+            <div class="market-stat"><span class="label">Prix médian /m²</span><span class="value" style="color:var(--green)">4 280 €/m²</span></div>
+            <div class="market-stat"><span class="label">Évolution 12 mois</span><span class="value" style="color:var(--green)">+2.3%</span></div>
+            <div class="market-stat"><span class="label">Transactions/an</span><span class="value">156</span></div>
+            <div class="market-stat"><span class="label">Délai moyen</span><span class="value">68 jours</span></div>
+            <div class="market-stat"><span class="label">Fourchette</span><span class="value">3 850 – 4 720 €/m²</span></div>
+          </div>
+        </div>
+
+        <!-- Collapsible sections -->
+        <div class="collapsible open" id="coll-1">
+          <div class="collapsible-header" onclick="toggleCollapsible('coll-1')">
+            <h4><span class="badge badge-green">82/100</span> Transports &amp; Accessibilité</h4>
+            <span class="collapsible-chevron">▼</span>
+          </div>
+          <div class="collapsible-body">
+            <ul class="section-list">
+              <li><span class="sl-label">Métro Garibaldi</span><span class="sl-value">350 m</span></li>
+              <li><span class="sl-label">Tram T3</span><span class="sl-value">600 m</span></li>
+              <li><span class="sl-label">Bus (3 lignes)</span><span class="sl-value">120 m</span></li>
+              <li><span class="sl-label">Gare Part-Dieu</span><span class="sl-value">1.2 km</span></li>
+              <li><span class="sl-label">Walkscore</span><span class="sl-value" style="color:var(--green);font-weight:700">87</span></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="collapsible" id="coll-2">
+          <div class="collapsible-header" onclick="toggleCollapsible('coll-2')">
+            <h4><span class="badge badge-green">71/100</span> Commerces &amp; Services</h4>
+            <span class="collapsible-chevron">▼</span>
+          </div>
+          <div class="collapsible-body">
+            <ul class="section-list">
+              <li><span class="sl-label">Monoprix</span><span class="sl-value">200 m</span></li>
+              <li><span class="sl-label">Boulangerie</span><span class="sl-value">50 m</span></li>
+              <li><span class="sl-label">Pharmacie</span><span class="sl-value">180 m</span></li>
+              <li><span class="sl-label">Restaurants</span><span class="sl-value">8 à proximité</span></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="collapsible" id="coll-3">
+          <div class="collapsible-header" onclick="toggleCollapsible('coll-3')">
+            <h4><span class="badge badge-green">Complet</span> Éducation</h4>
+            <span class="collapsible-chevron">▼</span>
+          </div>
+          <div class="collapsible-body">
+            <ul class="section-list">
+              <li><span class="sl-label">Maternelle</span><span class="sl-value">250 m</span></li>
+              <li><span class="sl-label">Primaire</span><span class="sl-value">350 m</span></li>
+              <li><span class="sl-label">Collège</span><span class="sl-value">600 m</span></li>
+              <li><span class="sl-label">Lycée</span><span class="sl-value">1.2 km</span></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="collapsible" id="coll-4">
+          <div class="collapsible-header" onclick="toggleCollapsible('coll-4')">
+            <h4><span class="badge badge-green">Bon</span> Santé</h4>
+            <span class="collapsible-chevron">▼</span>
+          </div>
+          <div class="collapsible-body">
+            <ul class="section-list">
+              <li><span class="sl-label">Médecins généralistes</span><span class="sl-value">3 dans un rayon de 500 m</span></li>
+              <li><span class="sl-label">Pharmacie</span><span class="sl-value">180 m</span></li>
+              <li><span class="sl-label">Hôpital</span><span class="sl-value">1.5 km</span></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="collapsible" id="coll-5">
+          <div class="collapsible-header" onclick="toggleCollapsible('coll-5')">
+            <h4><span class="badge badge-orange">58/100</span> Environnement</h4>
+            <span class="collapsible-chevron">▼</span>
+          </div>
+          <div class="collapsible-body">
+            <ul class="section-list">
+              <li><span class="sl-label">Qualité de l'air</span><span class="sl-value" style="color:var(--orange)">Moyenne</span></li>
+              <li><span class="sl-label">Indice ATMO</span><span class="sl-value">3/6</span></li>
+              <li><span class="sl-label">Bruit</span><span class="sl-value" style="color:var(--orange)">65 dB</span></li>
+              <li><span class="sl-label">Parc le plus proche</span><span class="sl-value">400 m</span></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="collapsible" id="coll-6">
+          <div class="collapsible-header" onclick="toggleCollapsible('coll-6')">
+            <h4><span class="badge badge-red">34/100</span> Risques</h4>
+            <span class="collapsible-chevron">▼</span>
+          </div>
+          <div class="collapsible-body">
+            <ul class="section-list">
+              <li><span class="sl-label">PPRI Inondation</span><span class="sl-value" style="color:var(--orange)">Modéré</span></li>
+              <li><span class="sl-label">Sismicité</span><span class="sl-value">Zone 2</span></li>
+              <li><span class="sl-label">Radon</span><span class="sl-value">Catégorie 1</span></li>
+              <li><span class="sl-label">Décote estimée</span><span class="sl-value" style="color:var(--red)">-3 à -5%</span></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="collapsible" id="coll-7">
+          <div class="collapsible-header" onclick="toggleCollapsible('coll-7')">
+            <h4><span class="badge badge-green">76/100</span> Socio-économique</h4>
+            <span class="collapsible-chevron">▼</span>
+          </div>
+          <div class="collapsible-body">
+            <ul class="section-list">
+              <li><span class="sl-label">Revenu médian</span><span class="sl-value">28 400 €</span></li>
+              <li><span class="sl-label">Taux de chômage</span><span class="sl-value">9.2%</span></li>
+              <li><span class="sl-label">Part cadres</span><span class="sl-value">32%</span></li>
+              <li><span class="sl-label">Diplômés supérieur</span><span class="sl-value">48%</span></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="step-footer">
+          <button class="btn btn-ghost" onclick="goToStep(1)">← Bien cible</button>
+          <button class="btn btn-green" onclick="goToStep(3)">Comparables →</button>
+        </div>
+      </div>
+
+      <!-- ===================== ÉTAPE 3 ===================== -->
+      <div class="step-content" data-step="3" id="step-3">
+
+        <!-- Filter panel -->
+        <div class="filter-panel">
+          <h4>Filtres de recherche</h4>
+          <div class="filter-row">
+            <div class="filter-group">
+              <label>Rayon</label>
+              <div style="display:flex;align-items:center;gap:6px">
+                <input type="range" min="100" max="5000" value="1000" step="100" id="rayon-slider" oninput="document.getElementById('rayon-val').textContent=this.value>=1000?(this.value/1000)+'km':this.value+'m'">
+                <span id="rayon-val" style="font-size:12px;font-weight:600;min-width:40px">1km</span>
+              </div>
+            </div>
+            <div class="filter-group">
+              <label>Sources</label>
+              <div class="checkbox-group">
+                <label><input type="checkbox" checked> DVF</label>
+                <label><input type="checkbox" checked> Ideeri vendus</label>
+                <label><input type="checkbox" checked> En cours</label>
+                <label><input type="checkbox"> Portails</label>
+              </div>
+            </div>
+            <div class="filter-group">
+              <label>Type</label>
+              <select><option selected>Appartement</option><option>Maison</option></select>
+            </div>
+            <div class="filter-group">
+              <label>Surface (m²)</label>
+              <div style="display:flex;gap:4px;align-items:center">
+                <input type="number" value="55" style="width:60px"> <span style="color:var(--muted)">à</span> <input type="number" value="90" style="width:60px">
+              </div>
+            </div>
+            <div class="filter-group">
+              <label>Pièces</label>
+              <div style="display:flex;gap:4px;align-items:center">
+                <input type="number" value="2" style="width:50px"> <span style="color:var(--muted)">à</span> <input type="number" value="4" style="width:50px">
+              </div>
+            </div>
+            <div class="filter-group">
+              <label>Prix (€)</label>
+              <div style="display:flex;gap:4px;align-items:center">
+                <input type="number" value="200000" style="width:90px"> <span style="color:var(--muted)">à</span> <input type="number" value="400000" style="width:90px">
+              </div>
+            </div>
+            <div class="filter-group">
+              <label>Ancienneté</label>
+              <div style="display:flex;align-items:center;gap:6px">
+                <input type="range" min="1" max="36" value="12" id="ancien-slider" oninput="document.getElementById('ancien-val').textContent=this.value+' mois'">
+                <span id="ancien-val" style="font-size:12px;font-weight:600;min-width:50px">12 mois</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Split: map + list -->
+        <div class="split-view" style="margin-bottom:20px">
+          <div class="split-view-map" id="map-step3" style="min-height:420px"></div>
+          <div>
+            <!-- Comparable A -->
+            <div class="comp-card">
+              <div class="comp-card-header">
+                <div>
+                  <span class="comp-card-source source-dvf">DVF</span>
+                  <span class="comp-card-title" style="margin-left:8px">T3 68 m² — 8 rue Villeroy, Lyon 3ème</span>
+                </div>
+              </div>
+              <div class="comp-card-details">
+                <div class="comp-detail-item"><span class="label">Prix</span><span class="value">285 000 €</span></div>
+                <div class="comp-detail-item"><span class="label">Prix/m²</span><span class="value">4 191 €/m²</span></div>
+                <div class="comp-detail-item"><span class="label">Distance</span><span class="value">380 m</span></div>
+                <div class="comp-detail-item"><span class="label">DPE</span><span class="value">C</span></div>
+                <div class="comp-detail-item"><span class="label">Étage</span><span class="value">3/5</span></div>
+                <div class="comp-detail-item"><span class="label">Vendu il y a</span><span class="value">4 mois</span></div>
+              </div>
+              <div class="comp-metrics">
+                <span class="comp-metric" style="background:var(--green-light);color:var(--green)">Similarité 87%</span>
+                <span class="comp-metric" style="background:var(--orange-light);color:var(--orange-dark)">Données 68%</span>
+              </div>
+              <div class="comp-adjustments">
+                <strong>Ajustement -2.1% :</strong>
+                <span class="adj-pos">Surface +1.8%</span>
+                <span class="adj-neg">DPE -2.5%</span>
+                <span class="adj-neg">Étage -0.8%</span>
+                <span class="adj-neg">Extérieurs -0.6%</span>
+              </div>
+            </div>
+
+            <!-- Comparable B -->
+            <div class="comp-card" style="border-left:3px solid var(--green)">
+              <div class="comp-card-header">
+                <div>
+                  <span class="comp-card-source source-ideeri">Ideeri vendu</span>
+                  <span class="comp-card-title" style="margin-left:8px">T3 75 m² — 22 av. Lacassagne, Lyon 3ème</span>
+                </div>
+              </div>
+              <div style="display:flex;gap:12px;margin-bottom:10px">
+                <div class="photo-placeholder" style="width:80px;height:60px;font-size:14px;flex-shrink:0">📷</div>
+                <div class="comp-card-details" style="margin-bottom:0">
+                  <div class="comp-detail-item"><span class="label">Prix</span><span class="value">310 000 €</span></div>
+                  <div class="comp-detail-item"><span class="label">Prix/m²</span><span class="value">4 133 €/m²</span></div>
+                  <div class="comp-detail-item"><span class="label">Distance</span><span class="value">520 m</span></div>
+                  <div class="comp-detail-item"><span class="label">DPE</span><span class="value">D</span></div>
+                  <div class="comp-detail-item"><span class="label">Étage</span><span class="value">5/6</span></div>
+                  <div class="comp-detail-item"><span class="label">Vendu il y a</span><span class="value">2 mois</span></div>
+                </div>
+              </div>
+              <div class="comp-metrics">
+                <span class="comp-metric" style="background:var(--green-light);color:var(--green)">Similarité 92%</span>
+                <span class="comp-metric" style="background:var(--green-light);color:var(--green)">Données 95%</span>
+              </div>
+              <div class="comp-adjustments">
+                <strong>Ajustement +1.5% :</strong>
+                <span class="adj-neg">Surface -0.9%</span>
+                <span class="adj-pos">Étage +1.2%</span>
+                <span class="adj-pos">Terrasse +1.2%</span>
+              </div>
+            </div>
+
+            <!-- Comparable C -->
+            <div class="comp-card">
+              <div class="comp-card-header">
+                <div>
+                  <span class="comp-card-source source-encours">En cours</span>
+                  <span class="comp-card-title" style="margin-left:8px">T2 62 m² — 15 rue Paul Bert, Lyon 3ème</span>
+                </div>
+              </div>
+              <div class="comp-card-details">
+                <div class="comp-detail-item"><span class="label">Prix</span><span class="value">265 000 €</span></div>
+                <div class="comp-detail-item"><span class="label">Prix/m²</span><span class="value">4 274 €/m²</span></div>
+                <div class="comp-detail-item"><span class="label">Distance</span><span class="value">290 m</span></div>
+                <div class="comp-detail-item"><span class="label">Statut</span><span class="value" style="color:var(--blue)">En vente</span></div>
+              </div>
+              <div class="comp-metrics">
+                <span class="comp-metric" style="background:var(--orange-light);color:var(--orange-dark)">Similarité 78%</span>
+                <span class="comp-metric" style="background:var(--green-light);color:var(--green)">Données 91%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Summary -->
+        <div class="card">
+          <div class="card-body">
+            <table class="data-table">
+              <thead>
+                <tr><th>Comparable</th><th>Source</th><th>Prix/m²</th><th>Ajustement</th><th>Prix/m² ajusté</th><th>Similarité</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>8 rue Villeroy</td><td><span class="badge badge-green">DVF</span></td><td>4 191 €</td><td style="color:var(--red)">-2.1%</td><td>4 103 €</td><td>87%</td></tr>
+                <tr><td>22 av. Lacassagne</td><td><span class="badge badge-green">Ideeri</span></td><td>4 133 €</td><td style="color:var(--green)">+1.5%</td><td>4 195 €</td><td>92%</td></tr>
+                <tr><td>15 rue Paul Bert</td><td><span class="badge badge-blue">En cours</span></td><td>4 274 €</td><td>—</td><td>4 274 €</td><td>78%</td></tr>
+              </tbody>
+            </table>
+            <div class="summary-row">
+              <span class="label">Moyenne pondérée</span>
+              <span class="value">4 172 €/m²</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-footer">
+          <button class="btn btn-ghost" onclick="goToStep(2)">← Contexte zone</button>
+          <button class="btn btn-green" onclick="goToStep(4)">Tension marché →</button>
+        </div>
+      </div>
+
+      <!-- ===================== ÉTAPE 4 ===================== -->
+      <div class="step-content" data-step="4" id="step-4">
+
+        <div class="info-banner">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          Analyse basée sur 312 acquéreurs actifs · Zone Lyon 3ème · Scoring radar 31 critères
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="kpi-cards">
+          <div class="kpi-card" style="border-top:3px solid var(--green)">
+            <div class="kpi-value" style="color:var(--green)">23</div>
+            <div class="kpi-label">acquéreurs matchés</div>
+          </div>
+          <div class="kpi-card" style="border-top:3px solid var(--orange)">
+            <div class="kpi-value" style="color:var(--orange)">7</div>
+            <div class="kpi-label">forte compatibilité</div>
+            <div class="kpi-sub" style="color:var(--orange)">Prêts à visiter demain</div>
+          </div>
+          <div class="kpi-card" style="border-top:3px solid var(--red)">
+            <div class="kpi-value" style="color:var(--red)">3.2x</div>
+            <div class="kpi-label">ratio demande/offre</div>
+            <div class="kpi-sub" style="color:var(--red)">Tension FORTE</div>
+          </div>
+          <div class="kpi-card" style="border-top:3px solid var(--green)">
+            <div class="kpi-value" style="color:var(--green)">42j</div>
+            <div class="kpi-label">vente estimée</div>
+            <div class="kpi-sub" style="color:var(--green)">-38% vs moyenne</div>
+          </div>
+        </div>
+
+        <!-- Two columns -->
+        <div class="two-col">
+          <!-- Left column -->
+          <div>
+            <!-- Tension verdict -->
+            <div class="tension-verdict">
+              <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:4px">Tension du marché</div>
+              <div class="tension-label">FORTE</div>
+              <div class="tension-gauges">
+                <div class="gauge-item">
+                  <div style="font-size:12px;font-weight:600">Tension</div>
+                  <div style="font-size:18px;font-weight:700;color:var(--red)">8/10</div>
+                  <div class="gauge-bar"><div class="gauge-bar-fill" style="width:80%;background:var(--red)"></div></div>
+                </div>
+                <div class="gauge-item">
+                  <div style="font-size:12px;font-weight:600">Liquidité</div>
+                  <div style="font-size:18px;font-weight:700;color:var(--green)">7/10</div>
+                  <div class="gauge-bar"><div class="gauge-bar-fill" style="width:70%;background:var(--green)"></div></div>
+                </div>
+                <div class="gauge-item">
+                  <div style="font-size:12px;font-weight:600">Concurrence</div>
+                  <div style="font-size:18px;font-weight:700;color:var(--green)">3/10</div>
+                  <div class="gauge-bar"><div class="gauge-bar-fill" style="width:30%;background:var(--green)"></div></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Top 5 acquéreurs -->
+            <div class="card">
+              <div class="card-header" style="cursor:default"><h3>Top 5 acquéreurs</h3></div>
+              <div class="card-body" style="padding:0">
+                <table class="data-table">
+                  <thead><tr><th>Profil</th><th>Score</th></tr></thead>
+                  <tbody>
+                    <tr><td>Couple 30-40 ans</td><td><span style="font-weight:700;color:var(--green)">0.89</span></td></tr>
+                    <tr><td>Investisseur</td><td><span style="font-weight:700;color:var(--green)">0.82</span></td></tr>
+                    <tr><td>Primo-accédant</td><td><span style="font-weight:700;color:var(--orange)">0.78</span></td></tr>
+                    <tr><td>Famille monoparentale</td><td><span style="font-weight:700;color:var(--orange)">0.76</span></td></tr>
+                    <tr><td>Couple retraité</td><td><span style="font-weight:700;color:var(--orange)">0.71</span></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- 7 biens similaires -->
+            <div class="card">
+              <div class="card-header" style="cursor:default"><h3>7 biens similaires en vente</h3></div>
+              <div class="card-body" style="padding:0">
+                <table class="data-table">
+                  <thead><tr><th>Adresse</th><th>Type</th><th>Surface</th><th>Prix</th><th>Depuis</th></tr></thead>
+                  <tbody>
+                    <tr><td>5 rue Mazenod</td><td>T3</td><td>65 m²</td><td>278 000 €</td><td>12j</td></tr>
+                    <tr><td>18 cours Richard Vitton</td><td>T3</td><td>70 m²</td><td>295 000 €</td><td>23j</td></tr>
+                    <tr><td>42 rue Vendôme</td><td>T3</td><td>78 m²</td><td>325 000 €</td><td>8j</td></tr>
+                    <tr><td>7 place Voltaire</td><td>T2</td><td>58 m²</td><td>252 000 €</td><td>31j</td></tr>
+                    <tr><td>3 rue de la Part-Dieu</td><td>T3</td><td>71 m²</td><td>305 000 €</td><td>45j</td></tr>
+                    <tr><td>28 av. Félix Faure</td><td>T3</td><td>74 m²</td><td>312 000 €</td><td>5j</td></tr>
+                    <tr><td>11 rue Duguesclin</td><td>T4</td><td>82 m²</td><td>340 000 €</td><td>17j</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right column -->
+          <div>
+            <!-- Radar chart -->
+            <div class="card">
+              <div class="card-header" style="cursor:default"><h3>Radar de correspondance</h3></div>
+              <div class="card-body">
+                <div class="radar-wrap">
+                  <svg width="300" height="300" viewBox="0 0 300 300">
+                    <!-- Grid -->
+                    <g transform="translate(150,150)">
+                      <!-- Concentric hexagons -->
+                      <polygon points="0,-120 104,-60 104,60 0,120 -104,60 -104,-60" fill="none" stroke="#e5e5e5" stroke-width="1"/>
+                      <polygon points="0,-90 78,-45 78,45 0,90 -78,45 -78,-45" fill="none" stroke="#e5e5e5" stroke-width="1"/>
+                      <polygon points="0,-60 52,-30 52,30 0,60 -52,30 -52,-30" fill="none" stroke="#e5e5e5" stroke-width="1"/>
+                      <polygon points="0,-30 26,-15 26,15 0,30 -26,15 -26,-15" fill="none" stroke="#e5e5e5" stroke-width="1"/>
+                      <!-- Axes -->
+                      <line x1="0" y1="0" x2="0" y2="-120" stroke="#e5e5e5" stroke-width="1"/>
+                      <line x1="0" y1="0" x2="104" y2="-60" stroke="#e5e5e5" stroke-width="1"/>
+                      <line x1="0" y1="0" x2="104" y2="60" stroke="#e5e5e5" stroke-width="1"/>
+                      <line x1="0" y1="0" x2="0" y2="120" stroke="#e5e5e5" stroke-width="1"/>
+                      <line x1="0" y1="0" x2="-104" y2="60" stroke="#e5e5e5" stroke-width="1"/>
+                      <line x1="0" y1="0" x2="-104" y2="-60" stroke="#e5e5e5" stroke-width="1"/>
+                      <!-- Bien cible polygon (green) -->
+                      <polygon points="0,-108 88,-42 78,54 0,96 -62,42 -88,-48" fill="rgba(70,185,98,0.15)" stroke="var(--green)" stroke-width="2"/>
+                      <!-- Acquéreur polygon (blue) -->
+                      <polygon points="0,-96 78,-54 94,48 0,84 -78,54 -72,-42" fill="rgba(74,108,247,0.1)" stroke="var(--blue)" stroke-width="2" stroke-dasharray="6,3"/>
+                      <!-- Labels -->
+                      <text x="0" y="-130" text-anchor="middle" font-size="11" fill="var(--text)" font-weight="600">Budget</text>
+                      <text x="116" y="-62" text-anchor="start" font-size="11" fill="var(--text)" font-weight="600">Surface</text>
+                      <text x="116" y="66" text-anchor="start" font-size="11" fill="var(--text)" font-weight="600">Localisation</text>
+                      <text x="0" y="140" text-anchor="middle" font-size="11" fill="var(--text)" font-weight="600">Pièces</text>
+                      <text x="-116" y="66" text-anchor="end" font-size="11" fill="var(--text)" font-weight="600">DPE</text>
+                      <text x="-116" y="-62" text-anchor="end" font-size="11" fill="var(--text)" font-weight="600">Étage</text>
+                    </g>
+                  </svg>
+                </div>
+                <div style="display:flex;justify-content:center;gap:20px;font-size:12px;margin-top:8px">
+                  <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:3px;background:var(--green);display:inline-block"></span> Bien cible</span>
+                  <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:3px;background:var(--blue);display:inline-block;border-top:1px dashed var(--blue)"></span> Acquéreur type</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Score breakdown -->
+            <div class="card">
+              <div class="card-header" style="cursor:default"><h3>Répartition des scores</h3></div>
+              <div class="card-body">
+                <div style="display:flex;gap:12px;flex-wrap:wrap">
+                  <div style="flex:1;text-align:center;padding:12px;background:var(--green-light);border-radius:var(--radius)">
+                    <div style="font-size:24px;font-weight:700;color:var(--green)">8</div>
+                    <div style="font-size:11px;color:var(--muted)">Critères matchés</div>
+                  </div>
+                  <div style="flex:1;text-align:center;padding:12px;background:var(--red-light);border-radius:var(--radius)">
+                    <div style="font-size:24px;font-weight:700;color:var(--red)">2</div>
+                    <div style="font-size:11px;color:var(--muted)">Non matchés</div>
+                  </div>
+                  <div style="flex:1;text-align:center;padding:12px;background:#f5f5f5;border-radius:var(--radius)">
+                    <div style="font-size:24px;font-weight:700;color:var(--muted)">21</div>
+                    <div style="font-size:11px;color:var(--muted)">Neutres</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-footer">
+          <button class="btn btn-ghost" onclick="goToStep(3)">← Comparables</button>
+          <button class="btn btn-green" onclick="goToStep(5)">Avis de valeur →</button>
+        </div>
+      </div>
+
+      <!-- ===================== ÉTAPE 5 ===================== -->
+      <div class="step-content" data-step="5" id="step-5">
+
+        <!-- Estimation Hero -->
+        <div class="estimation-hero">
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:12px">Estimation de valeur</div>
+          <div class="price-range">
+            <div class="price-item">
+              <div class="price-label">Bas</div>
+              <div class="price-value">290 000 €</div>
+            </div>
+            <div class="price-item main">
+              <div class="price-label">Médian</div>
+              <div class="price-value">305 000 €</div>
+            </div>
+            <div class="price-item">
+              <div class="price-label">Haut</div>
+              <div class="price-value">320 000 €</div>
+            </div>
+          </div>
+          <div class="estimation-meta">
+            <div class="estimation-meta-item">
+              <div class="label">Prix/m²</div>
+              <div class="value">4 207 €/m²</div>
+            </div>
+            <div class="estimation-meta-item">
+              <div class="label">Indice de confiance</div>
+              <div class="value" style="color:var(--green)">82/100</div>
+            </div>
+            <div class="estimation-meta-item">
+              <div class="label">Stratégie</div>
+              <div class="value"><span class="badge badge-green">Haut de fourchette</span></div>
+            </div>
+            <div class="estimation-meta-item">
+              <div class="label">Prix d'affichage suggéré</div>
+              <div class="value" style="color:var(--green);font-size:20px">315 000 €</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Methodology -->
+        <div class="card">
+          <div class="card-header" style="cursor:default"><h3>Méthodologie — Comparables pondérés</h3></div>
+          <div class="card-body" style="padding:0">
+            <table class="data-table">
+              <thead><tr><th>Comparable</th><th>Source</th><th>Prix/m² ajusté</th><th>Poids</th><th>Fiabilité</th></tr></thead>
+              <tbody>
+                <tr><td>8 rue Villeroy</td><td><span class="badge badge-green">DVF</span></td><td>4 103 €/m²</td><td>0.30</td><td>68%</td></tr>
+                <tr><td>22 av. Lacassagne</td><td><span class="badge badge-green">Ideeri</span></td><td>4 195 €/m²</td><td>0.40</td><td>95%</td></tr>
+                <tr><td>15 rue Paul Bert</td><td><span class="badge badge-blue">En cours</span></td><td>4 274 €/m²</td><td>0.30</td><td>91%</td></tr>
+                <tr style="background:#f7f7f7"><td class="fw-bold">Moyenne pondérée</td><td></td><td class="fw-bold" style="color:var(--green)">4 191 €/m²</td><td></td><td></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Ajustements -->
+        <div class="card">
+          <div class="card-header" style="cursor:default"><h3>Ajustements appliqués</h3></div>
+          <div class="card-body">
+            <ul class="section-list">
+              <li><span class="sl-label">Contexte zone</span><span class="sl-value" style="color:var(--green)">+1.2% <span style="font-weight:400;color:var(--muted)">(score zone 81 vs réf. 75)</span></span></li>
+              <li><span class="sl-label">Travaux copropriété</span><span class="sl-value" style="color:var(--red)">-15 000 €</span></li>
+              <li><span class="sl-label">Tension marché</span><span class="sl-value" style="color:var(--green)">+2.0% <span style="font-weight:400;color:var(--muted)">(ratio 3.2x, tension forte)</span></span></li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Confidence -->
+        <div class="card">
+          <div class="card-header" style="cursor:default"><h3>Indice de confiance — Détail</h3></div>
+          <div class="card-body">
+            <div class="confidence-items">
+              <div class="confidence-item">
+                <span class="ci-label">Complétude bien cible</span>
+                <span class="ci-value">91.2%</span>
+                <span class="ci-icon" style="color:var(--green)">✓</span>
+              </div>
+              <div class="confidence-item">
+                <span class="ci-label">Complétude comparables</span>
+                <span class="ci-value">84.7%</span>
+                <span class="ci-icon" style="color:var(--green)">✓</span>
+              </div>
+              <div class="confidence-item">
+                <span class="ci-label">Nb comparables Ideeri</span>
+                <span class="ci-value">1 <span style="color:var(--muted);font-weight:400">(min. recommandé : 2)</span></span>
+                <span class="ci-icon" style="color:var(--orange)">⚠</span>
+              </div>
+              <div class="confidence-item">
+                <span class="ci-label">Ancienneté comparables</span>
+                <span class="ci-value">2.7 mois</span>
+                <span class="ci-icon" style="color:var(--green)">✓</span>
+              </div>
+              <div class="confidence-item">
+                <span class="ci-label">Homogénéité prix/m²</span>
+                <span class="ci-value">σ = 71 € (CV 1.7%)</span>
+                <span class="ci-icon" style="color:var(--green)">✓</span>
+              </div>
+              <div class="confidence-item">
+                <span class="ci-label">Couverture champs critiques</span>
+                <span class="ci-value">95%</span>
+                <span class="ci-icon" style="color:var(--green)">✓</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Argumentaire -->
+        <div class="card">
+          <div class="card-header" style="cursor:default"><h3>Argumentaire vendeur</h3></div>
+          <div class="card-body">
+            <div class="arguments-grid">
+              <div>
+                <h4 style="color:var(--green);font-size:13px;margin-bottom:8px">Points forts</h4>
+                <ul class="arg-list green">
+                  <li>7 acquéreurs à forte compatibilité, dont 1 couple prêt immédiatement</li>
+                  <li>Accessibilité excellente (métro Garibaldi 350 m, walkscore 87)</li>
+                  <li>DPE D améliorable en C (valorisation potentielle +5-8%)</li>
+                  <li>1 comparable Ideeri fiable (95% de données complètes)</li>
+                  <li>Tension forte du marché (ratio 3.2x demande/offre)</li>
+                </ul>
+              </div>
+              <div>
+                <h4 style="color:var(--orange);font-size:13px;margin-bottom:8px">Points de vigilance</h4>
+                <ul class="arg-list orange">
+                  <li>Travaux copropriété votés (15 000 € quote-part à déduire)</li>
+                  <li>7 biens concurrents actuellement en vente dans la zone</li>
+                  <li>Taux d'impayés copropriété 3.2% (légèrement élevé)</li>
+                  <li>Risque inondation modéré (PPRI) — décote potentielle -3 à -5%</li>
+                  <li>DPE D peut freiner certains acheteurs sensibles</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Positionnement -->
+        <div class="positioning-card card">
+          <div class="card-header" style="cursor:default"><h3>Positionnement vs Marché</h3></div>
+          <div class="card-body">
+            <div class="pos-row" style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+              <span style="color:var(--muted)">Prix médian IRIS</span>
+              <span style="font-weight:700">4 280 €/m²</span>
+            </div>
+            <div class="pos-row" style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+              <span style="color:var(--muted)">Notre estimation</span>
+              <span style="font-weight:700;color:var(--green)">4 207 €/m² <span style="color:var(--red);font-size:12px">(-1.7%)</span></span>
+            </div>
+            <div style="margin-top:12px;padding:10px;background:#f7f7f7;border-radius:var(--radius-sm);font-size:13px;color:var(--text)">
+              <strong>Positionnement :</strong> Légèrement sous le marché pour absorber les travaux copro
+            </div>
+          </div>
+        </div>
+
+        <!-- COMPTE RENDU D'ESTIMATION -->
+        <div class="compte-rendu" id="compte-rendu">
+          <div class="cr-title">Compte Rendu d'Estimation — Avis de Valeur</div>
+          <div class="cr-subtitle">12 rue des Lilas, 69003 Lyon — Appartement T3</div>
+
+          <div class="cr-section">
+            <h4>1. Identité du bien</h4>
+            <ul class="section-list">
+              <li><span class="sl-label">Adresse</span><span class="sl-value">12 rue des Lilas, 69003 Lyon</span></li>
+              <li><span class="sl-label">Type</span><span class="sl-value">Appartement T3</span></li>
+              <li><span class="sl-label">Surface Carrez</span><span class="sl-value">72.5 m²</span></li>
+              <li><span class="sl-label">Pièces / Chambres</span><span class="sl-value">3 pièces / 2 chambres</span></li>
+              <li><span class="sl-label">Étage</span><span class="sl-value">4/6 avec ascenseur</span></li>
+              <li><span class="sl-label">DPE</span><span class="sl-value">D (215 kWh/m²/an)</span></li>
+              <li><span class="sl-label">Réf. cadastrale</span><span class="sl-value">69383000BW0042</span></li>
+            </ul>
+          </div>
+
+          <div class="cr-section">
+            <h4>2. Synthèse de l'estimation</h4>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px">
+              <div style="text-align:center;padding:12px;border:1px solid var(--border);border-radius:var(--radius)">
+                <div style="font-size:11px;color:var(--muted)">Fourchette basse</div>
+                <div style="font-size:18px;font-weight:700">290 000 €</div>
+              </div>
+              <div style="text-align:center;padding:12px;border:2px solid var(--green);border-radius:var(--radius);background:var(--green-light)">
+                <div style="font-size:11px;color:var(--muted)">Prix recommandé</div>
+                <div style="font-size:20px;font-weight:700;color:var(--green)">305 000 €</div>
+              </div>
+              <div style="text-align:center;padding:12px;border:1px solid var(--border);border-radius:var(--radius)">
+                <div style="font-size:11px;color:var(--muted)">Fourchette haute</div>
+                <div style="font-size:18px;font-weight:700">320 000 €</div>
+              </div>
+            </div>
+            <ul class="section-list">
+              <li><span class="sl-label">Prix/m²</span><span class="sl-value">4 207 €/m²</span></li>
+              <li><span class="sl-label">Indice de confiance</span><span class="sl-value" style="color:var(--green)">82/100</span></li>
+              <li><span class="sl-label">Prix d'affichage suggéré</span><span class="sl-value" style="color:var(--green)">315 000 €</span></li>
+            </ul>
+          </div>
+
+          <div class="cr-section">
+            <h4>3. Contexte de zone</h4>
+            <div style="display:flex;gap:12px;flex-wrap:wrap">
+              <span class="badge badge-green" style="padding:6px 12px">Accessibilité 82</span>
+              <span class="badge badge-green" style="padding:6px 12px">Services 71</span>
+              <span class="badge badge-orange" style="padding:6px 12px">Environnement 58</span>
+              <span class="badge badge-red" style="padding:6px 12px">Risques 34</span>
+              <span class="badge badge-green" style="padding:6px 12px">Socio-éco 76</span>
+            </div>
+          </div>
+
+          <div class="cr-section">
+            <h4>4. Analyse des comparables</h4>
+            <table class="data-table" style="margin-bottom:8px">
+              <thead><tr><th>Comparable</th><th>Source</th><th>Prix/m² ajusté</th><th>Poids</th><th>Fiabilité</th></tr></thead>
+              <tbody>
+                <tr><td>8 rue Villeroy — T3 68 m²</td><td>DVF</td><td>4 103 €/m²</td><td>0.30</td><td>68%</td></tr>
+                <tr><td>22 av. Lacassagne — T3 75 m²</td><td>Ideeri</td><td>4 195 €/m²</td><td>0.40</td><td>95%</td></tr>
+                <tr><td>15 rue Paul Bert — T2 62 m²</td><td>En cours</td><td>4 274 €/m²</td><td>0.30</td><td>91%</td></tr>
+                <tr style="background:#f7f7f7"><td class="fw-bold">Moyenne pondérée</td><td></td><td class="fw-bold">4 191 €/m²</td><td></td><td></td></tr>
+              </tbody>
+            </table>
+            <ul class="section-list">
+              <li><span class="sl-label">Ajust. contexte zone</span><span class="sl-value" style="color:var(--green)">+1.2%</span></li>
+              <li><span class="sl-label">Ajust. travaux copro</span><span class="sl-value" style="color:var(--red)">-15 000 €</span></li>
+              <li><span class="sl-label">Ajust. tension marché</span><span class="sl-value" style="color:var(--green)">+2.0%</span></li>
+            </ul>
+          </div>
+
+          <div class="cr-section">
+            <h4>5. Tension du marché</h4>
+            <ul class="section-list">
+              <li><span class="sl-label">Acquéreurs matchés</span><span class="sl-value">23</span></li>
+              <li><span class="sl-label">Forte compatibilité</span><span class="sl-value">7</span></li>
+              <li><span class="sl-label">Ratio demande/offre</span><span class="sl-value" style="color:var(--red)">3.2x — Tension FORTE</span></li>
+              <li><span class="sl-label">Vente estimée</span><span class="sl-value" style="color:var(--green)">42 jours (-38% vs moyenne)</span></li>
+            </ul>
+          </div>
+
+          <div class="cr-section">
+            <h4>6. Argumentaire</h4>
+            <div class="arguments-grid">
+              <div>
+                <div style="font-size:12px;font-weight:600;color:var(--green);margin-bottom:6px">Points forts</div>
+                <ul class="arg-list green" style="font-size:12px">
+                  <li>7 acquéreurs à forte compatibilité</li>
+                  <li>Accessibilité excellente (walkscore 87)</li>
+                  <li>DPE améliorable (valorisation +5-8%)</li>
+                  <li>Tension forte (ratio 3.2x)</li>
+                </ul>
+              </div>
+              <div>
+                <div style="font-size:12px;font-weight:600;color:var(--orange);margin-bottom:6px">Vigilance</div>
+                <ul class="arg-list orange" style="font-size:12px">
+                  <li>Travaux copro 15 000 €</li>
+                  <li>7 biens concurrents en vente</li>
+                  <li>Impayés 3.2%</li>
+                  <li>Risque inondation modéré</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="cr-section">
+            <h4>7. Conclusion et recommandation</h4>
+            <p style="font-size:13px;line-height:1.7">
+              Sur la base de l'analyse de 3 comparables, des données de contexte de zone (33 sources), et de l'étude de tension du marché (312 acquéreurs actifs), nous estimons la valeur du bien situé au <strong>12 rue des Lilas, 69003 Lyon</strong> dans une fourchette de <strong>290 000 € à 320 000 €</strong>, avec un prix médian de <strong>305 000 €</strong> (4 207 €/m²).
+            </p>
+            <p style="font-size:13px;line-height:1.7;margin-top:8px">
+              Compte tenu de la tension forte du marché (ratio demande/offre 3.2x) et de la présence de 7 acquéreurs à forte compatibilité, nous recommandons un <strong>positionnement haut de fourchette</strong> avec un prix d'affichage de <strong>315 000 €</strong>. Ce prix intègre la décote liée aux travaux de copropriété votés (15 000 € de quote-part) et se positionne légèrement sous le prix médian IRIS (4 280 €/m²) pour favoriser un délai de vente rapide, estimé à <strong>42 jours</strong>.
+            </p>
+          </div>
+
+          <div class="cr-footer">
+            Document généré le 31 mars 2026 · Agent : Marie Dupont · Réf : LYN-2026-00847
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+          <button class="btn btn-ghost">Enregistrer brouillon</button>
+          <button class="btn btn-green" onclick="alert('Estimation validée avec succès !')">Valider l'estimation</button>
+          <button class="btn btn-blue" onclick="window.print()">Générer le Compte Rendu PDF</button>
+          <button class="btn btn-green-outline" onclick="alert('Envoi au vendeur en cours...')">Envoyer au vendeur</button>
+        </div>
+
+        <div class="step-footer">
+          <button class="btn btn-ghost" onclick="goToStep(4)">← Tension marché</button>
+          <div></div>
+        </div>
+      </div>
+
+    </div><!-- /content-area -->
+  </div><!-- /main-area -->
+</div><!-- /app-layout -->
+
+<!-- Toast -->
+<div class="toast" id="toast">Sauvegardé</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // ========== STATE ==========
+  let currentStep = 1;
+  const totalSteps = 5;
+  const maps = {};
+
+  // ========== STEP NAVIGATION ==========
+  function goToStep(step) {
+    if (step < 1 || step > totalSteps) return;
+
+    // Hide all steps
+    document.querySelectorAll('.step-content').forEach(el => el.classList.remove('active'));
+
+    // Show target step
+    const target = document.querySelector('.step-content[data-step="' + step + '"]');
+    if (target) target.classList.add('active');
+
+    // Update stepper UI
+    document.querySelectorAll('.stepper-step').forEach(el => {
+      const s = parseInt(el.dataset.step);
+      el.classList.remove('active', 'completed', 'future');
+      if (s < step) {
+        el.classList.add('completed');
+        el.querySelector('.stepper-circle').innerHTML = '✓';
+      } else if (s === step) {
+        el.classList.add('active');
+        el.querySelector('.stepper-circle').textContent = s;
+      } else {
+        el.classList.add('future');
+        el.querySelector('.stepper-circle').textContent = s;
+      }
+    });
+
+    // Update lines
+    for (let i = 1; i < totalSteps; i++) {
+      const line = document.getElementById('line-' + i + '-' + (i + 1));
+      if (line) {
+        line.classList.toggle('done', i < step);
+      }
+    }
+
+    currentStep = step;
+
+    // Update hash
+    history.pushState(null, '', '#etape' + step);
+
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    // Init maps when step becomes visible
+    setTimeout(function() { initMapForStep(step); }, 100);
+  }
+
+  // Expose globally
+  window.goToStep = goToStep;
+
+  // ========== ACCORDION ==========
+  function toggleAccordion(id) {
+    const card = document.getElementById(id);
+    if (!card) return;
+    const body = card.querySelector('.card-body');
+    if (body) {
+      body.classList.toggle('collapsed');
+    }
+  }
+  window.toggleAccordion = toggleAccordion;
+
+  // ========== COLLAPSIBLE ==========
+  function toggleCollapsible(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('open');
+  }
+  window.toggleCollapsible = toggleCollapsible;
+
+  // ========== MAPS ==========
+  function initMapForStep(step) {
+    var lat = 45.7580, lng = 4.8590;
+
+    if (step === 1 && !maps.step1) {
+      var el = document.getElementById('map-step1');
+      if (el && el.offsetHeight > 0) {
+        var m = L.map(el).setView([lat, lng], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap'
+        }).addTo(m);
+        L.marker([lat, lng]).addTo(m).bindPopup('12 rue des Lilas');
+        maps.step1 = m;
+      }
+    }
+
+    if (step === 2 && !maps.step2) {
+      var el2 = document.getElementById('map-step2');
+      if (el2 && el2.offsetHeight > 0) {
+        var m2 = L.map(el2).setView([lat, lng], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap'
+        }).addTo(m2);
+        L.marker([lat, lng]).addTo(m2).bindPopup('12 rue des Lilas').openPopup();
+        // Zone circle
+        L.circle([lat, lng], { radius: 1000, color: '#46B962', fillOpacity: 0.05 }).addTo(m2);
+        maps.step2 = m2;
+      }
+    }
+
+    if (step === 3 && !maps.step3) {
+      var el3 = document.getElementById('map-step3');
+      if (el3 && el3.offsetHeight > 0) {
+        var m3 = L.map(el3).setView([lat, lng], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap'
+        }).addTo(m3);
+
+        // Target marker (green)
+        var greenIcon = L.divIcon({
+          className: '',
+          html: '<div style="width:14px;height:14px;background:#46B962;border:2px solid #fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.3)"></div>',
+          iconSize: [14, 14], iconAnchor: [7, 7]
+        });
+        L.marker([lat, lng], { icon: greenIcon }).addTo(m3).bindPopup('<strong>Bien cible</strong><br>12 rue des Lilas');
+
+        // Comparable markers
+        var comps = [
+          { lat: 45.7605, lng: 4.8630, label: 'A — 8 rue Villeroy', color: '#2d7a42' },
+          { lat: 45.7560, lng: 4.8640, label: 'B — 22 av. Lacassagne', color: '#46B962' },
+          { lat: 45.7590, lng: 4.8555, label: 'C — 15 rue Paul Bert', color: '#4a6cf7' }
+        ];
+        comps.forEach(function(c) {
+          var icon = L.divIcon({
+            className: '',
+            html: '<div style="width:12px;height:12px;background:' + c.color + ';border:2px solid #fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.3)"></div>',
+            iconSize: [12, 12], iconAnchor: [6, 6]
+          });
+          L.marker([c.lat, c.lng], { icon: icon }).addTo(m3).bindPopup(c.label);
+        });
+
+        // Search radius
+        L.circle([lat, lng], { radius: 1000, color: '#46B962', fillOpacity: 0.03, dashArray: '5,5' }).addTo(m3);
+
+        maps.step3 = m3;
+      }
+    }
+  }
+
+  // ========== COMPLETUDE ANIMATION ==========
+  function animateCompletude() {
+    var fill = document.getElementById('completude-fill');
+    if (fill) {
+      setTimeout(function() { fill.style.width = '64%'; }, 200);
+    }
+  }
+
+  // ========== AUTO-SAVE TOAST ==========
+  var toastTimer;
+  function showToast(msg) {
+    var toast = document.getElementById('toast');
+    if (!toast) return;
+    toast.textContent = msg || 'Sauvegardé';
+    toast.classList.add('visible');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function() { toast.classList.remove('visible'); }, 2000);
+  }
+
+  // Listen for changes on step 1 forms
+  document.addEventListener('input', function(e) {
+    var step1 = document.getElementById('step-1');
+    if (step1 && step1.contains(e.target)) {
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function() { showToast('Sauvegardé'); }, 800);
+    }
+  });
+
+  // ========== HASH ROUTING ==========
+  function handleHash() {
+    var hash = window.location.hash;
+    var match = hash.match(/^#etape(\d)$/);
+    if (match) {
+      var step = parseInt(match[1]);
+      if (step >= 1 && step <= totalSteps) {
+        goToStep(step);
+        return;
+      }
+    }
+    // Default to step 1
+    goToStep(1);
+  }
+
+  window.addEventListener('popstate', handleHash);
+
+  // ========== INIT ==========
+  handleHash();
+  animateCompletude();
+
+})();
+</script>
+
+</body>
+</html>

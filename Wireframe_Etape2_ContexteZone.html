@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ideeri - Étape 2: Contexte Zone</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --green: #46B962;
+            --blue: #4a6cf7;
+            --orange: #f5a623;
+            --red: #e74c3c;
+            --dark: #2c2c34;
+            --bg: #f7f7f8;
+            --white: #ffffff;
+            --text: #393939;
+            --muted: #949494;
+            --label: #666;
+            --border: #e5e5e5;
+            --tag-bg: #DEDEDE;
+            --input-bg: #F5F4F4;
+        }
+        body { font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text); font-size: 13px; line-height: 1.4; }
+        .shell { display: flex; height: 100vh; overflow: hidden; }
+
+        /* ═══ SIDEBAR — Figma Header/Default ═══ */
+        .sidebar { width: 220px; background: #4D4545; color: white; padding: 0; flex-shrink: 0; display: flex; flex-direction: column; }
+        .sidebar-logo { padding: 24px 34px 32px; display: flex; align-items: center; gap: 0; }
+        .sidebar-logo svg { height: 38px; width: auto; }
+        .sidebar-nav { list-style: none; }
+        .sidebar-nav li { padding: 14px 0 14px 24px; cursor: pointer; font-size: 14px; font-weight: 600; color: #D4CECE; display: flex; align-items: center; justify-content: space-between; font-family: 'Open Sans', sans-serif; }
+        .sidebar-nav li:hover { background: rgba(255,255,255,0.04); }
+        .sidebar-nav li.active { background: #595050; color: white; }
+        .nav-left { display: flex; align-items: center; gap: 14px; }
+        .nav-left svg { width: 16px; height: 16px; flex-shrink: 0; }
+        .nav-active-bar { width: 4px; height: 25px; border-radius: 2.5px 0 0 2.5px; background: transparent; }
+        .sidebar-nav li.active .nav-active-bar { background: #46B962; }
+
+        /* ═══ MAIN ═══ */
+        .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+        /* TOPBAR */
+        .topbar { background: var(--white); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 52px; flex-shrink: 0; }
+        .topbar-left { display: flex; align-items: center; gap: 16px; }
+        .topbar-logo { font-size: 16px; font-weight: 700; color: var(--green); }
+        .topbar-right { display: flex; align-items: center; gap: 12px; }
+        .topbar-photo { width: 34px; height: 34px; border-radius: 50%; background: #d4cece; overflow: hidden; flex-shrink: 0; }
+        .topbar-user-info { display: flex; flex-direction: column; line-height: 1.3; }
+        .topbar-user-name { font-size: 13px; font-weight: 600; color: var(--text); }
+        .topbar-user-role { font-size: 11px; color: var(--muted); }
+        .topbar-logout { padding: 6px 14px; border: 1px solid #999; border-radius: 6px; font-size: 11px; color: #666; cursor: pointer; background: white; font-family: 'Open Sans', sans-serif; }
+
+        /* SCROLLABLE AREA */
+        .scroll-area { flex: 1; overflow-y: auto; padding: 16px 24px 80px 24px; }
+
+        /* ═══ PROPERTY CARD — wrapper unique ═══ */
+        .prop-card { background: var(--white); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 12px; overflow: hidden; }
+        .prop-header { padding: 14px 20px 0; }
+        .prop-back { font-size: 11px; color: var(--muted); cursor: pointer; margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
+        .prop-back:hover { color: var(--text); }
+        .prop-title { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 8px; line-height: 1.3; }
+        .prop-meta-row { display: flex; align-items: center; gap: 18px; margin-bottom: 10px; flex-wrap: wrap; }
+        .prop-meta-item { display: flex; align-items: center; gap: 5px; font-size: 12px; }
+        .prop-meta-label { color: var(--muted); font-weight: 400; }
+        .prop-meta-value { color: var(--text); font-weight: 600; }
+        .prop-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+        .prop-tag { background: var(--tag-bg); color: var(--label); font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 5px; }
+        .prop-dispo { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+        .prop-dispo-label { font-size: 12px; color: var(--muted); font-weight: 400; }
+        .prop-dispo-input { background: var(--input-bg); border: none; border-radius: 6px; padding: 6px 12px; font-size: 12px; color: var(--text); font-family: 'Open Sans', sans-serif; }
+        .completude-block { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+        .completude-label { font-size: 11px; color: var(--muted); font-weight: 400; }
+        .completude-bar { width: 100px; height: 5px; background: #eee; border-radius: 3px; overflow: hidden; }
+        .completude-fill { height: 100%; background: var(--green); width: 64%; border-radius: 3px; }
+        .completude-pct { font-size: 12px; font-weight: 700; color: var(--green); }
+        .completude-detail { font-size: 10px; color: var(--muted); }
+        .tab-bar { border-top: 1px solid var(--border); padding: 0 20px; display: flex; gap: 0; overflow-x: auto; }
+        .tab { padding: 9px 12px; font-size: 12px; font-weight: 600; color: var(--muted); border-bottom: 3px solid transparent; cursor: pointer; white-space: nowrap; }
+        .tab:hover { color: var(--text); }
+        .tab.active { color: var(--green); border-bottom-color: var(--green); }
+
+        /* STEPPER */
+        .stepper { display: flex; justify-content: center; align-items: center; gap: 8px; margin-bottom: 12px; background: var(--white); padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); }
+        .stepper-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+        .stepper-item.completed .stepper-badge { background: var(--green); color: white; }
+        .stepper-item.active .stepper-badge { background: var(--green); color: white; }
+        .stepper-item.active .stepper-label { color: var(--green); font-weight: 600; }
+        .stepper-badge { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #eee; color: var(--muted); font-size: 10px; font-weight: 600; flex-shrink: 0; }
+        .stepper-label { white-space: nowrap; }
+        .stepper-arrow { color: #ccc; font-size: 12px; }
+
+        /* INFO BANNER */
+        .info-banner { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; margin-bottom: 14px; font-size: 11px; display: flex; align-items: center; gap: 8px; color: var(--muted); }
+
+        /* SCORE CARDS */
+        .scores-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 14px; }
+        .score-card { background: var(--white); border-radius: 8px; padding: 10px; text-align: center; border: 1px solid var(--border); border-top: 3px solid var(--border); position: relative; }
+        .score-card.green { border-top-color: var(--green); }
+        .score-card.orange { border-top-color: var(--orange); }
+        .score-card.red { border-top-color: var(--red); }
+        .score-label { font-size: 10px; color: var(--label); font-weight: 500; margin-bottom: 2px; }
+        .score-num { font-size: 18px; font-weight: 700; }
+        .score-num.green { color: var(--green); }
+        .score-num.orange { color: var(--orange); }
+        .score-num.red { color: var(--red); }
+
+        /* MAIN GRID: map + market */
+        .grid-top { display: grid; grid-template-columns: 1fr 300px; gap: 12px; margin-bottom: 14px; }
+
+        /* MAP */
+        .map-card { background: var(--white); border-radius: 10px; border: 1px solid var(--border); overflow: hidden; position: relative; }
+        #leaflet-map-zone { height: 260px; width: 100%; z-index: 0; }
+        .map-controls { padding: 8px 12px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; border-top: 1px solid var(--border); }
+        .map-controls label { display: flex; align-items: center; gap: 4px; font-size: 11px; cursor: pointer; color: var(--muted); }
+        .map-controls input[type="checkbox"] { width: 13px; height: 13px; accent-color: var(--green); }
+        .radius-btns { display: flex; gap: 4px; margin-left: auto; }
+        .radius-btn { padding: 3px 8px; border: 1px solid var(--border); border-radius: 5px; background: var(--white); font-size: 10px; cursor: pointer; color: var(--muted); }
+        .radius-btn.active { background: var(--green); color: white; border-color: var(--green); }
+
+        /* MARKET CARD */
+        .market-card { background: var(--white); border-radius: 10px; border: 1px solid var(--border); padding: 14px; display: flex; flex-direction: column; position: relative; }
+        .market-title { font-size: 12px; font-weight: 600; margin-bottom: 10px; color: var(--text); }
+        .market-price { text-align: center; padding: 10px 0; margin-bottom: 8px; }
+        .market-price .big { font-size: 24px; font-weight: 700; color: var(--green); }
+        .market-price .unit { font-size: 12px; color: var(--muted); }
+        .market-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; flex: 1; }
+        .market-stat { background: var(--bg); border-radius: 6px; padding: 8px; }
+        .market-stat .val { font-size: 14px; font-weight: 700; color: var(--text); }
+        .market-stat .val.up { color: var(--green); }
+        .market-stat .lbl { font-size: 9px; color: var(--label); margin-top: 2px; }
+
+        /* ═══ COLLAPSIBLE SECTIONS ═══ */
+        .section-group { margin-bottom: 14px; }
+
+        .collapse-card { background: var(--white); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; overflow: hidden; }
+        .collapse-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; cursor: pointer; user-select: none; transition: background 0.15s; }
+        .collapse-header:hover { background: #f8f8f8; }
+        .collapse-header-left { display: flex; align-items: center; gap: 10px; }
+        .collapse-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+        .collapse-dot.green { background: var(--green); }
+        .collapse-dot.orange { background: var(--orange); }
+        .collapse-dot.red { background: var(--red); }
+        .collapse-title { font-size: 12px; font-weight: 500; color: var(--text); }
+        .collapse-summary { font-size: 11px; color: var(--label); }
+        .collapse-header-right { display: flex; align-items: center; gap: 10px; }
+        .collapse-score { font-size: 11px; font-weight: 600; color: var(--muted); }
+        .collapse-score.green { color: var(--green); }
+        .collapse-score.orange { color: var(--orange); }
+        .collapse-score.red { color: var(--red); }
+        .collapse-arrow { font-size: 10px; color: #bbb; transition: transform 0.2s; }
+        .collapse-card.open .collapse-arrow { transform: rotate(180deg); }
+
+        .collapse-body { display: none; padding: 0 14px 10px; border-top: 1px solid #f0f0f0; }
+        .collapse-card.open .collapse-body { display: block; padding-top: 8px; }
+
+        .d-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #f5f5f5; font-size: 12px; }
+        .d-row:last-child { border-bottom: none; }
+        .d-row .lbl { color: var(--label); flex: 1; }
+        .d-row .val { font-weight: 500; color: var(--text); text-align: right; }
+        .d-row .val.dist { color: var(--blue); font-weight: 600; }
+        .d-row .val.risk-ok { color: var(--green); }
+        .d-row .val.risk-warn { color: var(--orange); font-weight: 600; }
+        .d-row .val.risk-bad { color: var(--red); font-weight: 600; }
+        .d-row.risk-impact { background: #fff5f5; border-radius: 6px; padding: 6px 8px; margin-top: 4px; }
+
+        /* PDF TOGGLES */
+        .pdf-toggle { position: absolute; top: 6px; right: 8px; display: flex; align-items: center; gap: 4px; z-index: 2; }
+        .pdf-toggle input[type="checkbox"] { display: none; }
+        .pdf-toggle label { display: flex; align-items: center; gap: 3px; cursor: pointer; font-size: 9px; color: #aaa; padding: 2px 6px; border-radius: 4px; border: 1px solid transparent; transition: all 0.2s; user-select: none; }
+        .pdf-toggle label:hover { color: var(--muted); background: #f5f5f5; }
+        .pdf-toggle input:checked + label { color: var(--blue); background: #eef2ff; border-color: #c7d2fe; }
+        .pdf-icon { font-size: 11px; opacity: 0.4; }
+        .pdf-toggle input:checked + label .pdf-icon { opacity: 1; }
+        .score-card, .map-card, .market-card { position: relative; }
+
+        /* FOOTER */
+        .footer-buttons { display: flex; justify-content: space-between; padding: 14px 0; margin-top: 8px; }
+        .btn { padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-primary { background: var(--green); color: white; }
+        .btn-primary:hover { background: #3da856; }
+        .btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+
+        /* OVERRIDE NOTE */
+        .override-note { font-size: 10px; color: var(--muted); text-align: center; padding: 6px; background: var(--bg); border-radius: 6px; margin-bottom: 12px; }
+
+        /* PDF FLOATING BAR */
+        .pdf-bar { position: fixed; bottom: 0; left: 220px; right: 0; background: var(--white); border-top: 1px solid var(--border); padding: 8px 24px; display: flex; align-items: center; justify-content: space-between; z-index: 100; }
+        .pdf-bar-left { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--muted); }
+        .pdf-counter { background: var(--blue); color: white; padding: 2px 8px; border-radius: 10px; font-weight: 700; font-size: 11px; }
+        .pdf-bar-actions { display: flex; align-items: center; gap: 8px; }
+        .btn-select-all { padding: 5px 12px; border-radius: 6px; font-size: 11px; cursor: pointer; border: 1px solid var(--border); background: white; color: var(--muted); }
+        .btn-pdf { padding: 7px 16px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; border: none; background: var(--blue); color: white; }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <!-- SIDEBAR -->
+        <div class="sidebar">
+            <div class="sidebar-logo">
+                <svg viewBox="0 0 152 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <text x="0" y="24" font-family="Open Sans" font-weight="700" font-size="24" fill="#46B962" letter-spacing="-0.5">ideeri</text>
+                </svg>
+            </div>
+            <ul class="sidebar-nav">
+                <li class="active">
+                    <span class="nav-left">
+                        <svg viewBox="0 0 16 16" fill="none"><path d="M8 1L1 7v7a1 1 0 001 1h4v-5h4v5h4a1 1 0 001-1V7L8 1z" fill="currentColor" opacity="0.9"/></svg>
+                        <span>Dashboard</span>
+                    </span>
+                    <span class="nav-active-bar"></span>
+                </li>
+                <li>
+                    <span class="nav-left">
+                        <svg viewBox="0 0 16 16" fill="none"><rect x="1" y="2" width="14" height="13" rx="1.5" stroke="currentColor" stroke-width="1.4" fill="none"/><line x1="1" y1="6" x2="15" y2="6" stroke="currentColor" stroke-width="1.4"/><line x1="5" y1="2" x2="5" y2="0.5" stroke="currentColor" stroke-width="1.4"/><line x1="11" y1="2" x2="11" y2="0.5" stroke="currentColor" stroke-width="1.4"/></svg>
+                        <span>Agenda</span>
+                    </span>
+                    <span class="nav-active-bar"></span>
+                </li>
+                <li>
+                    <span class="nav-left">
+                        <svg viewBox="0 0 16 16" fill="none"><circle cx="6" cy="5" r="2.5" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M1 14c0-2.8 2.2-5 5-5s5 2.2 5 5" stroke="currentColor" stroke-width="1.3" fill="none"/><circle cx="11.5" cy="5.5" r="2" stroke="currentColor" stroke-width="1.2" fill="none"/><path d="M11.5 9c2.2 0 4 1.8 4 4" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>
+                        <span>Mes clients</span>
+                    </span>
+                    <span class="nav-active-bar"></span>
+                </li>
+                <li>
+                    <span class="nav-left">
+                        <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M2 15c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>
+                        <span>Collaborateurs</span>
+                    </span>
+                    <span class="nav-active-bar"></span>
+                </li>
+                <li>
+                    <span class="nav-left">
+                        <svg viewBox="0 0 16 16" fill="none"><rect x="1.5" y="1.5" width="13" height="13" rx="1.5" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M4.5 8l2.5 2.5L11.5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+                        <span>Mes tâches</span>
+                    </span>
+                    <span class="nav-active-bar"></span>
+                </li>
+                <li>
+                    <span class="nav-left">
+                        <svg viewBox="0 0 16 16" fill="none"><path d="M8 1.5C5 1.5 2.5 4 2.5 7c0 4 5.5 7.5 5.5 7.5s5.5-3.5 5.5-7.5c0-3-2.5-5.5-5.5-5.5z" stroke="currentColor" stroke-width="1.3" fill="none"/><circle cx="8" cy="7" r="2" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>
+                        <span>Secteurs</span>
+                    </span>
+                    <span class="nav-active-bar"></span>
+                </li>
+            </ul>
+        </div>
+
+        <!-- MAIN -->
+        <div class="main">
+            <!-- TOPBAR -->
+            <div class="topbar">
+                <div class="topbar-left">
+                    <div class="topbar-logo">ideeri</div>
+                </div>
+                <div class="topbar-right">
+                    <div class="topbar-photo"></div>
+                    <div class="topbar-user-info">
+                        <span class="topbar-user-name">Manon MATRAT</span>
+                        <span class="topbar-user-role">Administratif</span>
+                    </div>
+                    <button class="topbar-logout">Déconnexion</button>
+                </div>
+            </div>
+
+            <!-- SCROLLABLE -->
+            <div class="scroll-area">
+
+                <!-- ═══ PROPERTY CARD — Un seul bloc ═══ -->
+                <div class="prop-card">
+                    <div class="prop-header">
+                        <div class="prop-back">&#8592; Retour</div>
+                        <div class="prop-title">Vente Appartement T3 à Lyon 3ème</div>
+                        <div class="prop-meta-row">
+                            <div class="prop-meta-item">
+                                <span class="prop-meta-label">Collaborateur</span>
+                                <span class="prop-meta-value">Marie Dupont</span>
+                            </div>
+                            <div class="prop-meta-item">
+                                <span class="prop-meta-label">Référence</span>
+                                <span class="prop-meta-value">LYN-2026-00847</span>
+                            </div>
+                            <div class="prop-meta-item">
+                                <span class="prop-meta-label">Créé le</span>
+                                <span class="prop-meta-value">25 Mars 2026</span>
+                            </div>
+                            <div class="prop-meta-item">
+                                <span class="prop-meta-label">Source</span>
+                                <span class="prop-meta-value">Ideeri</span>
+                            </div>
+                        </div>
+                        <div class="prop-tags">
+                            <span class="prop-tag">Appartement</span>
+                            <span class="prop-tag">3 pièces</span>
+                            <span class="prop-tag">72.5 m²</span>
+                            <span class="prop-tag">Lyon 3ème</span>
+                            <span class="prop-tag">DPE D</span>
+                        </div>
+                        <div class="prop-dispo">
+                            <span class="prop-dispo-label">Disponibilité du bien</span>
+                            <input type="date" class="prop-dispo-input" value="2026-06-01">
+                        </div>
+                        <div class="completude-block">
+                            <span class="completude-label">Complétude pondérée</span>
+                            <div class="completude-bar"><div class="completude-fill"></div></div>
+                            <span class="completude-pct">64%</span>
+                            <span class="completude-detail">14/19 critiques · 38/50 importants</span>
+                        </div>
+                    </div>
+                    <div class="tab-bar">
+                        <div class="tab">Dashboard</div>
+                        <div class="tab">Détails du projet</div>
+                        <div class="tab">Documents</div>
+                        <div class="tab active">Estimation</div>
+                        <div class="tab">Publication</div>
+                        <div class="tab">Participants</div>
+                        <div class="tab">Administration</div>
+                        <div class="tab">Notes</div>
+                        <div class="tab">Mandat</div>
+                    </div>
+                </div>
+
+                <!-- STEPPER -->
+                <div class="stepper">
+                    <div class="stepper-item completed">
+                        <div class="stepper-badge">&#10003;</div>
+                        <div class="stepper-label">Bien cible</div>
+                    </div>
+                    <div class="stepper-arrow">&#8250;</div>
+                    <div class="stepper-item active">
+                        <div class="stepper-badge">2</div>
+                        <div class="stepper-label">Contexte zone</div>
+                    </div>
+                    <div class="stepper-arrow">&#8250;</div>
+                    <div class="stepper-item">
+                        <div class="stepper-badge">3</div>
+                        <div class="stepper-label">Comparables</div>
+                    </div>
+                    <div class="stepper-arrow">&#8250;</div>
+                    <div class="stepper-item">
+                        <div class="stepper-badge">4</div>
+                        <div class="stepper-label">Tension marché</div>
+                    </div>
+                    <div class="stepper-arrow">&#8250;</div>
+                    <div class="stepper-item">
+                        <div class="stepper-badge">5</div>
+                        <div class="stepper-label">Avis de valeur</div>
+                    </div>
+                </div>
+
+                <!-- INFO BANNER -->
+                <div class="info-banner">
+                    <span style="font-size:14px;">&#8505;</span>
+                    <span>Données enrichies automatiquement · 33 sources data.gouv / INSEE · MAJ : 25 mars 2026</span>
+                </div>
+
+                <!-- SCORE CARDS -->
+                <div class="scores-row">
+                    <div class="score-card green">
+                        <div class="pdf-toggle"><input type="checkbox" id="pdf-score-access" class="pdf-cb" checked><label for="pdf-score-access"><span class="pdf-icon">&#128196;</span></label></div>
+                        <div class="score-label">Accessibilité</div>
+                        <div class="score-num green">82</div>
+                    </div>
+                    <div class="score-card green">
+                        <div class="pdf-toggle"><input type="checkbox" id="pdf-score-services" class="pdf-cb" checked><label for="pdf-score-services"><span class="pdf-icon">&#128196;</span></label></div>
+                        <div class="score-label">Services</div>
+                        <div class="score-num green">71</div>
+                    </div>
+                    <div class="score-card orange">
+                        <div class="pdf-toggle"><input type="checkbox" id="pdf-score-enviro" class="pdf-cb" checked><label for="pdf-score-enviro"><span class="pdf-icon">&#128196;</span></label></div>
+                        <div class="score-label">Environnement</div>
+                        <div class="score-num orange">58</div>
+                    </div>
+                    <div class="score-card red">
+                        <div class="pdf-toggle"><input type="checkbox" id="pdf-score-risques" class="pdf-cb" checked><label for="pdf-score-risques"><span class="pdf-icon">&#128196;</span></label></div>
+                        <div class="score-label">Risques</div>
+                        <div class="score-num red">34</div>
+                    </div>
+                    <div class="score-card green">
+                        <div class="pdf-toggle"><input type="checkbox" id="pdf-score-socio" class="pdf-cb" checked><label for="pdf-score-socio"><span class="pdf-icon">&#128196;</span></label></div>
+                        <div class="score-label">Socio-éco</div>
+                        <div class="score-num green">76</div>
+                    </div>
+                </div>
+
+                <!-- MAP + MARCHÉ -->
+                <div class="grid-top">
+                    <div class="map-card">
+                        <div class="pdf-toggle"><input type="checkbox" id="pdf-map" class="pdf-cb" checked><label for="pdf-map"><span class="pdf-icon">&#128196;</span></label></div>
+                        <div id="leaflet-map-zone"></div>
+                        <div class="map-controls">
+                            <label><input type="checkbox" checked> Transports</label>
+                            <label><input type="checkbox" checked> Commerces</label>
+                            <label><input type="checkbox"> Éducation</label>
+                            <label><input type="checkbox"> Santé</label>
+                            <div class="radius-btns">
+                                <button class="radius-btn">500m</button>
+                                <button class="radius-btn active">1km</button>
+                                <button class="radius-btn">2km</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="market-card">
+                        <div class="pdf-toggle"><input type="checkbox" id="pdf-market" class="pdf-cb" checked><label for="pdf-market"><span class="pdf-icon">&#128196;</span></label></div>
+                        <div class="market-title">Marché Local — IRIS 693830107</div>
+                        <div class="market-price">
+                            <span class="big">4 280 &#8364;</span><span class="unit">/m²</span>
+                        </div>
+                        <div class="market-stats">
+                            <div class="market-stat">
+                                <div class="val up">+2.3%</div>
+                                <div class="lbl">Évolution 12 mois</div>
+                            </div>
+                            <div class="market-stat">
+                                <div class="val">156</div>
+                                <div class="lbl">Transactions/an</div>
+                            </div>
+                            <div class="market-stat">
+                                <div class="val">68 j</div>
+                                <div class="lbl">Délai moyen vente</div>
+                            </div>
+                            <div class="market-stat">
+                                <div class="val">3 850 – 4 720 &#8364;</div>
+                                <div class="lbl">Fourchette P25–P75/m²</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══ DONNÉES DE ZONE — SECTIONS REPLIABLES ═══ -->
+                <div class="section-group">
+
+                    <!-- TRANSPORTS -->
+                    <div class="collapse-card">
+                        <div class="collapse-header" onclick="toggleCollapse(this)">
+                            <div class="collapse-header-left">
+                                <span class="collapse-dot green"></span>
+                                <span class="collapse-title">Transports & Accessibilité</span>
+                                <span class="collapse-summary">Métro 350m · Walkscore 87/100</span>
+                            </div>
+                            <div class="collapse-header-right">
+                                <span class="collapse-score green">82/100</span>
+                                <span class="collapse-arrow">&#9662;</span>
+                            </div>
+                        </div>
+                        <div class="collapse-body">
+                            <div class="d-row"><span class="lbl">Métro D — Garibaldi</span><span class="val dist">350m</span></div>
+                            <div class="d-row"><span class="lbl">Tram T3 — Part-Dieu</span><span class="val dist">600m</span></div>
+                            <div class="d-row"><span class="lbl">Bus C3, C9</span><span class="val dist">120m</span></div>
+                            <div class="d-row"><span class="lbl">Gare Part-Dieu</span><span class="val dist">1.2km</span></div>
+                            <div class="d-row"><span class="lbl">Centre Bellecour (TC)</span><span class="val dist">12 min</span></div>
+                            <div class="d-row"><span class="lbl">Walkscore</span><span class="val" style="color:var(--green);font-weight:700;">87/100</span></div>
+                        </div>
+                    </div>
+
+                    <!-- COMMERCES -->
+                    <div class="collapse-card">
+                        <div class="collapse-header" onclick="toggleCollapse(this)">
+                            <div class="collapse-header-left">
+                                <span class="collapse-dot green"></span>
+                                <span class="collapse-title">Commerces & Services</span>
+                                <span class="collapse-summary">Monoprix 200m · 8 restaurants</span>
+                            </div>
+                            <div class="collapse-header-right">
+                                <span class="collapse-score green">71/100</span>
+                                <span class="collapse-arrow">&#9662;</span>
+                            </div>
+                        </div>
+                        <div class="collapse-body">
+                            <div class="d-row"><span class="lbl">Supermarché (Monoprix)</span><span class="val dist">200m</span></div>
+                            <div class="d-row"><span class="lbl">Boulangerie</span><span class="val dist">50m</span></div>
+                            <div class="d-row"><span class="lbl">Pharmacie</span><span class="val dist">180m</span></div>
+                            <div class="d-row"><span class="lbl">Bureau de poste</span><span class="val dist">450m</span></div>
+                            <div class="d-row"><span class="lbl">Restaurants &lt; 300m</span><span class="val">8 étab.</span></div>
+                            <div class="d-row"><span class="lbl">Marché Place Guichard</span><span class="val dist">400m</span></div>
+                        </div>
+                    </div>
+
+                    <!-- ÉDUCATION -->
+                    <div class="collapse-card">
+                        <div class="collapse-header" onclick="toggleCollapse(this)">
+                            <div class="collapse-header-left">
+                                <span class="collapse-dot green"></span>
+                                <span class="collapse-title">Éducation</span>
+                                <span class="collapse-summary">Maternelle 250m · Lycée 1.2km</span>
+                            </div>
+                            <div class="collapse-header-right">
+                                <span class="collapse-score green">Complet</span>
+                                <span class="collapse-arrow">&#9662;</span>
+                            </div>
+                        </div>
+                        <div class="collapse-body">
+                            <div class="d-row"><span class="lbl">Maternelle Voltaire</span><span class="val dist">250m</span></div>
+                            <div class="d-row"><span class="lbl">Primaire Lacassagne</span><span class="val dist">350m</span></div>
+                            <div class="d-row"><span class="lbl">Collège Lacassagne</span><span class="val dist">600m</span></div>
+                            <div class="d-row"><span class="lbl">Lycée La Martinière</span><span class="val dist">1.2km</span></div>
+                            <div class="d-row"><span class="lbl">Université Lyon 3</span><span class="val dist">2km</span></div>
+                        </div>
+                    </div>
+
+                    <!-- SANTÉ -->
+                    <div class="collapse-card">
+                        <div class="collapse-header" onclick="toggleCollapse(this)">
+                            <div class="collapse-header-left">
+                                <span class="collapse-dot green"></span>
+                                <span class="collapse-title">Santé</span>
+                                <span class="collapse-summary">3 médecins dans 500m · Hôpital 1.5km</span>
+                            </div>
+                            <div class="collapse-header-right">
+                                <span class="collapse-score green">Bon</span>
+                                <span class="collapse-arrow">&#9662;</span>
+                            </div>
+                        </div>
+                        <div class="collapse-body">
+                            <div class="d-row"><span class="lbl">Médecins généralistes</span><span class="val">3 dans 500m</span></div>
+                            <div class="d-row"><span class="lbl">Pharmacie de garde</span><span class="val dist">180m</span></div>
+                            <div class="d-row"><span class="lbl">Hôpital Ed. Herriot</span><span class="val dist">1.5km</span></div>
+                            <div class="d-row"><span class="lbl">Dentiste</span><span class="val dist">300m</span></div>
+                            <div class="d-row"><span class="lbl">Kinésithérapeute</span><span class="val dist">200m</span></div>
+                        </div>
+                    </div>
+
+                    <!-- ENVIRONNEMENT -->
+                    <div class="collapse-card">
+                        <div class="collapse-header" onclick="toggleCollapse(this)">
+                            <div class="collapse-header-left">
+                                <span class="collapse-dot orange"></span>
+                                <span class="collapse-title">Environnement & Cadre de vie</span>
+                                <span class="collapse-summary">Air moyenne · Bruit 65dB</span>
+                            </div>
+                            <div class="collapse-header-right">
+                                <span class="collapse-score orange">58/100</span>
+                                <span class="collapse-arrow">&#9662;</span>
+                            </div>
+                        </div>
+                        <div class="collapse-body">
+                            <div class="d-row"><span class="lbl">Qualité air</span><span class="val">Moyenne</span></div>
+                            <div class="d-row"><span class="lbl">Indice ATMO</span><span class="val">3/6</span></div>
+                            <div class="d-row"><span class="lbl">Bruit routier</span><span class="val">65 dB (cl. 3)</span></div>
+                            <div class="d-row"><span class="lbl">Parc Bazin</span><span class="val dist">400m</span></div>
+                            <div class="d-row"><span class="lbl">Jardin Place Guichard</span><span class="val dist">350m</span></div>
+                            <div class="d-row"><span class="lbl">Sols pollués (BASIAS)</span><span class="val risk-ok">Aucun &lt; 500m</span></div>
+                        </div>
+                    </div>
+
+                    <!-- RISQUES -->
+                    <div class="collapse-card">
+                        <div class="collapse-header" onclick="toggleCollapse(this)">
+                            <div class="collapse-header-left">
+                                <span class="collapse-dot red"></span>
+                                <span class="collapse-title">Risques & Aléas</span>
+                                <span class="collapse-summary">Inondation modérée · Décote -3 à -5%</span>
+                            </div>
+                            <div class="collapse-header-right">
+                                <span class="collapse-score red">34/100</span>
+                                <span class="collapse-arrow">&#9662;</span>
+                            </div>
+                        </div>
+                        <div class="collapse-body">
+                            <div class="d-row"><span class="lbl">PPRI — Inondation</span><span class="val risk-warn">Risque modéré</span></div>
+                            <div class="d-row"><span class="lbl">Sismicité</span><span class="val risk-ok">Zone 2 (faible)</span></div>
+                            <div class="d-row"><span class="lbl">Radon</span><span class="val risk-ok">Cat. 1 (faible)</span></div>
+                            <div class="d-row"><span class="lbl">Retrait-gonflement argiles</span><span class="val risk-warn">Expo. moyenne</span></div>
+                            <div class="d-row"><span class="lbl">Cavités souterraines</span><span class="val risk-ok">Aucune</span></div>
+                            <div class="d-row risk-impact"><span class="lbl" style="color:var(--red);font-weight:600;">Impact estimation</span><span class="val risk-bad">Décote -3 à -5%</span></div>
+                        </div>
+                    </div>
+
+                    <!-- INSEE / SOCIO-ÉCO -->
+                    <div class="collapse-card">
+                        <div class="collapse-header" onclick="toggleCollapse(this)">
+                            <div class="collapse-header-left">
+                                <span class="collapse-dot green"></span>
+                                <span class="collapse-title">Données socio-économiques (INSEE)</span>
+                                <span class="collapse-summary">Revenu médian 28 400&#8364; · Chômage 9.2%</span>
+                            </div>
+                            <div class="collapse-header-right">
+                                <span class="collapse-score green">76/100</span>
+                                <span class="collapse-arrow">&#9662;</span>
+                            </div>
+                        </div>
+                        <div class="collapse-body">
+                            <div class="d-row"><span class="lbl">Revenu médian ménages/an</span><span class="val">28 400 &#8364;</span></div>
+                            <div class="d-row"><span class="lbl">Taux de chômage</span><span class="val">9.2%</span></div>
+                            <div class="d-row"><span class="lbl">Part cadres / prof. intellectuelles</span><span class="val">32%</span></div>
+                            <div class="d-row"><span class="lbl">Diplômés du supérieur</span><span class="val">48%</span></div>
+                            <div class="d-row"><span class="lbl">Taux de propriétaires</span><span class="val">42%</span></div>
+                            <div class="d-row"><span class="lbl">Logements vacants</span><span class="val">7.8%</span></div>
+                            <div class="d-row"><span class="lbl">Taille moyenne des ménages</span><span class="val">1.9</span></div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- OVERRIDE NOTE -->
+                <div class="override-note">
+                    Données enrichies automatiquement. Cliquez sur une valeur pour la corriger — les surcharges sont tracées.
+                </div>
+
+                <!-- FOOTER -->
+                <div class="footer-buttons">
+                    <button class="btn btn-ghost">&#8592; Bien cible</button>
+                    <button class="btn btn-primary">Comparables &#8594;</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PDF FLOATING BAR -->
+    <div class="pdf-bar">
+        <div class="pdf-bar-left">
+            <span>&#128196;</span>
+            <span>Rapport vendeur :</span>
+            <span class="pdf-counter" id="pdfCount">7</span>
+            <span>sections</span>
+        </div>
+        <div class="pdf-bar-actions">
+            <button class="btn-select-all" onclick="toggleAll()">Tout désélectionner</button>
+            <button class="btn-pdf" onclick="alert('Aperçu PDF')">Générer le rapport PDF</button>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        function toggleCollapse(header) {
+            header.parentElement.classList.toggle('open');
+        }
+
+        const checkboxes = document.querySelectorAll('.pdf-cb');
+        const counter = document.getElementById('pdfCount');
+        let allSelected = true;
+
+        function updateCount() {
+            counter.textContent = document.querySelectorAll('.pdf-cb:checked').length;
+        }
+        checkboxes.forEach(cb => cb.addEventListener('change', updateCount));
+
+        function toggleAll() {
+            allSelected = !allSelected;
+            checkboxes.forEach(cb => cb.checked = allSelected);
+            document.querySelector('.btn-select-all').textContent = allSelected ? 'Tout désélectionner' : 'Tout sélectionner';
+            updateCount();
+        }
+        updateCount();
+
+        // Leaflet
+        var map = L.map('leaflet-map-zone', { zoomControl: false }).setView([45.7580, 4.8590], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+        L.control.zoom({ position: 'topright' }).addTo(map);
+        L.marker([45.7580, 4.8590]).addTo(map).bindPopup('<strong>12 rue des Lilas</strong><br>69003 Lyon');
+        L.circle([45.7580, 4.8590], { radius: 1000, color: '#46B962', fillColor: '#46B962', fillOpacity: 0.06, weight: 1.5 }).addTo(map);
+
+        document.querySelectorAll('.radius-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.radius-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ideeri — Architecture UX · Parcours Estimation</title>
+<style>
+  :root {
+    --bg: #f5f5f5;
+    --card: #ffffff;
+    --dark: #2c2c34;
+    --sidebar: #3a3541;
+    --primary: #1dba6e;
+    --primary-light: #e8f8f0;
+    --primary-dark: #178f55;
+    --accent: #4a6cf7;
+    --accent-light: #eef1fe;
+    --warning: #f5a623;
+    --warning-light: #fef7e8;
+    --danger: #e74c3c;
+    --danger-light: #fdeaea;
+    --text: #2c2c34;
+    --text-secondary: #7a7a8a;
+    --border: #e5e5ea;
+    --border-light: #f0f0f5;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 2px 12px rgba(0,0,0,0.06);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.1);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+
+  /* ─── HEADER ─── */
+  .page-header {
+    background: var(--dark);
+    color: #fff;
+    padding: 40px 48px;
+  }
+  .page-header h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 4px; }
+  .page-header .subtitle { color: #a0a0b0; font-size: 0.95rem; }
+  .header-meta { display: flex; gap: 24px; margin-top: 16px; }
+  .header-meta span { font-size: 0.8rem; color: #888; background: rgba(255,255,255,0.08); padding: 4px 12px; border-radius: 20px; }
+
+  /* ─── LAYOUT ─── */
+  .content { max-width: 1400px; margin: 0 auto; padding: 40px 48px; }
+  .section { margin-bottom: 56px; }
+  .section-title {
+    font-size: 1.15rem; font-weight: 700; color: var(--text);
+    margin-bottom: 8px; display: flex; align-items: center; gap: 10px;
+  }
+  .section-title .num {
+    background: var(--primary); color: #fff; width: 28px; height: 28px;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 0.8rem; font-weight: 700; flex-shrink: 0;
+  }
+  .section-desc { font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 24px; max-width: 800px; }
+
+  /* ─── SHELL LAYOUT ─── */
+  .shell-diagram {
+    background: var(--card); border-radius: var(--radius); border: 1px solid var(--border);
+    overflow: hidden; box-shadow: var(--shadow);
+  }
+  .shell-topbar {
+    background: #fff; border-bottom: 1px solid var(--border);
+    padding: 14px 24px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .shell-topbar .logo { font-weight: 800; font-size: 1.1rem; color: var(--primary); letter-spacing: -0.5px; }
+  .shell-topbar .search {
+    background: var(--border-light); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 16px; width: 320px; color: var(--text-secondary); font-size: 0.85rem;
+  }
+  .shell-topbar .user { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text-secondary); }
+  .shell-topbar .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--primary-light); display: flex; align-items: center; justify-content: center; font-size: 0.75rem; color: var(--primary); font-weight: 700; }
+
+  .shell-body { display: flex; min-height: 520px; }
+
+  .shell-sidebar {
+    width: 200px; background: var(--sidebar); padding: 20px 0; flex-shrink: 0;
+  }
+  .shell-sidebar .nav-item {
+    padding: 10px 20px; font-size: 0.82rem; color: #a0a0b0; display: flex; align-items: center; gap: 10px; cursor: pointer;
+  }
+  .shell-sidebar .nav-item.active { color: #fff; background: rgba(255,255,255,0.08); border-left: 3px solid var(--primary); }
+  .shell-sidebar .nav-item .icon { width: 18px; text-align: center; }
+
+  .shell-main { flex: 1; padding: 24px 32px; background: var(--bg); }
+
+  /* ─── STEPPER ─── */
+  .stepper {
+    display: flex; align-items: center; gap: 0; margin-bottom: 32px;
+    background: var(--card); border-radius: var(--radius); padding: 16px 24px;
+    border: 1px solid var(--border); box-shadow: var(--shadow);
+  }
+  .step {
+    display: flex; align-items: center; gap: 10px; flex: 1; position: relative;
+  }
+  .step-dot {
+    width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; font-size: 0.8rem; font-weight: 700; flex-shrink: 0;
+    border: 2px solid var(--border);
+    color: var(--text-secondary); background: #fff;
+  }
+  .step.active .step-dot { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .step.done .step-dot { background: var(--primary-light); color: var(--primary); border-color: var(--primary); }
+  .step-label { font-size: 0.78rem; color: var(--text-secondary); font-weight: 500; }
+  .step.active .step-label { color: var(--text); font-weight: 700; }
+  .step.done .step-label { color: var(--primary-dark); }
+  .step-connector {
+    flex: 1; height: 2px; background: var(--border); margin: 0 8px; min-width: 20px;
+  }
+  .step.done + .step-connector, .step-connector.done { background: var(--primary); }
+
+  /* ─── FLOW CARDS ─── */
+  .flow-grid { display: grid; grid-template-columns: 1fr; gap: 24px; }
+
+  .flow-card {
+    background: var(--card); border-radius: var(--radius); border: 1px solid var(--border);
+    box-shadow: var(--shadow); overflow: hidden;
+  }
+  .flow-card-header {
+    padding: 20px 24px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 14px;
+  }
+  .flow-card-header .step-badge {
+    width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center;
+    justify-content: center; font-size: 1rem; font-weight: 800; color: #fff; flex-shrink: 0;
+  }
+  .flow-card-header h3 { font-size: 1rem; font-weight: 700; }
+  .flow-card-header .card-subtitle { font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px; }
+
+  .flow-card-body { padding: 24px; }
+
+  .flow-card .layout-preview {
+    background: var(--bg); border-radius: var(--radius-sm); border: 1px solid var(--border);
+    overflow: hidden; margin-bottom: 20px;
+  }
+
+  /* ─── ZONE LAYOUT ─── */
+  .zone-grid { display: grid; gap: 12px; }
+  .zone-grid-2 { grid-template-columns: 1fr 1fr; }
+  .zone-grid-sidebar { grid-template-columns: 1fr 320px; }
+  .zone-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+  .zone {
+    background: #fff; border: 2px dashed var(--border); border-radius: var(--radius-sm);
+    padding: 16px; position: relative;
+  }
+  .zone-label {
+    font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--text-secondary); margin-bottom: 8px;
+  }
+  .zone-content { font-size: 0.78rem; color: var(--text-secondary); line-height: 1.5; }
+  .zone-content ul { list-style: none; padding: 0; }
+  .zone-content li { padding: 3px 0; display: flex; align-items: center; gap: 6px; }
+  .zone-content li::before { content: "·"; color: var(--primary); font-weight: 900; font-size: 1.2rem; }
+
+  .zone.zone-primary { border-color: var(--primary); background: var(--primary-light); }
+  .zone.zone-primary .zone-label { color: var(--primary-dark); }
+  .zone.zone-accent { border-color: var(--accent); background: var(--accent-light); }
+  .zone.zone-accent .zone-label { color: var(--accent); }
+  .zone.zone-warning { border-color: var(--warning); background: var(--warning-light); }
+  .zone.zone-warning .zone-label { color: #b07a12; }
+  .zone.zone-danger { border-color: var(--danger); background: var(--danger-light); }
+  .zone.zone-danger .zone-label { color: var(--danger); }
+
+  /* ─── TAGS ─── */
+  .tag {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 0.7rem; font-weight: 600; padding: 3px 10px; border-radius: 12px;
+  }
+  .tag-green { background: var(--primary-light); color: var(--primary-dark); }
+  .tag-blue { background: var(--accent-light); color: var(--accent); }
+  .tag-orange { background: var(--warning-light); color: #b07a12; }
+  .tag-grey { background: #f0f0f5; color: var(--text-secondary); }
+  .tag-red { background: var(--danger-light); color: var(--danger); }
+
+  /* ─── DATA FLOW ARROWS ─── */
+  .data-flow {
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px 0; color: var(--text-secondary);
+  }
+  .data-flow .arrow { font-size: 1.5rem; color: var(--primary); margin: 0 8px; }
+  .data-flow .flow-label { font-size: 0.75rem; background: var(--primary-light); color: var(--primary-dark); padding: 4px 12px; border-radius: 20px; font-weight: 600; }
+
+  /* ─── COMPONENT SPECS ─── */
+  .specs-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 16px; }
+  .spec {
+    background: var(--bg); border-radius: var(--radius-sm); padding: 12px 16px;
+    border: 1px solid var(--border);
+  }
+  .spec-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 4px; }
+  .spec-value { font-size: 0.82rem; color: var(--text); }
+
+  /* ─── INTERACTION TABLE ─── */
+  .interactions-table {
+    width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-top: 16px;
+  }
+  .interactions-table th {
+    text-align: left; padding: 10px 16px; background: var(--bg);
+    font-weight: 700; font-size: 0.75rem; text-transform: uppercase;
+    color: var(--text-secondary); border-bottom: 2px solid var(--border);
+  }
+  .interactions-table td {
+    padding: 10px 16px; border-bottom: 1px solid var(--border-light);
+    vertical-align: top;
+  }
+  .interactions-table tr:hover { background: var(--bg); }
+
+  /* ─── CATEGORY ACCORDION PREVIEW ─── */
+  .category-list { display: flex; flex-direction: column; gap: 4px; }
+  .category-item {
+    background: var(--bg); border-radius: 6px; padding: 8px 14px;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 0.8rem; border: 1px solid var(--border-light);
+  }
+  .category-item .cat-name { font-weight: 600; color: var(--text); }
+  .category-item .cat-meta { display: flex; gap: 8px; align-items: center; }
+  .category-item .cat-count { font-size: 0.72rem; color: var(--text-secondary); }
+  .cat-bar { width: 60px; height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
+  .cat-bar-fill { height: 100%; border-radius: 3px; background: var(--primary); }
+
+  /* ─── LEGEND ─── */
+  .legend-bar {
+    display: flex; gap: 20px; flex-wrap: wrap; padding: 16px 24px;
+    background: var(--card); border-radius: var(--radius-sm);
+    border: 1px solid var(--border); margin-top: 32px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: var(--text-secondary); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+
+  /* ─── TRANSITIONS DIAGRAM ─── */
+  .transitions-diagram {
+    background: var(--card); border-radius: var(--radius); padding: 32px;
+    border: 1px solid var(--border); box-shadow: var(--shadow);
+  }
+
+  .state-flow {
+    display: flex; align-items: stretch; gap: 0; justify-content: center; flex-wrap: wrap;
+  }
+  .state-node {
+    background: var(--bg); border: 2px solid var(--border); border-radius: 10px;
+    padding: 16px 20px; min-width: 160px; text-align: center;
+  }
+  .state-node.state-active { border-color: var(--primary); background: var(--primary-light); }
+  .state-node.state-auto { border-color: var(--accent); background: var(--accent-light); }
+  .state-node.state-result { border-color: #4ade80; background: #f0fdf4; }
+  .state-node .state-name { font-size: 0.85rem; font-weight: 700; }
+  .state-node .state-type { font-size: 0.68rem; color: var(--text-secondary); margin-top: 4px; }
+  .state-arrow { display: flex; align-items: center; padding: 0 8px; color: var(--text-secondary); font-size: 1.2rem; }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 900px) {
+    .zone-grid-2, .zone-grid-sidebar, .zone-grid-3 { grid-template-columns: 1fr; }
+    .shell-body { flex-direction: column; }
+    .shell-sidebar { width: 100%; }
+    .stepper { flex-wrap: wrap; gap: 8px; }
+    .content { padding: 24px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- HEADER -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div class="page-header">
+  <h1>Architecture UX — Parcours Estimation</h1>
+  <p class="subtitle">Module Étude de Marché & Avis de Valeur · Ideeri v1.0</p>
+  <div class="header-meta">
+    <span>5 étapes · 12 écrans · 202 champs</span>
+    <span>Design inspiré Papiris</span>
+    <span>Mars 2026</span>
+  </div>
+</div>
+
+<div class="content">
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- SECTION 1 — SHELL & NAVIGATION -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title"><span class="num">1</span> Shell applicatif & navigation</div>
+  <p class="section-desc">
+    Structure globale de l'application. L'estimation vit dans le contexte d'un <strong>Projet de Vente</strong> existant — l'agent y accède depuis la fiche bien, via les tabs de navigation interne.
+  </p>
+
+  <div class="shell-diagram">
+    <div class="shell-topbar">
+      <span class="logo">ideeri</span>
+      <span class="search">🔍 Rechercher un bien, un client, un mandat…</span>
+      <div class="user">
+        <span>Marie Dupont · Agent AV</span>
+        <div class="avatar">MD</div>
+      </div>
+    </div>
+    <div class="shell-body">
+      <div class="shell-sidebar">
+        <div class="nav-item"><span class="icon">📊</span> Dashboard</div>
+        <div class="nav-item"><span class="icon">📅</span> Agenda</div>
+        <div class="nav-item"><span class="icon">👥</span> Mes clients</div>
+        <div class="nav-item active"><span class="icon">🏠</span> Mes biens</div>
+        <div class="nav-item"><span class="icon">📋</span> Mes mandats</div>
+        <div class="nav-item"><span class="icon">✅</span> Mes tâches</div>
+        <div class="nav-item"><span class="icon">📈</span> KPIs</div>
+        <div class="nav-item"><span class="icon">⚙️</span> Paramètres</div>
+      </div>
+      <div class="shell-main">
+        <!-- Breadcrumb -->
+        <div style="font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 16px;">
+          Mes biens › <strong>12 rue des Lilas, Lyon 3</strong> › <span style="color: var(--primary); font-weight: 600;">Estimation</span>
+        </div>
+
+        <!-- Fiche bien header -->
+        <div style="background: var(--card); border-radius: var(--radius); padding: 20px 24px; border: 1px solid var(--border); margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+              <div style="font-size: 1.15rem; font-weight: 700;">Vente Appartement T3 à Lyon 3ème</div>
+              <div style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 4px;">
+                Agent <strong style="color: var(--text);">Marie Dupont</strong> · Créé le <strong>24 mars 2026</strong> · Réf. <strong>2026LYO142</strong> · Source Ideeri
+              </div>
+              <div style="display: flex; gap: 6px; margin-top: 8px;">
+                <span class="tag tag-grey">Appartement</span>
+                <span class="tag tag-grey">T3</span>
+                <span class="tag tag-grey">72.5 m²</span>
+                <span class="tag tag-grey">Lyon 3</span>
+                <span class="tag tag-green">DPE D</span>
+              </div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 0.72rem; color: var(--text-secondary);">Complétude</div>
+              <div style="font-size: 1.3rem; font-weight: 800; color: var(--primary);">78%</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabs navigation interne (style Papiris) -->
+        <div style="display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 20px;">
+          <div style="padding: 10px 20px; font-size: 0.82rem; color: var(--text-secondary); cursor: pointer;">Dashboard</div>
+          <div style="padding: 10px 20px; font-size: 0.82rem; color: var(--text-secondary); cursor: pointer;">Détails du bien</div>
+          <div style="padding: 10px 20px; font-size: 0.82rem; color: var(--text-secondary); cursor: pointer;">Documents</div>
+          <div style="padding: 10px 20px; font-size: 0.82rem; color: var(--primary); font-weight: 700; border-bottom: 3px solid var(--primary); margin-bottom: -2px; cursor: pointer;">Estimation ●</div>
+          <div style="padding: 10px 20px; font-size: 0.82rem; color: var(--text-secondary); cursor: pointer;">Mandat</div>
+          <div style="padding: 10px 20px; font-size: 0.82rem; color: var(--text-secondary); cursor: pointer;">Publication</div>
+          <div style="padding: 10px 20px; font-size: 0.82rem; color: var(--text-secondary); cursor: pointer;">Participants</div>
+        </div>
+
+        <!-- STEPPER inside estimation tab -->
+        <div class="stepper">
+          <div class="step done">
+            <div class="step-dot">✓</div>
+            <div class="step-label">Bien cible</div>
+          </div>
+          <div class="step-connector done"></div>
+          <div class="step done">
+            <div class="step-dot">✓</div>
+            <div class="step-label">Contexte zone</div>
+          </div>
+          <div class="step-connector done"></div>
+          <div class="step active">
+            <div class="step-dot">3</div>
+            <div class="step-label">Comparables</div>
+          </div>
+          <div class="step-connector"></div>
+          <div class="step">
+            <div class="step-dot">4</div>
+            <div class="step-label">Tension marché</div>
+          </div>
+          <div class="step-connector"></div>
+          <div class="step">
+            <div class="step-dot">5</div>
+            <div class="step-label">Avis de valeur</div>
+          </div>
+        </div>
+
+        <!-- Content area placeholder -->
+        <div style="background: var(--card); border-radius: var(--radius); padding: 40px; border: 1px solid var(--border); text-align: center; color: var(--text-secondary);">
+          <div style="font-size: 2rem; margin-bottom: 8px;">📍</div>
+          <div style="font-size: 0.9rem; font-weight: 600;">Zone de contenu de l'étape active</div>
+          <div style="font-size: 0.8rem;">Chaque étape charge son layout spécifique (détaillé ci-dessous)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="specs-grid" style="margin-top: 20px;">
+    <div class="spec">
+      <div class="spec-label">Point d'entrée</div>
+      <div class="spec-value">Fiche Bien → Tab "Estimation"</div>
+    </div>
+    <div class="spec">
+      <div class="spec-label">Navigation</div>
+      <div class="spec-value">Stepper horizontal 5 étapes + retour libre aux étapes précédentes</div>
+    </div>
+    <div class="spec">
+      <div class="spec-label">Sauvegarde</div>
+      <div class="spec-value">Auto-save continue (chaque champ modifié = persist immédiat)</div>
+    </div>
+    <div class="spec">
+      <div class="spec-label">Responsive</div>
+      <div class="spec-value">Desktop-first (usage bureau + tablette terrain)</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- SECTION 2 — ÉTAPE 1 : BIEN CIBLE -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title"><span class="num">2</span> Étape 1 — Bien Cible</div>
+  <p class="section-desc">
+    Saisie et enrichissement des 202 champs intrinsèques du bien. L'enjeu UX majeur : organiser 20 catégories de données sans submerger l'agent. Progressive disclosure + barre de complétude en temps réel.
+  </p>
+
+  <div class="flow-card">
+    <div class="flow-card-header">
+      <div class="step-badge" style="background: var(--primary);">1</div>
+      <div>
+        <h3>Données intrinsèques du bien</h3>
+        <div class="card-subtitle">202 champs · 20 catégories · Saisie progressive</div>
+      </div>
+      <div style="margin-left: auto; display: flex; gap: 6px;">
+        <span class="tag tag-green">Saisie agent</span>
+        <span class="tag tag-blue">Pré-remplissage auto</span>
+      </div>
+    </div>
+
+    <div class="flow-card-body">
+
+      <!-- LAYOUT PREVIEW -->
+      <div class="layout-preview" style="padding: 20px;">
+        <div class="zone-grid zone-grid-sidebar">
+
+          <!-- LEFT: Formulaire par catégories -->
+          <div>
+            <div class="zone zone-primary" style="margin-bottom: 12px;">
+              <div class="zone-label">🎯 Barre de complétude temps réel (sticky top)</div>
+              <div class="zone-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                  <span style="font-weight: 700; color: var(--primary-dark);">Complétude pondérée : 64%</span>
+                  <span style="font-size: 0.72rem;">14/19 critiques · 38/50 importants</span>
+                </div>
+                <div style="height: 8px; background: #d0e8d8; border-radius: 4px; overflow: hidden;">
+                  <div style="width: 64%; height: 100%; background: var(--primary); border-radius: 4px;"></div>
+                </div>
+                <div style="display: flex; gap: 6px; margin-top: 8px;">
+                  <span class="tag tag-red" style="font-size: 0.65rem;">5 champs critiques manquants</span>
+                  <span class="tag tag-orange" style="font-size: 0.65rem;">12 importants manquants</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Accordion categories -->
+            <div class="zone">
+              <div class="zone-label">📋 Catégories de données (accordion)</div>
+              <div class="category-list">
+                <div class="category-item">
+                  <span class="cat-name">1. Identification & Statut juridique</span>
+                  <div class="cat-meta">
+                    <span class="tag tag-green" style="font-size: 0.62rem;">9/10</span>
+                    <div class="cat-bar"><div class="cat-bar-fill" style="width: 90%;"></div></div>
+                  </div>
+                </div>
+                <div class="category-item" style="border-color: var(--primary); border-left: 3px solid var(--primary);">
+                  <span class="cat-name" style="color: var(--primary);">▼ 2. Caractéristiques générales</span>
+                  <div class="cat-meta">
+                    <span class="tag tag-orange" style="font-size: 0.62rem;">17/23</span>
+                    <div class="cat-bar"><div class="cat-bar-fill" style="width: 74%;"></div></div>
+                  </div>
+                </div>
+                <div class="category-item">
+                  <span class="cat-name">3. Structure & Gros œuvre</span>
+                  <div class="cat-meta">
+                    <span class="tag tag-red" style="font-size: 0.62rem;">8/22</span>
+                    <div class="cat-bar"><div class="cat-bar-fill" style="width: 36%; background: var(--danger);"></div></div>
+                  </div>
+                </div>
+                <div class="category-item">
+                  <span class="cat-name">4. Revêtements muraux</span>
+                  <div class="cat-meta">
+                    <span class="tag tag-grey" style="font-size: 0.62rem;">0/10</span>
+                    <div class="cat-bar"><div class="cat-bar-fill" style="width: 0%;"></div></div>
+                  </div>
+                </div>
+                <div class="category-item">
+                  <span class="cat-name">5. Revêtements de sols</span>
+                  <div class="cat-meta">
+                    <span class="tag tag-grey" style="font-size: 0.62rem;">0/9</span>
+                    <div class="cat-bar"><div class="cat-bar-fill" style="width: 0%;"></div></div>
+                  </div>
+                </div>
+                <div class="category-item">
+                  <span class="cat-name">6. Menuiseries & Fenêtres</span>
+                  <div class="cat-meta">
+                    <span class="tag tag-green" style="font-size: 0.62rem;">7/8</span>
+                    <div class="cat-bar"><div class="cat-bar-fill" style="width: 87%;"></div></div>
+                  </div>
+                </div>
+                <div class="category-item">
+                  <span class="cat-name" style="color: var(--text-secondary);">… 14 catégories supplémentaires</span>
+                  <div class="cat-meta"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT: Sidebar contextuelle -->
+          <div>
+            <div class="zone zone-accent" style="margin-bottom: 12px;">
+              <div class="zone-label">📸 Photos du bien</div>
+              <div class="zone-content">
+                Galerie miniatures drag & drop. Marquage photo par pièce (auto-tag IA optionnel futur). Compteur : 12 photos uploadées.
+              </div>
+            </div>
+            <div class="zone" style="margin-bottom: 12px;">
+              <div class="zone-label">🗺️ Localisation</div>
+              <div class="zone-content">
+                Mini-carte (Mapbox) centrée sur l'adresse. Affiche le code IRIS, la référence cadastrale. Click → zoom.
+              </div>
+            </div>
+            <div class="zone zone-warning" style="margin-bottom: 12px;">
+              <div class="zone-label">⚠️ Champs critiques manquants</div>
+              <div class="zone-content">
+                Liste cliquable des 5 champs critiques non renseignés. Click → scroll vers le champ dans le formulaire.
+              </div>
+            </div>
+            <div class="zone">
+              <div class="zone-label">📝 Notes terrain</div>
+              <div class="zone-content">
+                Zone de texte libre pour observations agent (non structuré). Sauvegarde auto.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Interactions -->
+      <h4 style="font-size: 0.85rem; font-weight: 700; margin-top: 20px; margin-bottom: 8px;">Interactions clés</h4>
+      <table class="interactions-table">
+        <thead>
+          <tr><th>Action utilisateur</th><th>Comportement</th><th>Donnée impactée</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Ouvre une catégorie</td>
+            <td>Accordion expand — affiche les champs de la catégorie avec labels, types, aide contextuelle</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td>Remplit un champ</td>
+            <td>Auto-save + mise à jour instantanée de la barre de complétude (animation)</td>
+            <td>Bien_Cible.donnees_intrinseques + Completude</td>
+          </tr>
+          <tr>
+            <td>Saisit l'adresse</td>
+            <td>Autocomplétion (API Adresse gouv.fr) → géocode → pré-remplit code postal, commune, IRIS, lat/lng</td>
+            <td>Bien_Cible.localisation</td>
+          </tr>
+          <tr>
+            <td>Click "Champ critique manquant"</td>
+            <td>Scroll smooth vers le champ dans l'accordion, ouvre la catégorie si fermée, highlight du champ</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td>Click "Étape suivante"</td>
+            <td>Validation : au moins les 19 champs critiques renseignés (sinon warning modal avec liste)</td>
+            <td>Transition → Étape 2</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- DATA FLOW 1 → 2 -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div class="data-flow">
+  <span class="flow-label">GPS (lat/lng) du bien</span>
+  <span class="arrow">→</span>
+  <span class="flow-label">Enrichissement automatique 33+ APIs</span>
+  <span class="arrow">→</span>
+  <span class="flow-label">Contexte Zone généré</span>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- SECTION 3 — ÉTAPE 2 : CONTEXTE ZONE -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title"><span class="num">3</span> Étape 2 — Contexte Zone</div>
+  <p class="section-desc">
+    Enrichissement automatique par géolocalisation. L'agent ne saisit rien — il consulte, vérifie, et peut surcharger si nécessaire. Affichage type dashboard avec 5 scores agrégés.
+  </p>
+
+  <div class="flow-card">
+    <div class="flow-card-header">
+      <div class="step-badge" style="background: var(--accent);">2</div>
+      <div>
+        <h3>Contexte extrinsèque de la zone</h3>
+        <div class="card-subtitle">33+ sources data.gouv · 5 scores agrégés · Lecture seule (surcharge possible)</div>
+      </div>
+      <div style="margin-left: auto; display: flex; gap: 6px;">
+        <span class="tag tag-blue">100% automatique</span>
+        <span class="tag tag-grey">Lecture + surcharge</span>
+      </div>
+    </div>
+
+    <div class="flow-card-body">
+      <div class="layout-preview" style="padding: 20px;">
+        <div class="zone-grid zone-grid-sidebar">
+          <div>
+            <!-- 5 Score cards -->
+            <div class="zone zone-accent" style="margin-bottom: 12px;">
+              <div class="zone-label">📊 5 Scores agrégés (0 → 100)</div>
+              <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 8px;">
+                <div style="background: #fff; border-radius: 8px; padding: 10px; text-align: center; border: 1px solid var(--border);">
+                  <div style="font-size: 1.4rem; font-weight: 800; color: var(--primary);">82</div>
+                  <div style="font-size: 0.65rem; color: var(--text-secondary);">Accessibilité</div>
+                </div>
+                <div style="background: #fff; border-radius: 8px; padding: 10px; text-align: center; border: 1px solid var(--border);">
+                  <div style="font-size: 1.4rem; font-weight: 800; color: var(--primary);">71</div>
+                  <div style="font-size: 0.65rem; color: var(--text-secondary);">Services</div>
+                </div>
+                <div style="background: #fff; border-radius: 8px; padding: 10px; text-align: center; border: 1px solid var(--border);">
+                  <div style="font-size: 1.4rem; font-weight: 800; color: var(--warning);">58</div>
+                  <div style="font-size: 0.65rem; color: var(--text-secondary);">Environnement</div>
+                </div>
+                <div style="background: #fff; border-radius: 8px; padding: 10px; text-align: center; border: 1px solid var(--border);">
+                  <div style="font-size: 1.4rem; font-weight: 800; color: var(--danger);">34</div>
+                  <div style="font-size: 0.65rem; color: var(--text-secondary);">Risques</div>
+                </div>
+                <div style="background: #fff; border-radius: 8px; padding: 10px; text-align: center; border: 1px solid var(--border);">
+                  <div style="font-size: 1.4rem; font-weight: 800; color: var(--primary);">76</div>
+                  <div style="font-size: 0.65rem; color: var(--text-secondary);">Socio-éco</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Detail panels -->
+            <div class="zone-grid zone-grid-2">
+              <div class="zone">
+                <div class="zone-label">🚇 Transports & Accessibilité</div>
+                <div class="zone-content">
+                  <ul>
+                    <li>Métro D — Garibaldi : 350m</li>
+                    <li>Tram T3 — Gare Part-Dieu : 600m</li>
+                    <li>Bus C3, C9 : 120m</li>
+                    <li>Temps centre-ville : 12 min</li>
+                  </ul>
+                </div>
+              </div>
+              <div class="zone">
+                <div class="zone-label">🏪 Commerces & Services</div>
+                <div class="zone-content">
+                  <ul>
+                    <li>Supermarché Monoprix : 200m</li>
+                    <li>Boulangerie : 50m</li>
+                    <li>Pharmacie : 180m</li>
+                    <li>8 restaurants < 300m</li>
+                  </ul>
+                </div>
+              </div>
+              <div class="zone">
+                <div class="zone-label">🎓 Éducation</div>
+                <div class="zone-content">
+                  <ul>
+                    <li>École maternelle : 250m</li>
+                    <li>Collège Lacassagne : 600m</li>
+                    <li>Lycée La Martinière : 1.2km</li>
+                  </ul>
+                </div>
+              </div>
+              <div class="zone zone-danger">
+                <div class="zone-label">⚠️ Risques identifiés</div>
+                <div class="zone-content">
+                  <ul>
+                    <li>Zone PPRI — risque inondation modéré</li>
+                    <li>Sismicité : zone 2 (faible)</li>
+                    <li>Radon : potentiel catégorie 1</li>
+                    <li style="color: var(--danger); font-weight: 600;">Impact estimation : décote possible -3 à -5%</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT: Carte -->
+          <div>
+            <div class="zone zone-accent" style="min-height: 280px;">
+              <div class="zone-label">🗺️ Carte interactive (Mapbox)</div>
+              <div class="zone-content">
+                <div style="background: #d8e8f8; border-radius: 8px; height: 200px; display: flex; align-items: center; justify-content: center; color: var(--accent); font-weight: 600; margin-bottom: 8px;">
+                  Carte Mapbox<br>Couches : transports, commerces, écoles, risques
+                </div>
+                Toggle de couches : chaque catégorie peut être affichée/masquée. Périmètre configurable (500m, 1km, 2km).
+              </div>
+            </div>
+            <div class="zone" style="margin-top: 12px;">
+              <div class="zone-label">📈 Marché local IRIS</div>
+              <div class="zone-content">
+                <ul>
+                  <li>Prix médian /m² : 4 280 €</li>
+                  <li>Évolution 12 mois : +2.3%</li>
+                  <li>Volume transactions : 156/an</li>
+                  <li>Délai moyen vente : 68 jours</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <table class="interactions-table">
+        <thead>
+          <tr><th>Action utilisateur</th><th>Comportement</th><th>Donnée impactée</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Arrive sur l'étape</td>
+            <td>Chargement auto : appels parallèles aux 33+ APIs, loader par section, apparition progressive</td>
+            <td>Contexte_Zone (toutes sections)</td>
+          </tr>
+          <tr>
+            <td>Toggle couche carte</td>
+            <td>Affiche/masque les POI correspondants sur la carte Mapbox</td>
+            <td>— (affichage seul)</td>
+          </tr>
+          <tr>
+            <td>Click "Surcharger" sur une donnée</td>
+            <td>Rend le champ éditable. L'agent peut corriger une donnée automatique erronée. Badge "surchargé" affiché.</td>
+            <td>Contexte_Zone + flag surcharge</td>
+          </tr>
+          <tr>
+            <td>Click "Étape suivante"</td>
+            <td>Aucune validation bloquante — toutes les données sont automatiques. Transition fluide.</td>
+            <td>Transition → Étape 3</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- DATA FLOW 2 → 3 -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div class="data-flow">
+  <span class="flow-label">Bien Cible (critères) + Zone (périmètre)</span>
+  <span class="arrow">→</span>
+  <span class="flow-label">Requête DVF + Ideeri + Portails</span>
+  <span class="arrow">→</span>
+  <span class="flow-label">Biens comparables candidats</span>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- SECTION 4 — ÉTAPE 3 : COMPARABLES -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title"><span class="num">4</span> Étape 3 — Comparables</div>
+  <p class="section-desc">
+    L'étape la plus interactive. L'agent sélectionne sur carte et en liste des biens comparables parmi 4 sources (DVF, Ideeri ventes, Ideeri en cours, Portails). Le système pré-calcule les ajustements vs le bien cible.
+  </p>
+
+  <div class="flow-card">
+    <div class="flow-card-header">
+      <div class="step-badge" style="background: #8b5cf6;">3</div>
+      <div>
+        <h3>Sélection & ajustement des comparables</h3>
+        <div class="card-subtitle">4 sources · Carte + Liste · Ajustements automatiques</div>
+      </div>
+      <div style="margin-left: auto; display: flex; gap: 6px;">
+        <span class="tag tag-green">Sélection agent</span>
+        <span class="tag tag-blue">Calcul auto ajustements</span>
+      </div>
+    </div>
+
+    <div class="flow-card-body">
+      <div class="layout-preview" style="padding: 20px;">
+        <!-- Split view: Carte + Liste -->
+        <div class="zone-grid" style="grid-template-columns: 1fr 1fr;">
+
+          <!-- LEFT: Carte -->
+          <div class="zone zone-accent" style="min-height: 360px;">
+            <div class="zone-label">🗺️ Carte des comparables (Mapbox)</div>
+            <div style="background: #d8e8f8; border-radius: 8px; height: 260px; display: flex; align-items: center; justify-content: center; color: var(--accent); font-weight: 600; margin-bottom: 10px; flex-direction: column; gap: 4px;">
+              <span>Carte interactive</span>
+              <span style="font-size: 0.72rem; font-weight: 400;">🏠 = Bien cible (centre)</span>
+              <span style="font-size: 0.72rem; font-weight: 400;">🔵 DVF · 🟢 Ideeri vendu · 🟡 Ideeri en cours · 🟠 Portail</span>
+            </div>
+            <div class="zone-content" style="font-size: 0.75rem;">
+              Rayon configurable (500m → 5km). Filtre par source, type bien, surface, nb pièces.
+              Click sur un marker → popup avec résumé + bouton "Sélectionner comme comparable".
+              Les comparables sélectionnés passent en vert avec checkmark.
+            </div>
+          </div>
+
+          <!-- RIGHT: Liste -->
+          <div>
+            <div class="zone" style="margin-bottom: 12px;">
+              <div class="zone-label">🔍 Filtres comparables</div>
+              <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                <span class="tag tag-blue">Source : Toutes ▼</span>
+                <span class="tag tag-grey">Rayon : 1 km ▼</span>
+                <span class="tag tag-grey">Type : Appartement</span>
+                <span class="tag tag-grey">Surface : ±20%</span>
+                <span class="tag tag-grey">Pièces : ±1</span>
+                <span class="tag tag-grey">Date : < 12 mois</span>
+              </div>
+            </div>
+
+            <div class="zone zone-primary" style="margin-bottom: 12px;">
+              <div class="zone-label">✅ Comparables sélectionnés (3/8)</div>
+              <div class="zone-content">
+                <!-- Item 1 -->
+                <div style="background: #fff; border-radius: 6px; padding: 10px; margin-bottom: 6px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <div style="font-weight: 600; font-size: 0.8rem;">T3 68m² — 8 rue Villeroy</div>
+                    <div style="font-size: 0.7rem; color: var(--text-secondary);">DVF · Vendu 285 000 € · il y a 4 mois · 380m</div>
+                  </div>
+                  <div style="text-align: right;">
+                    <div style="font-weight: 700; font-size: 0.85rem;">4 191 €/m²</div>
+                    <div style="font-size: 0.68rem; color: var(--danger);">−2.1% vs cible</div>
+                  </div>
+                </div>
+                <!-- Item 2 -->
+                <div style="background: #fff; border-radius: 6px; padding: 10px; margin-bottom: 6px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <div style="font-weight: 600; font-size: 0.8rem;">T3 75m² — 22 av. Lacassagne</div>
+                    <div style="font-size: 0.7rem; color: var(--text-secondary);">Ideeri vendu · 310 000 € · il y a 2 mois · 520m</div>
+                  </div>
+                  <div style="text-align: right;">
+                    <div style="font-weight: 700; font-size: 0.85rem;">4 133 €/m²</div>
+                    <div style="font-size: 0.68rem; color: var(--primary);">+1.5% vs cible</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="zone">
+              <div class="zone-label">📋 Autres résultats (5 non sélectionnés)</div>
+              <div class="zone-content" style="font-size: 0.75rem;">
+                Liste scrollable triée par pertinence (distance × similarité). Chaque item : adresse, source, prix, prix/m², date, distance. Bouton "Ajouter" pour sélectionner.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ajustements -->
+      <div style="margin-top: 20px;">
+        <div class="zone zone-warning" style="border-style: solid;">
+          <div class="zone-label">⚖️ Tableau d'ajustements (auto-calculé, surcharge agent possible)</div>
+          <div class="zone-content">
+            Pour chaque comparable sélectionné, le système calcule automatiquement les écarts vs le bien cible : surface (€/m² × delta), étage (% ajustement), DPE (décote/surcote), état général, extérieurs, parking…<br><br>
+            L'agent peut <strong>surcharger un ajustement</strong> avec sa connaissance terrain (ex : "vue exceptionnelle non captée par les données"). Chaque surcharge est tracée et argumentée.
+          </div>
+        </div>
+      </div>
+
+      <table class="interactions-table">
+        <thead><tr><th>Action</th><th>Comportement</th><th>Donnée</th></tr></thead>
+        <tbody>
+          <tr><td>Click marker carte</td><td>Popup résumé comparable + bouton "Sélectionner"</td><td>—</td></tr>
+          <tr><td>Sélectionne un comparable</td><td>Ajouté à la liste "Sélectionnés", ajustements calculés en temps réel, marker passe en vert</td><td>Bien_Comparable (création)</td></tr>
+          <tr><td>Modifie un ajustement</td><td>Champ éditable avec l'ajustement auto pré-rempli. L'agent tape sa valeur + justification</td><td>Bien_Comparable.ajustement_pct</td></tr>
+          <tr><td>Change le rayon / filtres</td><td>Recharge la carte et la liste avec les nouveaux critères</td><td>—</td></tr>
+          <tr><td>Click "Étape suivante"</td><td>Minimum 3 comparables sélectionnés requis. Si < 3 → warning (possible de continuer avec confirmation)</td><td>Transition → Étape 4</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- DATA FLOW 3 → 4 -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div class="data-flow">
+  <span class="flow-label">Bien Cible + Comparables sélectionnés</span>
+  <span class="arrow">→</span>
+  <span class="flow-label">Croisement avec acquéreurs actifs (scoring radar 31 critères)</span>
+  <span class="arrow">→</span>
+  <span class="flow-label">Tension Marché calculée</span>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- SECTION 5 — ÉTAPE 4 : TENSION MARCHÉ -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title"><span class="num">5</span> Étape 4 — Tension Marché</div>
+  <p class="section-desc">
+    Croisement offre/demande. Le système confronte le bien cible aux acquéreurs actifs dans Ideeri pour mesurer la pression de la demande. Étape en lecture — l'agent constate et intègre l'information dans sa stratégie de prix.
+  </p>
+
+  <div class="flow-card">
+    <div class="flow-card-header">
+      <div class="step-badge" style="background: var(--danger);">4</div>
+      <div>
+        <h3>Analyse de la tension offre / demande</h3>
+        <div class="card-subtitle">Scoring radar 31 critères · Acquéreurs matchés · Indice de liquidité</div>
+      </div>
+      <div style="margin-left: auto; display: flex; gap: 6px;">
+        <span class="tag tag-blue">100% automatique</span>
+        <span class="tag tag-green">Données Ideeri exclusives</span>
+      </div>
+    </div>
+
+    <div class="flow-card-body">
+      <div class="layout-preview" style="padding: 20px;">
+
+        <!-- KPI cards row -->
+        <div class="zone zone-primary" style="margin-bottom: 16px;">
+          <div class="zone-label">📊 Indicateurs de tension (4 KPIs)</div>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 8px;">
+            <div style="background: #fff; border-radius: 8px; padding: 14px; text-align: center; border: 1px solid var(--border);">
+              <div style="font-size: 1.8rem; font-weight: 800; color: var(--primary);">23</div>
+              <div style="font-size: 0.72rem; color: var(--text-secondary);">Acquéreurs matchés</div>
+              <div style="font-size: 0.65rem; color: var(--primary);">score > seuil</div>
+            </div>
+            <div style="background: #fff; border-radius: 8px; padding: 14px; text-align: center; border: 1px solid var(--border);">
+              <div style="font-size: 1.8rem; font-weight: 800; color: var(--warning);">7</div>
+              <div style="font-size: 0.72rem; color: var(--text-secondary);">Forte compatibilité</div>
+              <div style="font-size: 0.65rem; color: var(--warning);">score > 0.75</div>
+            </div>
+            <div style="background: #fff; border-radius: 8px; padding: 14px; text-align: center; border: 1px solid var(--border);">
+              <div style="font-size: 1.8rem; font-weight: 800; color: var(--danger);">3.2x</div>
+              <div style="font-size: 0.72rem; color: var(--text-secondary);">Ratio demande/offre</div>
+              <div style="font-size: 0.65rem; color: var(--danger);">Tension forte</div>
+            </div>
+            <div style="background: #fff; border-radius: 8px; padding: 14px; text-align: center; border: 1px solid var(--border);">
+              <div style="font-size: 1.8rem; font-weight: 800; color: var(--primary);">42j</div>
+              <div style="font-size: 0.72rem; color: var(--text-secondary);">Durée vente estimée</div>
+              <div style="font-size: 0.65rem; color: var(--primary);">vs moy. 68j zone</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="zone-grid zone-grid-sidebar">
+          <div>
+            <!-- Top acquéreurs -->
+            <div class="zone" style="margin-bottom: 12px;">
+              <div class="zone-label">👤 Top 5 acquéreurs compatibles</div>
+              <div class="zone-content">
+                Liste des 5 acquéreurs les plus compatibles avec score, budget, critères matchés / non matchés.
+                <strong>Pas de données nominatives</strong> — juste profil anonymisé (budget, nb pièces recherché, zone).
+                Click → détail du scoring radar 31 critères pour cet acquéreur.
+              </div>
+            </div>
+            <!-- Comparables concurrents -->
+            <div class="zone">
+              <div class="zone-label">🏘️ Biens concurrents en vente</div>
+              <div class="zone-content">
+                Biens similaires actuellement en vente dans la zone (Ideeri en cours + Portails).
+                Nombre, prix moyen, positionnement vs bien cible. Permet d'ajuster la stratégie de prix.
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <!-- Radar chart -->
+            <div class="zone zone-accent" style="min-height: 280px;">
+              <div class="zone-label">🎯 Radar de compatibilité (31 critères)</div>
+              <div style="background: #fff; border-radius: 8px; height: 220px; display: flex; align-items: center; justify-content: center; color: var(--accent); font-weight: 600;">
+                Graphique Radar (recharts)<br>31 axes · Bien cible vs Acquéreur top 1
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <table class="interactions-table">
+        <thead><tr><th>Action</th><th>Comportement</th><th>Donnée</th></tr></thead>
+        <tbody>
+          <tr><td>Arrive sur l'étape</td><td>Calcul automatique : scoring de tous les acquéreurs actifs vs le bien, agrégation des métriques</td><td>Tension_Marche (création)</td></tr>
+          <tr><td>Click sur un acquéreur</td><td>Drawer latéral avec détail du scoring radar 31 critères, critères matchés en vert / non matchés en rouge</td><td>— (lecture)</td></tr>
+          <tr><td>Click "Étape suivante"</td><td>Transition directe — pas de validation (étape en lecture seule)</td><td>Transition → Étape 5</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- DATA FLOW 4 → 5 -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div class="data-flow">
+  <span class="flow-label">Bien + Comparables + Zone + Tension</span>
+  <span class="arrow">→</span>
+  <span class="flow-label">Algorithme d'estimation</span>
+  <span class="arrow">→</span>
+  <span class="flow-label" style="background: #f0fdf4; color: #166534; border: 1px solid #4ade80;">Avis de Valeur final</span>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- SECTION 6 — ÉTAPE 5 : AVIS DE VALEUR -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title"><span class="num">6</span> Étape 5 — Avis de Valeur</div>
+  <p class="section-desc">
+    Le résultat final. Fourchette de prix argumentée avec indice de confiance. L'agent peut ajuster la stratégie de prix et générer un document PDF pour le vendeur.
+  </p>
+
+  <div class="flow-card" style="border-color: var(--primary);">
+    <div class="flow-card-header" style="background: var(--primary-light);">
+      <div class="step-badge" style="background: #16a34a;">5</div>
+      <div>
+        <h3>Avis de Valeur — Résultat final</h3>
+        <div class="card-subtitle">Fourchette argumentée · Indice de confiance · Export PDF vendeur</div>
+      </div>
+      <div style="margin-left: auto; display: flex; gap: 6px;">
+        <span class="tag tag-green">Résultat calculé</span>
+        <span class="tag tag-orange">Ajustement stratégie agent</span>
+      </div>
+    </div>
+
+    <div class="flow-card-body">
+      <div class="layout-preview" style="padding: 20px;">
+
+        <!-- Prix headline -->
+        <div class="zone zone-primary" style="margin-bottom: 16px; text-align: center; padding: 24px;">
+          <div style="font-size: 0.82rem; color: var(--primary-dark); margin-bottom: 8px; font-weight: 600;">ESTIMATION — Appartement T3 72.5m² · Lyon 3ème</div>
+          <div style="display: flex; justify-content: center; align-items: baseline; gap: 16px;">
+            <div>
+              <div style="font-size: 0.7rem; color: var(--text-secondary);">Fourchette basse</div>
+              <div style="font-size: 1.4rem; font-weight: 700; color: var(--text);">285 000 €</div>
+            </div>
+            <div style="font-size: 2.2rem; font-weight: 900; color: var(--primary);">305 000 €</div>
+            <div>
+              <div style="font-size: 0.7rem; color: var(--text-secondary);">Fourchette haute</div>
+              <div style="font-size: 1.4rem; font-weight: 700; color: var(--text);">320 000 €</div>
+            </div>
+          </div>
+          <div style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 8px;">
+            4 207 €/m² · Indice de confiance : <strong style="color: var(--primary);">78/100</strong>
+          </div>
+        </div>
+
+        <div class="zone-grid zone-grid-sidebar">
+          <div>
+            <!-- Décomposition -->
+            <div class="zone" style="margin-bottom: 12px;">
+              <div class="zone-label">🧮 Décomposition de l'estimation</div>
+              <div class="zone-content">
+                <ul>
+                  <li><strong>Prix médian comparables ajustés</strong> : 302 400 €</li>
+                  <li><strong>Ajustement extrinsèque zone</strong> : +1.2% (bonne accessibilité, risque inondation)</li>
+                  <li><strong>Impact tension marché</strong> : +0.7% (demande forte, ratio 3.2x)</li>
+                  <li><strong>DPE D → décote</strong> : -1.5%</li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- Argumentaire -->
+            <div class="zone-grid zone-grid-2">
+              <div class="zone zone-primary">
+                <div class="zone-label">💪 Points forts</div>
+                <div class="zone-content">
+                  <ul>
+                    <li>Luminosité sud-est exceptionnelle</li>
+                    <li>Étage 4/6 avec ascenseur</li>
+                    <li>Balcon 5.2m²</li>
+                    <li>Forte demande T3 zone</li>
+                    <li>Proximité transports (350m métro)</li>
+                  </ul>
+                </div>
+              </div>
+              <div class="zone zone-danger">
+                <div class="zone-label">⚠️ Points de vigilance</div>
+                <div class="zone-content">
+                  <ul>
+                    <li>DPE D — passoire thermique en 2028</li>
+                    <li>Travaux copro votés (15k€)</li>
+                    <li>Zone PPRI inondation</li>
+                    <li>Pas de parking box</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT -->
+          <div>
+            <!-- Stratégie de prix -->
+            <div class="zone zone-warning" style="margin-bottom: 12px;">
+              <div class="zone-label">🎯 Stratégie de prix (choix agent)</div>
+              <div class="zone-content">
+                3 options radio :<br><br>
+                <strong>🟢 Agressif</strong> — Prix haut de fourchette. Pour vente rapide en marché tendu.<br>
+                <strong>🟡 Marché</strong> — Prix médian. Recommandé par défaut.<br>
+                <strong>🔴 Prudent</strong> — Prix bas de fourchette. Pour bien avec décotes identifiées.<br><br>
+                L'agent peut aussi saisir un <strong>prix de mise en vente libre</strong> (avec écart affiché vs estimation).
+              </div>
+            </div>
+
+            <!-- Actions finales -->
+            <div class="zone zone-accent">
+              <div class="zone-label">📄 Actions finales</div>
+              <div class="zone-content">
+                <ul>
+                  <li><strong>Générer PDF Avis de Valeur</strong> — document vendeur avec argumentaire complet</li>
+                  <li><strong>Valider l'estimation</strong> — fige les données, horodate, associe au mandat</li>
+                  <li><strong>Nouvelle estimation</strong> — crée une version 2 (historise la V1)</li>
+                  <li><strong>Partager au gérant</strong> — notification + accès en lecture</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <table class="interactions-table">
+        <thead><tr><th>Action</th><th>Comportement</th><th>Donnée</th></tr></thead>
+        <tbody>
+          <tr><td>Arrive sur l'étape</td><td>Calcul final : agrège comparables + zone + tension → fourchette + indice confiance + argumentaire</td><td>Avis_Valeur (création)</td></tr>
+          <tr><td>Choisit une stratégie</td><td>Met à jour le prix de mise en vente recommandé. Recalcule l'impact sur durée de vente estimée.</td><td>Avis_Valeur.strategie_prix</td></tr>
+          <tr><td>Click "Générer PDF"</td><td>Génération du document PDF avec charte Ideeri. Inclut : fourchette, comparables, zone, argumentaire.</td><td>Export PDF</td></tr>
+          <tr><td>Click "Valider"</td><td>Fige l'estimation (snapshot). Horodate. Rattache au projet de vente. Prêt pour mandat.</td><td>Avis_Valeur.statut = "validé"</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- SECTION 7 — ÉTATS & TRANSITIONS -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title"><span class="num">7</span> Machine à états du parcours</div>
+  <p class="section-desc">
+    Chaque estimation a un statut global. L'agent peut naviguer librement entre les étapes déjà visitées (retour arrière), mais pas sauter en avant.
+  </p>
+
+  <div class="transitions-diagram">
+    <div class="state-flow">
+      <div class="state-node state-active">
+        <div class="state-name">Brouillon</div>
+        <div class="state-type">Étape 1 en cours</div>
+      </div>
+      <div class="state-arrow">→</div>
+      <div class="state-node state-auto">
+        <div class="state-name">Enrichi</div>
+        <div class="state-type">Zone auto-calculée</div>
+      </div>
+      <div class="state-arrow">→</div>
+      <div class="state-node state-active">
+        <div class="state-name">Comparé</div>
+        <div class="state-type">≥3 comparables OK</div>
+      </div>
+      <div class="state-arrow">→</div>
+      <div class="state-node state-auto">
+        <div class="state-name">Analysé</div>
+        <div class="state-type">Tension calculée</div>
+      </div>
+      <div class="state-arrow">→</div>
+      <div class="state-node state-result">
+        <div class="state-name">Estimé</div>
+        <div class="state-type">Avis généré</div>
+      </div>
+      <div class="state-arrow">→</div>
+      <div class="state-node state-result" style="border-width: 3px;">
+        <div class="state-name">Validé ✓</div>
+        <div class="state-type">Figé, horodaté</div>
+      </div>
+    </div>
+
+    <div class="legend-bar" style="margin-top: 20px;">
+      <div class="legend-item"><div class="legend-dot" style="background: var(--primary);"></div> Action agent requise</div>
+      <div class="legend-item"><div class="legend-dot" style="background: var(--accent);"></div> Calcul automatique</div>
+      <div class="legend-item"><div class="legend-dot" style="background: #4ade80;"></div> Résultat final</div>
+    </div>
+  </div>
+
+  <div class="specs-grid" style="margin-top: 20px;">
+    <div class="spec">
+      <div class="spec-label">Navigation retour</div>
+      <div class="spec-value">Libre — cliquer sur une étape précédente du stepper. Les données sont conservées.</div>
+    </div>
+    <div class="spec">
+      <div class="spec-label">Navigation avant</div>
+      <div class="spec-value">Séquentielle — chaque étape a ses conditions de validation avant de débloquer la suivante.</div>
+    </div>
+    <div class="spec">
+      <div class="spec-label">Modification post-validation</div>
+      <div class="spec-value">Crée une V2. La V1 reste en historique (audit trail).</div>
+    </div>
+    <div class="spec">
+      <div class="spec-label">Versioning</div>
+      <div class="spec-value">Chaque estimation validée = un snapshot horodaté. Comparaison V1/V2 possible.</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- SECTION 8 — COMPOSANTS TRANSVERSES -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title"><span class="num">8</span> Composants transverses</div>
+  <p class="section-desc">
+    Éléments présents sur toutes les étapes ou partagés entre plusieurs écrans.
+  </p>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px;">
+
+    <div class="flow-card">
+      <div class="flow-card-header">
+        <div class="step-badge" style="background: var(--primary); font-size: 0.8rem;">📊</div>
+        <div><h3>Barre de complétude</h3><div class="card-subtitle">Sticky top · Toutes étapes</div></div>
+      </div>
+      <div class="flow-card-body" style="font-size: 0.82rem; color: var(--text-secondary);">
+        Barre de progression pondérée visible en permanence. Indique le % de complétude du bien cible (pas les étapes du parcours).
+        Distingue : champs critiques (rouge si manquants), importants (orange), contextuels (gris).
+        Anime en temps réel quand l'agent remplit un champ.
+      </div>
+    </div>
+
+    <div class="flow-card">
+      <div class="flow-card-header">
+        <div class="step-badge" style="background: var(--accent); font-size: 0.8rem;">🗺️</div>
+        <div><h3>Carte Mapbox</h3><div class="card-subtitle">Étapes 2 + 3</div></div>
+      </div>
+      <div class="flow-card-body" style="font-size: 0.82rem; color: var(--text-secondary);">
+        Composant carte réutilisé entre Contexte Zone (POI/services) et Comparables (biens à sélectionner).
+        Même instance Mapbox, couches différentes. Toggle de couches. Zoom adaptatif au rayon sélectionné.
+      </div>
+    </div>
+
+    <div class="flow-card">
+      <div class="flow-card-header">
+        <div class="step-badge" style="background: var(--warning); font-size: 0.8rem;">⚠️</div>
+        <div><h3>Alertes & validations</h3><div class="card-subtitle">Transitions entre étapes</div></div>
+      </div>
+      <div class="flow-card-body" style="font-size: 0.82rem; color: var(--text-secondary);">
+        Modal de validation à chaque transition. Si conditions non remplies : warning avec liste des manques + choix "Corriger" ou "Continuer quand même" (avec disclaimer sur l'indice de confiance).
+      </div>
+    </div>
+
+    <div class="flow-card">
+      <div class="flow-card-header">
+        <div class="step-badge" style="background: var(--danger); font-size: 0.8rem;">📄</div>
+        <div><h3>Export PDF</h3><div class="card-subtitle">Étape 5 · Action finale</div></div>
+      </div>
+      <div class="flow-card-body" style="font-size: 0.82rem; color: var(--text-secondary);">
+        Document vendeur généré à partir des données de l'estimation validée.
+        Contenu : fourchette de prix, comparables utilisés (anonymisés), contexte zone, argumentaire points forts / vigilance.
+        Charte graphique Ideeri. Logo agence personnalisable.
+      </div>
+    </div>
+
+    <div class="flow-card">
+      <div class="flow-card-header">
+        <div class="step-badge" style="background: #8b5cf6; font-size: 0.8rem;">🔄</div>
+        <div><h3>Auto-save</h3><div class="card-subtitle">Toutes étapes</div></div>
+      </div>
+      <div class="flow-card-body" style="font-size: 0.82rem; color: var(--text-secondary);">
+        Chaque modification est sauvegardée immédiatement (debounce 500ms). Indicateur discret "Sauvegardé ✓" en bas à droite.
+        L'agent peut fermer et revenir — il retrouve exactement là où il en était.
+      </div>
+    </div>
+
+    <div class="flow-card">
+      <div class="flow-card-header">
+        <div class="step-badge" style="background: #0ea5e9; font-size: 0.8rem;">📱</div>
+        <div><h3>Mode terrain (tablette)</h3><div class="card-subtitle">Étape 1 principalement</div></div>
+      </div>
+      <div class="flow-card-body" style="font-size: 0.82rem; color: var(--text-secondary);">
+        Layout responsive pour tablette (iPad). L'étape 1 (saisie bien) est la plus utilisée sur le terrain.
+        Les catégories passent en pleine largeur. La sidebar contextuelle passe sous le formulaire.
+        Prise de photos directe depuis l'appareil photo de la tablette.
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- FOOTER -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div style="text-align: center; padding: 32px; color: var(--text-secondary); font-size: 0.78rem; border-top: 1px solid var(--border); margin-top: 40px;">
+  Ideeri · Architecture UX · Parcours Estimation · v1.0 · Mars 2026<br>
+  5 étapes · 12 écrans · 202 champs · 6 entités de données · Design système inspiré Papiris
+</div>
+
+</div><!-- /content -->
+</body>
+</html>

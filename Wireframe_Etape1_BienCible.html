@@ -1,0 +1,3591 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ideeri - Estimation Bien Cible</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* ═══ FIGMA HEADER — Molecules/Sale/Header Child ═══ */
+        @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap');
+        .topbar-left { display: flex; align-items: center; gap: 16px; }
+        .topbar-search { padding: 6px 12px; border: 1px solid #e5e5e5; border-radius: 6px; background: #f7f7f8; font-size: 12px; color: #555; width: 240px; }
+        .topbar-right { display: flex; align-items: center; gap: 12px; }
+        .topbar-photo { width: 34px; height: 34px; border-radius: 50%; background: #d4cece; overflow: hidden; flex-shrink: 0; }
+        .topbar-user-info { display: flex; flex-direction: column; line-height: 1.3; }
+        .topbar-user-name { font-size: 13px; font-weight: 600; color: #393939; }
+        .topbar-user-role { font-size: 11px; color: #949494; }
+        .topbar-logout { padding: 6px 14px; border: 1px solid #999; border-radius: 6px; font-size: 11px; color: #666; cursor: pointer; background: white; font-family: 'Open Sans', sans-serif; }
+        .prop-card { background: #fff; border: 1px solid #e5e5e5; border-radius: 10px; margin-bottom: 12px; overflow: hidden; }
+        .prop-header { padding: 14px 20px 0; }
+        .prop-back { font-size: 11px; color: #949494; cursor: pointer; margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
+        .prop-back:hover { color: #393939; }
+        .prop-title { font-size: 18px; font-weight: 700; color: #393939; margin-bottom: 8px; line-height: 1.3; font-family: 'Open Sans', sans-serif; }
+        .prop-meta-row { display: flex; align-items: center; gap: 18px; margin-bottom: 10px; flex-wrap: wrap; }
+        .prop-meta-item { display: flex; align-items: center; gap: 5px; font-size: 12px; }
+        .prop-meta-label { color: #949494; font-weight: 400; }
+        .prop-meta-value { color: #393939; font-weight: 600; }
+        .prop-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+        .prop-tag { background: #DEDEDE; color: #666; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 5px; border: none; }
+        .prop-dispo { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+        .prop-dispo-label { font-size: 12px; color: #949494; font-weight: 400; }
+        .prop-dispo-input { background: #F5F4F4; border: none; border-radius: 6px; padding: 6px 12px; font-size: 12px; color: #393939; font-family: 'Open Sans', sans-serif; }
+        .completude-block { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+        .completude-label { font-size: 11px; color: #949494; font-weight: 400; }
+        .completude-bar { width: 100px; height: 5px; background: #eee; border-radius: 3px; overflow: hidden; }
+        .completude-fill { height: 100%; background: #46B962; width: 64%; border-radius: 3px; }
+        .completude-pct { font-size: 12px; font-weight: 700; color: #46B962; }
+        .completude-detail { font-size: 10px; color: #949494; }
+        .tab-bar { border-top: 1px solid #e5e5e5; padding: 0 20px; display: flex; gap: 0; overflow-x: auto; }
+        .tab { padding: 9px 12px; font-size: 12px; font-weight: 600; color: #949494; border-bottom: 3px solid transparent; cursor: pointer; white-space: nowrap; margin-bottom: -1px; }
+        .tab:hover { color: #393939; }
+        .tab.active { color: #46B962; border-bottom-color: #46B962; }
+        /* ═══ END FIGMA HEADER ═══ */
+
+        /* ════ DESIGN OVERRIDE — ALLÈGEMENT GLOBAL ══════ */
+        body { background: #fafafa !important; }
+        .container { padding: 20px 24px !important; }
+        .topbar { box-shadow: 0 1px 0 #eee !important; border-bottom: none !important; }
+        /* .sidebar-icon { display: none !important; } */ /* Removed - no longer used */
+        .field-tag { display: none !important; }
+        .property-meta { display: none !important; }
+        .photos-alert { display: none !important; }
+        .accordion-number { display: none !important; }
+        .critical-icon { display: none !important; }
+        .property-header, .stepper, .accordion-item,
+        .photos-section, .map-section, .critical-section, .notes-section, .buttons-area {
+            box-shadow: none !important; border: 1px solid #eee !important;
+        }
+        .property-header { padding: 14px 18px !important; }
+        /* Figma header overrides — must win over old styles */
+        .prop-card { background: #fff !important; border: 1px solid #e5e5e5 !important; border-radius: 10px !important; margin-bottom: 12px !important; overflow: hidden !important; }
+        .prop-header { padding: 14px 20px 0 !important; border: none !important; margin-bottom: 0 !important; }
+        .tab-bar { border: none !important; border-top: 1px solid #e5e5e5 !important; border-radius: 0 !important; padding: 0 20px !important; margin-top: 0 !important; margin-bottom: 0 !important; overflow-x: auto !important; }
+        .tab { padding: 9px 12px !important; font-size: 12px !important; }
+        .property-agent { font-size: 12px !important; color: #888 !important; }
+        .breadcrumb { color: #888 !important; }
+        .stepper { padding: 12px !important; gap: 10px !important; }
+        .stepper-badge { width: 22px !important; height: 22px !important; font-size: 10px !important; }
+        .stepper-label { font-size: 11px !important; }
+        .stepper-item { color: #888 !important; }
+        .stepper-arrow { color: #bbb !important; font-size: 14px !important; }
+        .accordion-header { padding: 12px 14px !important; }
+        .accordion-title { font-size: 13px !important; font-weight: 500 !important; }
+        .accordion-content { padding: 16px !important; }
+        .accordion-progress-text { color: #888 !important; }
+        .form-grid { gap: 12px !important; }
+        .form-label { font-size: 12px !important; font-weight: 500 !important; color: #444 !important; }
+        .form-input, .form-select { padding: 8px 10px !important; font-size: 13px !important; border-color: #eee !important; }
+        .form-input:focus, .form-select:focus { border-color: #46B962 !important; box-shadow: none !important; }
+        .tag { padding: 2px 8px !important; font-size: 11px !important; border-radius: 4px !important; }
+        /* completude overrides removed — handled by Figma header */
+        .critical-section { background: white !important; border: 1px solid #eee !important; }
+        .critical-header { color: #888 !important; font-weight: 500 !important; font-size: 12px !important; }
+        .critical-item { font-size: 11px !important; color: #777 !important; }
+        .photos-count { color: #888 !important; }
+        .map-address { color: #888 !important; }
+        .map-iris { color: #888 !important; }
+        /* ══════════════════════════════════════════════ */
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+                'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+                sans-serif;
+            background-color: #f5f5f5;
+            color: #393939;
+            line-height: 1.5;
+        }
+
+        /* TOPBAR */
+        .topbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 64px;
+            background: white;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 32px;
+            z-index: 100;
+            box-shadow: 0 1px 0 #eee;
+        }
+
+        .topbar-logo {
+            font-size: 24px;
+            font-weight: 700;
+            color: #46B962;
+            letter-spacing: -0.5px;
+        }
+
+        .topbar-center {
+            flex: 1;
+            max-width: 400px;
+            margin: 0 48px;
+        }
+
+
+
+
+        .user-name {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 64px;
+            width: 220px;
+            height: calc(100vh - 64px);
+            background: #4D4545;
+            padding: 24px 0 0;
+            overflow-y: auto;
+            z-index: 90;
+        }
+        .sidebar-logo { padding: 0 34px 32px; display: flex; align-items: center; }
+        .sidebar-logo svg { height: 38px; width: auto; }
+        .sidebar-nav { list-style: none; }
+        .sidebar-nav li { padding: 14px 0 14px 24px; cursor: pointer; font-size: 14px; font-weight: 600; color: #D4CECE; display: flex; align-items: center; justify-content: space-between; font-family: 'Open Sans', sans-serif; }
+        .sidebar-nav li:hover { background: rgba(255,255,255,0.04); }
+        .sidebar-nav li.active { background: #595050; color: white; }
+        .nav-left { display: flex; align-items: center; gap: 14px; }
+        .nav-left svg { width: 16px; height: 16px; flex-shrink: 0; }
+        .nav-active-bar { width: 4px; height: 25px; border-radius: 2.5px 0 0 2.5px; background: transparent; }
+        .sidebar-nav li.active .nav-active-bar { background: #46B962; }
+
+        /* MAIN LAYOUT */
+        .container {
+            margin-left: 220px;
+            margin-top: 64px;
+            padding: 32px;
+            min-height: calc(100vh - 64px);
+        }
+
+        /* BREADCRUMB */
+        .breadcrumb {
+            font-size: 13px;
+            color: #bbb;
+            margin-bottom: 24px;
+        }
+
+        .breadcrumb span {
+            margin: 0 8px;
+        }
+
+        /* PROPERTY HEADER CARD */
+        .property-header {
+            background: white;
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+            box-shadow: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .property-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #393939;
+            margin-bottom: 8px;
+        }
+
+        .property-agent {
+            font-size: 14px;
+            color: #757575;
+            margin-bottom: 12px;
+        }
+
+        .property-meta {
+            display: flex;
+            gap: 24px;
+            font-size: 12px;
+            color: #bbb;
+            margin-bottom: 16px;
+        }
+
+        .property-tags {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 3px 8px;
+            background: #f0f0f0;
+            border-radius: 6px;
+            font-size: 11px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        .tag.green {
+            background: #e8f5e9;
+            color: #46B962;
+        }
+
+        .tag.orange {
+            background: #fff3e0;
+            color: #f5a623;
+        }
+
+        /* TAB BAR — moved to FIGMA HEADER section above */
+
+        /* STEPPER */
+        .stepper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 24px;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: none;
+        }
+        .stepper-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: #999;
+        }
+        .stepper-item.completed .stepper-badge {
+            background: #46B962;
+            color: white;
+        }
+        .stepper-item.active .stepper-badge {
+            background: #46B962;
+            color: white;
+            box-shadow: 0 0 0 3px rgba(70, 185, 98, 0.2);
+        }
+        .stepper-item.active .stepper-label {
+            color: #46B962;
+            font-weight: 600;
+        }
+        .stepper-badge {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #eee;
+            color: #999;
+            font-size: 11px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+        .stepper-label {
+            white-space: nowrap;
+        }
+        .stepper-arrow {
+            color: #ddd;
+            font-size: 18px;
+        }
+
+        /* CONTENT WRAPPER */
+        .content-wrapper {
+            display: flex;
+            gap: 24px;
+        }
+
+        .main-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        /* COMPLETUDE BAR — old styles removed, now in Figma header block */
+
+        /* ACCORDION */
+        .accordion-item {
+            background: white;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            box-shadow: none;
+            overflow: hidden;
+        }
+
+        .accordion-header {
+            padding: 12px 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            background: white;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .accordion-header:hover {
+            background: #f9f9f9;
+        }
+
+        .accordion-header.open {
+            border-bottom: 1px solid #eee;
+        }
+
+        .accordion-title-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .accordion-arrow {
+            font-size: 18px;
+            color: #999;
+            transition: transform 0.2s;
+            flex-shrink: 0;
+        }
+
+        .accordion-header.open .accordion-arrow {
+            transform: rotate(180deg);
+        }
+
+        .accordion-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #393939;
+        }
+
+        .accordion-number {
+            font-size: 13px;
+            color: #999;
+            font-weight: 500;
+        }
+
+        .accordion-progress {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
+            flex-shrink: 0;
+        }
+
+        .accordion-progress-bar {
+            width: 40px;
+            height: 4px;
+            background: #f0f0f0;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .accordion-progress-fill {
+            height: 100%;
+            background: #46B962;
+            border-radius: 2px;
+        }
+
+        .accordion-progress-text {
+            font-size: 12px;
+            color: #bbb;
+            font-weight: 500;
+            min-width: 30px;
+            text-align: right;
+        }
+
+        .accordion-progress.low .accordion-progress-bar {
+            background: #ffe0e0;
+        }
+
+        .accordion-progress.low .accordion-progress-fill {
+            background: #e74c3c;
+        }
+
+        .accordion-content {
+            padding: 24px;
+            border-top: 1px solid #eee;
+            display: none;
+        }
+
+        .accordion-content.open {
+            display: block;
+        }
+
+        /* FORM FIELDS GRID */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #393939;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .field-tag {
+            display: none;
+        }
+
+
+        .form-input,
+        .form-select {
+            padding: 10px 12px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: all 0.2s;
+            background: white;
+        }
+
+        .form-input:focus,
+        .form-select:focus {
+            outline: none;
+            border-color: #46B962;
+            box-shadow: 0 0 0 3px rgba(70, 185, 98, 0.1);
+        }
+
+        .form-input.error,
+        .form-select.error {
+            border-color: #e74c3c;
+            background: #fff5f5;
+        }
+
+        .form-input.error:focus,
+        .form-select.error:focus {
+            box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.1);
+        }
+
+        .form-input[type="checkbox"],
+        .form-input[type="radio"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toggle-switch {
+            width: 44px;
+            height: 24px;
+            background: #ccc;
+            border-radius: 12px;
+            cursor: pointer;
+            position: relative;
+            transition: background 0.2s;
+            border: none;
+        }
+
+        .toggle-switch.on {
+            background: #46B962;
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: left 0.2s;
+        }
+
+        .toggle-switch.on::after {
+            left: 22px;
+        }
+
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .toggle-label {
+            font-size: 14px;
+            color: #393939;
+            font-weight: 500;
+        }
+
+        .form-textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 100px;
+            transition: all 0.2s;
+        }
+
+        .form-textarea:focus {
+            outline: none;
+            border-color: #46B962;
+            box-shadow: 0 0 0 3px rgba(70, 185, 98, 0.1);
+        }
+
+        .form-textarea::placeholder {
+            color: #bbb;
+        }
+
+        /* SIDEBAR */
+        .sidebar-right {
+            width: 320px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* PHOTOS SECTION */
+        .photos-section {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: none;
+        }
+
+        .photos-header {
+            font-size: 14px;
+            font-weight: 600;
+            color: #393939;
+            margin-bottom: 12px;
+        }
+
+        .photos-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .photo-placeholder {
+            aspect-ratio: 1;
+            background: #e8e8e8;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 24px;
+        }
+
+        .photos-count {
+            font-size: 12px;
+            color: #757575;
+            margin-bottom: 12px;
+        }
+
+        .photos-alert {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 10px 12px;
+            background: #fafafa;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+        .photos-alert-icon {
+            font-size: 16px;
+            flex-shrink: 0;
+            line-height: 1.4;
+        }
+        .photos-alert-text {
+            font-size: 12px;
+            color: #8d6e00;
+            line-height: 1.4;
+        }
+
+        .btn-add-photos {
+            width: 100%;
+            padding: 10px;
+            background: #f0f0f0;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #393939;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-add-photos:hover {
+            background: #e8e8e8;
+        }
+
+        /* MAP SECTION */
+        .map-section {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: none;
+        }
+
+        #leaflet-map {
+            width: 100%;
+            height: 220px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            border: 1px solid #e0e0e0;
+            z-index: 0;
+        }
+
+        .map-address {
+            font-size: 12px;
+            color: #757575;
+            margin-bottom: 8px;
+        }
+
+        .map-iris {
+            font-size: 12px;
+            color: #999;
+        }
+
+        /* CRITICAL FIELDS SECTION */
+        .critical-section {
+            background: white;
+            border: none;
+            border-left: 3px solid #f5a623;
+            border-radius: 0;
+            padding: 16px;
+            box-shadow: none;
+        }
+
+        .critical-header {
+            font-size: 13px;
+            font-weight: 700;
+            color: #f5a623;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .critical-icon {
+            font-size: 16px;
+        }
+
+        .critical-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .critical-item {
+            font-size: 12px;
+            color: #e74c3c;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            padding: 6px 8px;
+            border-radius: 6px;
+        }
+
+        .critical-item:hover {
+            background: rgba(231, 76, 60, 0.1);
+        }
+
+        /* NOTES SECTION */
+        .notes-section {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: none;
+        }
+
+        .notes-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #393939;
+            margin-bottom: 12px;
+        }
+
+        /* BUTTONS */
+        .buttons-area {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            box-shadow: none;
+            margin-top: 32px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: #46B962;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #3d9a52;
+            box-shadow: 0 4px 12px rgba(70, 185, 98, 0.3);
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: #393939;
+            border: 1px solid #eee;
+        }
+
+        .btn-ghost:hover {
+            background: #f9f9f9;
+            border-color: #393939;
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 1200px) {
+            .content-wrapper {
+                flex-direction: column;
+            }
+
+            .sidebar-right {
+                width: 100%;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .photos-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                display: none;
+            }
+
+            .container {
+                margin-left: 0;
+                padding: 16px;
+            }
+
+            .topbar {
+                padding: 0 16px;
+            }
+
+            .tab-bar {
+                overflow-x: auto;
+                padding: 0 16px;
+            }
+
+            .property-header {
+                flex-direction: column;
+                gap: 16px;
+            }
+        }
+
+        /* UTILITY */
+        .hidden {
+            display: none;
+        }
+
+        .icon-check {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+            background: #46B962;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 11px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <!-- TOPBAR -->
+    <div class="topbar">
+        <div class="topbar-left">
+            <div class="topbar-logo">ideeri</div>
+        </div>
+        <div class="topbar-right">
+            <div class="topbar-photo"></div>
+            <div class="topbar-user-info">
+                <span class="topbar-user-name">Manon MATRAT</span>
+                <span class="topbar-user-role">Administratif</span>
+            </div>
+            <button class="topbar-logout">Déconnexion</button>
+        </div>
+    </div>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="sidebar-logo">
+            <svg viewBox="0 0 152 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <text x="0" y="24" font-family="Open Sans" font-weight="700" font-size="24" fill="#46B962" letter-spacing="-0.5">ideeri</text>
+            </svg>
+        </div>
+        <ul class="sidebar-nav">
+            <li class="active">
+                <span class="nav-left">
+                    <svg viewBox="0 0 16 16" fill="none"><path d="M8 1L1 7v7a1 1 0 001 1h4v-5h4v5h4a1 1 0 001-1V7L8 1z" fill="currentColor" opacity="0.9"/></svg>
+                    <span>Dashboard</span>
+                </span>
+                <span class="nav-active-bar"></span>
+            </li>
+            <li>
+                <span class="nav-left">
+                    <svg viewBox="0 0 16 16" fill="none"><rect x="1" y="2" width="14" height="13" rx="1.5" stroke="currentColor" stroke-width="1.4" fill="none"/><line x1="1" y1="6" x2="15" y2="6" stroke="currentColor" stroke-width="1.4"/><line x1="5" y1="2" x2="5" y2="0.5" stroke="currentColor" stroke-width="1.4"/><line x1="11" y1="2" x2="11" y2="0.5" stroke="currentColor" stroke-width="1.4"/></svg>
+                    <span>Agenda</span>
+                </span>
+                <span class="nav-active-bar"></span>
+            </li>
+            <li>
+                <span class="nav-left">
+                    <svg viewBox="0 0 16 16" fill="none"><circle cx="6" cy="5" r="2.5" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M1 14c0-2.8 2.2-5 5-5s5 2.2 5 5" stroke="currentColor" stroke-width="1.3" fill="none"/><circle cx="11.5" cy="5.5" r="2" stroke="currentColor" stroke-width="1.2" fill="none"/><path d="M11.5 9c2.2 0 4 1.8 4 4" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>
+                    <span>Mes clients</span>
+                </span>
+                <span class="nav-active-bar"></span>
+            </li>
+            <li>
+                <span class="nav-left">
+                    <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M2 15c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>
+                    <span>Collaborateurs</span>
+                </span>
+                <span class="nav-active-bar"></span>
+            </li>
+            <li>
+                <span class="nav-left">
+                    <svg viewBox="0 0 16 16" fill="none"><rect x="1.5" y="1.5" width="13" height="13" rx="1.5" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M4.5 8l2.5 2.5L11.5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+                    <span>Mes tâches</span>
+                </span>
+                <span class="nav-active-bar"></span>
+            </li>
+            <li>
+                <span class="nav-left">
+                    <svg viewBox="0 0 16 16" fill="none"><path d="M8 1.5C5 1.5 2.5 4 2.5 7c0 4 5.5 7.5 5.5 7.5s5.5-3.5 5.5-7.5c0-3-2.5-5.5-5.5-5.5z" stroke="currentColor" stroke-width="1.3" fill="none"/><circle cx="8" cy="7" r="2" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>
+                    <span>Secteurs</span>
+                </span>
+                <span class="nav-active-bar"></span>
+            </li>
+        </ul>
+    </div>
+
+    <!-- MAIN CONTAINER -->
+    <div class="container">
+
+        <!-- ═══ PROPERTY CARD — Figma ═══ -->
+        <div class="prop-card">
+            <!-- PROPERTY HEADER -->
+            <div class="prop-header">
+                <div class="prop-back">&#8592; Retour</div>
+                <div class="prop-title">Vente Appartement T3 à Lyon 3ème</div>
+                <div class="prop-meta-row">
+                    <div class="prop-meta-item">
+                        <span class="prop-meta-label">Collaborateur</span>
+                        <span class="prop-meta-value">Marie Dupont</span>
+                    </div>
+                    <div class="prop-meta-item">
+                        <span class="prop-meta-label">Référence</span>
+                        <span class="prop-meta-value">LYN-2026-00847</span>
+                    </div>
+                    <div class="prop-meta-item">
+                        <span class="prop-meta-label">Créé le</span>
+                        <span class="prop-meta-value">25 Mars 2026</span>
+                    </div>
+                    <div class="prop-meta-item">
+                        <span class="prop-meta-label">Source</span>
+                        <span class="prop-meta-value">Ideeri</span>
+                    </div>
+                </div>
+                <div class="prop-tags">
+                    <span class="prop-tag">Appartement</span>
+                    <span class="prop-tag">3 pièces</span>
+                    <span class="prop-tag">72.5 m²</span>
+                    <span class="prop-tag">Lyon 3ème</span>
+                    <span class="prop-tag">DPE D</span>
+                </div>
+                <div class="prop-dispo">
+                    <span class="prop-dispo-label">Disponibilité du bien</span>
+                    <input type="date" class="prop-dispo-input" value="2026-06-01">
+                </div>
+                <div class="completude-block">
+                    <span class="completude-label">Complétude pondérée</span>
+                    <div class="completude-bar"><div class="completude-fill"></div></div>
+                    <span class="completude-pct">64%</span>
+                    <span class="completude-detail">14/19 critiques · 38/50 importants</span>
+                </div>
+            </div>
+
+            <!-- TAB BAR -->
+            <div class="tab-bar">
+                <div class="tab">Dashboard</div>
+                <div class="tab">Détails du projet</div>
+                <div class="tab">Documents</div>
+                <div class="tab active">Estimation</div>
+                <div class="tab">Publication</div>
+                <div class="tab">Participants</div>
+                <div class="tab">Administration</div>
+                <div class="tab">Notes</div>
+                <div class="tab">Mandat</div>
+            </div>
+        </div>
+
+        <!-- STEPPER -->
+        <div class="stepper">
+            <div class="stepper-item active">
+                <div class="stepper-badge">1</div>
+                <div class="stepper-label">Bien cible</div>
+            </div>
+            <div class="stepper-arrow">›</div>
+            <div class="stepper-item">
+                <div class="stepper-badge">2</div>
+                <div class="stepper-label">Contexte zone</div>
+            </div>
+            <div class="stepper-arrow">›</div>
+            <div class="stepper-item">
+                <div class="stepper-badge">3</div>
+                <div class="stepper-label">Comparables</div>
+            </div>
+            <div class="stepper-arrow">›</div>
+            <div class="stepper-item">
+                <div class="stepper-badge">4</div>
+                <div class="stepper-label">Tension marché</div>
+            </div>
+            <div class="stepper-arrow">›</div>
+            <div class="stepper-item">
+                <div class="stepper-badge">5</div>
+                <div class="stepper-label">Avis de valeur</div>
+            </div>
+        </div>
+
+        <!-- CONTENT WRAPPER -->
+        <div class="content-wrapper">
+            <!-- MAIN CONTENT -->
+            <div class="main-content">
+
+                <!-- ACCORDION ITEMS -->
+
+                <!-- CATEGORY 1: IDENTIFICATION ET STATUT JURIDIQUE -->
+                <div class="accordion-item">
+                    <div class="accordion-header">
+                        <div class="accordion-arrow">▼</div>
+                        <div class="accordion-title-section">
+                            <span class="accordion-title">Identification et Statut Juridique</span>
+                            <span class="accordion-number">1</span>
+                        </div>
+                        <div class="accordion-progress">
+                            <div class="accordion-progress-bar">
+                                <div class="accordion-progress-fill" style="width: 90%;"></div>
+                            </div>
+                            <div class="accordion-progress-text">9/10</div>
+                        </div>
+                    </div>
+                    <div class="accordion-content">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Adresse complète
+                                    <span class="field-tag critique">Critique</span>
+                                </label>
+                                <input type="text" class="form-input" value="12 rue des Lilas, 69003 Lyon">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Référence cadastrale
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <input type="text" class="form-input" value="69383000BW0042">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Type de bien
+                                    <span class="field-tag critique">Critique</span>
+                                </label>
+                                <select class="form-select">
+                                    <option selected>Appartement</option>
+                                    <option>Maison individuelle</option>
+                                    <option>Villa</option>
+                                    <option>Studio</option>
+                                    <option>Duplex</option>
+                                    <option>Loft</option>
+                                    <option>Terrain</option>
+                                    <option>Local commercial</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Régime de propriété
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <select class="form-select">
+                                    <option>Pleine propriété</option>
+                                    <option selected>Copropriété</option>
+                                    <option>Indivision</option>
+                                    <option>SCI</option>
+                                    <option>Bail emphytéotique</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Numéro de lot
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <input type="text" class="form-input" value="Lot 42">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Quote-part (millièmes)
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <input type="number" class="form-input" value="85">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Servitudes
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <input type="text" class="form-input" value="Aucune">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Hypothèques et sûretés
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <div class="toggle-row">
+                                    <button class="toggle-switch"></button>
+                                    <span class="toggle-label">Non</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Bail en cours
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <div class="toggle-row">
+                                    <button class="toggle-switch"></button>
+                                    <span class="toggle-label">Non</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Droits de préemption actifs
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <div class="toggle-row">
+                                    <button class="toggle-switch"></button>
+                                    <span class="toggle-label">Non</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+<!-- CATEGORY 2: CARACTÉRISTIQUES GÉNÉRALES (OPEN) -->
+                <div class="accordion-item">
+                    <div class="accordion-header open">
+                        <div class="accordion-arrow">▼</div>
+                        <div class="accordion-title-section">
+                            <span class="accordion-title">Caractéristiques Générales</span>
+                            <span class="accordion-number">2</span>
+                        </div>
+                        <div class="accordion-progress">
+                            <div class="accordion-progress-bar">
+                                <div class="accordion-progress-fill" style="width: 85%;"></div>
+                            </div>
+                            <div class="accordion-progress-text">17/20</div>
+                        </div>
+                    </div>
+                    <div class="accordion-content open">
+                        <div class="form-grid">
+                            <!-- Row 1 -->
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Surface Carrez (m²)
+                                    <span class="field-tag critique">Critique</span>
+                                </label>
+                                <input type="number" class="form-input" value="72.5">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Surface Boutin/SHAB (m²)
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <input type="number" class="form-input" value="70.1">
+                            </div>
+
+                            <!-- Row 2 -->
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Surface totale (m²)
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Surface Plancher (m²)
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+
+                            <!-- Row 3 -->
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Nombre de pièces
+                                    <span class="field-tag critique">Critique</span>
+                                </label>
+                                <input type="number" class="form-input" value="3">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Nombre de chambres
+                                    <span class="field-tag critique">Critique</span>
+                                </label>
+                                <input type="number" class="form-input" value="2">
+                            </div>
+
+                            <!-- Row 4 -->
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Nombre SDB
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <input type="number" class="form-input" value="1">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Nombre WC
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <input type="number" class="form-input" value="1">
+                            </div>
+
+                            <!-- Row 5 -->
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Étage du bien
+                                    <span class="field-tag critique">Critique</span>
+                                </label>
+                                <select class="form-select">
+                                    <option>4ème étage</option>
+                                    <option>1er étage</option>
+                                    <option>2ème étage</option>
+                                    <option>3ème étage</option>
+                                    <option>5ème étage</option>
+                                    <option>6ème étage</option>
+                                    <option>7ème étage et +</option>
+                                    <option>Rez-de-chaussée</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Nb étages immeuble
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <input type="number" class="form-input" value="6">
+                            </div>
+
+                            <!-- Row 6 -->
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Orientation
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <select class="form-select">
+                                    <option>Sud-Est</option>
+                                    <option>Nord</option>
+                                    <option>Sud</option>
+                                    <option>Est</option>
+                                    <option>Ouest</option>
+                                    <option>Nord-Est</option>
+                                    <option>Nord-Ouest</option>
+                                    <option>Sud-Ouest</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Ascenseur
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <div class="toggle-row">
+                                    <button class="toggle-switch on"></button>
+                                    <span class="toggle-label">Oui</span>
+                                </div>
+                            </div>
+
+                            <!-- Row 7 -->
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Cave (m²)
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <input type="number" class="form-input" value="4.5">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Grenier/Combles
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <div class="toggle-row">
+                                    <button class="toggle-switch"></button>
+                                    <span class="toggle-label">Non</span>
+                                </div>
+                            </div>
+
+                            <!-- Row 8 -->
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Garage / Box fermé
+                                    <span class="field-tag critique">Critique</span>
+                                </label>
+                                <input type="number" class="form-input error" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Parking extérieur
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <div class="toggle-row">
+                                    <button class="toggle-switch on"></button>
+                                    <span class="toggle-label">Oui</span>
+                                </div>
+                            </div>
+
+                            <!-- Row 9 -->
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Terrasse (m²)
+                                    <span class="field-tag critique">Critique</span>
+                                </label>
+                                <input type="number" class="form-input" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Balcon (m²)
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <input type="number" class="form-input" value="5.2">
+                            </div>
+
+                            <!-- Row 10 -->
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Loggia (m²)
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Jardin privatif (m²)
+                                    <span class="field-tag critique">Critique</span>
+                                </label>
+                                <input type="number" class="form-input" value="0">
+                            </div>
+
+                            <!-- Row 11 -->
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Cour
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Piscine
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <select class="form-select">
+                                    <option>Non</option>
+                                    <option>Oui</option>
+                                </select>
+                            </div>
+
+                            <!-- Row 12 -->
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Dépendances
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <input type="text" class="form-input" value="Cellier 2m²">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                                <!-- CATEGORY 3: STRUCTURE ET GROS ŒUVRE -->
+                <div class="accordion-item">
+                    <div class="accordion-header">
+                        <div class="accordion-arrow">▼</div>
+                        <div class="accordion-title-section">
+                            <span class="accordion-title">Structure et Gros Œuvre</span>
+                            <span class="accordion-number">3</span>
+                        </div>
+                        <div class="accordion-progress low">
+                            <div class="accordion-progress-bar">
+                                <div class="accordion-progress-fill" style="width: 38%;"></div>
+                            </div>
+                            <div class="accordion-progress-text">8/21</div>
+                        </div>
+                    </div>
+                    <div class="accordion-content">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Année de construction
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <input type="number" class="form-input" value="1972">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Époque de construction
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <select class="form-select">
+                                    <option>Avant 1850</option>
+                                    <option>1850-1948</option>
+                                    <option selected>1948-1975</option>
+                                    <option>1975-2000</option>
+                                    <option>Post-2000</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Type de structure porteuse
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option>Maçonnerie pierre</option>
+                                    <option>Brique pleine</option>
+                                    <option>Parpaing</option>
+                                    <option selected>Béton armé</option>
+                                    <option>Ossature bois</option>
+                                    <option>Acier</option>
+                                    <option>Mixte</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Fondations — Type
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Superficielles</option>
+                                    <option>Profondes</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Fondations — État
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <select class="form-select">
+                                    <option selected>Stable</option>
+                                    <option>Tassement différentiel</option>
+                                    <option>Fissures actives</option>
+                                    <option>Sous-dimensionné</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Toiture — Type
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option selected>Toit en pente</option>
+                                    <option>Toit terrasse</option>
+                                    <option>Toit plat</option>
+                                    <option>Shed</option>
+                                    <option>Mansardé</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Toiture — Matériaux
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Tuile terre cuite</option>
+                                    <option>Ardoise naturelle</option>
+                                    <option>Ardoise fibrociment</option>
+                                    <option>Zinc</option>
+                                    <option>Bac acier</option>
+                                    <option>Shingle</option>
+                                    <option>Membrane EPDM</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Toiture — Âge estimé (ans)
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Toiture — État général
+                                    <span class="field-tag critique">Critique</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Évaluer —</option>
+                                    <option>Neuf (0-5 ans)</option>
+                                    <option>Bon état (5-20 ans)</option>
+                                    <option>À surveiller</option>
+                                    <option>À refaire</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Toiture — Étanchéité
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Aucune infiltration</option>
+                                    <option>Ponctuelles</option>
+                                    <option>Actives</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Charpente — Type
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Traditionnelle</option>
+                                    <option>Industrielle (fermettes)</option>
+                                    <option>Béton</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Charpente — État
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Saine</option>
+                                    <option>Attaquée insectes</option>
+                                    <option>Attaquée champignons</option>
+                                    <option>Poutres fissurées</option>
+                                    <option>Consolidée</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Façades — Matériaux
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <select class="form-select">
+                                    <option selected>Enduit</option>
+                                    <option>Pierre de taille</option>
+                                    <option>Brique</option>
+                                    <option>Bardage bois</option>
+                                    <option>Bardage composite</option>
+                                    <option>Béton brut</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Façades — État
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Évaluer —</option>
+                                    <option>Neuf</option>
+                                    <option selected>Bon état</option>
+                                    <option>Fissuré</option>
+                                    <option>Décollé</option>
+                                    <option>À ravaler</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Dernier ravalement
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <input type="text" class="form-input" placeholder="Date et type">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    ITE (Isolation Extérieure)
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <div class="toggle-row">
+                                    <button class="toggle-switch"></button>
+                                    <span class="toggle-label">Non</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Fissures structurelles
+                                    <span class="field-tag critique">Critique</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Aucune</option>
+                                    <option>Capillaires (<1mm)</option>
+                                    <option>Structurelles (>2mm)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Diagnostic amiante
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Absent</option>
+                                    <option>Présent sans risque</option>
+                                    <option>Présent à traiter</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Diagnostic plomb
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Absent</option>
+                                    <option>Présent < seuil</option>
+                                    <option>Présent > seuil</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Termites
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <div class="toggle-row">
+                                    <button class="toggle-switch"></button>
+                                    <span class="toggle-label">Non</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Mérule
+                                    <span class="field-tag critique">Critique</span>
+                                </label>
+                                <div class="toggle-row">
+                                    <button class="toggle-switch"></button>
+                                    <span class="toggle-label">Non</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- CATEGORY 4: REVÊTEMENTS MURAUX INTÉRIEURS -->
+                <div class="accordion-item">
+                    <div class="accordion-header">
+                        <div class="accordion-arrow">▼</div>
+                        <div class="accordion-title-section">
+                            <span class="accordion-title">Revêtements Muraux Intérieurs</span>
+                            <span class="accordion-number">4</span>
+                        </div>
+                        <div class="accordion-progress low">
+                            <div class="accordion-progress-bar">
+                                <div class="accordion-progress-fill" style="width: 0%;"></div>
+                            </div>
+                            <div class="accordion-progress-text">0/10</div>
+                        </div>
+                    </div>
+                    <div class="accordion-content">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Pièce concernée
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Séjour</option>
+                                    <option>Chambre 1</option>
+                                    <option>Chambre 2</option>
+                                    <option>Cuisine</option>
+                                    <option>SDB</option>
+                                    <option>WC</option>
+                                    <option>Couloir</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Type de revêtement
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Peinture</option>
+                                    <option>Papier peint</option>
+                                    <option>Enduit à la chaux</option>
+                                    <option>Enduit décoratif</option>
+                                    <option>Carrelage</option>
+                                    <option>Lambris</option>
+                                    <option>Pierre</option>
+                                    <option>Boiseries</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    État général
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Évaluer —</option>
+                                    <option>Neuf</option>
+                                    <option>Bon état</option>
+                                    <option>À rafraîchir</option>
+                                    <option>À refaire</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Traces d'humidité
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Absence</option>
+                                    <option>Légères (auréoles anciennes)</option>
+                                    <option>Importantes (actives)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Moisissures
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Absence</option>
+                                    <option>Ponctuelles</option>
+                                    <option>Étendues (>50 cm²)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Salpêtre
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <div class="toggle-row">
+                                    <button class="toggle-switch"></button>
+                                    <span class="toggle-label">Non</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Décollements / Boursouflures
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Absence</option>
+                                    <option>Présents localement</option>
+                                    <option>Généralisés</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Qualité des finitions
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Évaluer —</option>
+                                    <option>Aplombs corrects</option>
+                                    <option>Défauts visibles</option>
+                                    <option>Travail amateur</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Hauteur sous plafond (cm)
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Moulures / Corniches
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <div class="toggle-row">
+                                    <button class="toggle-switch"></button>
+                                    <span class="toggle-label">Non</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- CATEGORY 5: REVÊTEMENTS DE SOLS -->
+                <div class="accordion-item">
+                    <div class="accordion-header">
+                        <div class="accordion-arrow">▼</div>
+                        <div class="accordion-title-section">
+                            <span class="accordion-title">Revêtements de Sols</span>
+                            <span class="accordion-number">5</span>
+                        </div>
+                        <div class="accordion-progress low">
+                            <div class="accordion-progress-bar">
+                                <div class="accordion-progress-fill" style="width: 0%;"></div>
+                            </div>
+                            <div class="accordion-progress-text">0/8</div>
+                        </div>
+                    </div>
+                    <div class="accordion-content">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Pièce concernée
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Séjour</option>
+                                    <option>Chambre 1</option>
+                                    <option>Chambre 2</option>
+                                    <option>Cuisine</option>
+                                    <option>SDB</option>
+                                    <option>Couloir</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Type de revêtement
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Parquet massif</option>
+                                    <option>Contrecollé</option>
+                                    <option>Flottant</option>
+                                    <option>Carrelage grès</option>
+                                    <option>Marbre</option>
+                                    <option>Béton ciré</option>
+                                    <option>LVT</option>
+                                    <option>Moquette</option>
+                                    <option>Lino</option>
+                                    <option>Stratifié</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Essence du bois
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <input type="text" class="form-input" placeholder="Chêne, hêtre, pin...">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Largeur des lames (cm)
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    État du revêtement
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Évaluer —</option>
+                                    <option>Neuf</option>
+                                    <option>Bon état</option>
+                                    <option>Rayé</option>
+                                    <option>Abîmé</option>
+                                    <option>À remplacer</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Craquements
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Stable</option>
+                                    <option>Ponctuels</option>
+                                    <option>Généralisés</option>
+                                    <option>Instable</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Plancher chauffant
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Absent</option>
+                                    <option>Électrique</option>
+                                    <option>Hydraulique</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Planéité du sol
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Plan</option>
+                                    <option>Dénivelés visibles</option>
+                                    <option>Affaissements locaux</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- CATEGORY 6: MENUISERIES ET FENÊTRES -->
+                <div class="accordion-item">
+                    <div class="accordion-header">
+                        <div class="accordion-arrow">▼</div>
+                        <div class="accordion-title-section">
+                            <span class="accordion-title">Menuiseries et Fenêtres</span>
+                            <span class="accordion-number">6</span>
+                        </div>
+                        <div class="accordion-progress">
+                            <div class="accordion-progress-bar">
+                                <div class="accordion-progress-fill" style="width: 88%;"></div>
+                            </div>
+                            <div class="accordion-progress-text">7/8</div>
+                        </div>
+                    </div>
+                    <div class="accordion-content">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Type de vitrage
+                                    <span class="field-tag critique">Critique</span>
+                                </label>
+                                <select class="form-select">
+                                    <option>Simple</option>
+                                    <option>DV classique (4/12/4)</option>
+                                    <option selected>DV performant (4/16/4 argon)</option>
+                                    <option>Triple (Uw ≤0,8)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Valeur Uw (W/m²K)
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <input type="number" class="form-input" value="1.3">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Matériau des menuiseries
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option>Bois</option>
+                                    <option selected>PVC</option>
+                                    <option>Aluminium standard</option>
+                                    <option>Aluminium à RPT</option>
+                                    <option>Mixte bois-alu</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    État des menuiseries
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Évaluer —</option>
+                                    <option>Neuf</option>
+                                    <option selected>Bon état</option>
+                                    <option>Joints défaillants</option>
+                                    <option>Déformés</option>
+                                    <option>Pourris</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Étanchéité à l'air
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option selected>Bonne</option>
+                                    <option>Courants d'air perceptibles</option>
+                                    <option>Mauvaise</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Volets / Persiennes
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option>Absents</option>
+                                    <option>Bois</option>
+                                    <option>PVC</option>
+                                    <option>Aluminium</option>
+                                    <option>Roulants manuels</option>
+                                    <option selected>Roulants électriques</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Surface vitrée par pièce (m²)
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <input type="number" class="form-input" value="4.2">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Certification ACOTHERM
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <input type="text" class="form-input" placeholder="Classe acoustique + thermique">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- CATEGORY 7: PORTES ET ACCÈS -->
+                <div class="accordion-item">
+                    <div class="accordion-header">
+                        <div class="accordion-arrow">▼</div>
+                        <div class="accordion-title-section">
+                            <span class="accordion-title">Portes et Accès</span>
+                            <span class="accordion-number">7</span>
+                        </div>
+                        <div class="accordion-progress low">
+                            <div class="accordion-progress-bar">
+                                <div class="accordion-progress-fill" style="width: 29%;"></div>
+                            </div>
+                            <div class="accordion-progress-text">2/7</div>
+                        </div>
+                    </div>
+                    <div class="accordion-content">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Porte d'entrée — Type
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option>Standard</option>
+                                    <option selected>Blindée</option>
+                                    <option>Porte palière sécurité</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Porte d'entrée — A2P
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Non certifiée</option>
+                                    <option>1 étoile</option>
+                                    <option>2 étoiles</option>
+                                    <option>3 étoiles</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Points de fermeture
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <select class="form-select">
+                                    <option>Monopoint</option>
+                                    <option selected>Multipoints 3 points</option>
+                                    <option>Multipoints 5 points</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Visiophone
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Absent</option>
+                                    <option>Interphone audio</option>
+                                    <option>Visiophone écran</option>
+                                    <option>Connecté smartphone</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Contrôle d'accès immeuble
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Clé mécanique</option>
+                                    <option>Digicode</option>
+                                    <option>Badge électronique</option>
+                                    <option>Biométrie</option>
+                                    <option>Application mobile</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Porte de garage
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Non applicable</option>
+                                    <option>Manuelle</option>
+                                    <option>Motorisée</option>
+                                    <option>Sectionnelle</option>
+                                    <option>Basculante</option>
+                                    <option>Coulissante</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Portail
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Non applicable</option>
+                                    <option>Manuel</option>
+                                    <option>Motorisé</option>
+                                    <option>Interphone intégré</option>
+                                    <option>Automatique</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- CATEGORY 8: INSTALLATIONS ÉLECTRIQUES -->
+                <div class="accordion-item">
+                    <div class="accordion-header">
+                        <div class="accordion-arrow">▼</div>
+                        <div class="accordion-title-section">
+                            <span class="accordion-title">Installations Électriques</span>
+                            <span class="accordion-number">8</span>
+                        </div>
+                        <div class="accordion-progress">
+                            <div class="accordion-progress-bar">
+                                <div class="accordion-progress-fill" style="width: 55%;"></div>
+                            </div>
+                            <div class="accordion-progress-text">6/11</div>
+                        </div>
+                    </div>
+                    <div class="accordion-content">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Tableau électrique — Âge (ans)
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <input type="number" class="form-input" value="15">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Type de protection
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <select class="form-select">
+                                    <option>Fusibles à cartouche</option>
+                                    <option selected>Disjoncteurs différentiels 30mA</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Intensité du tableau (A)
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Conformité NF C 15-100
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <select class="form-select">
+                                    <option>Conforme</option>
+                                    <option selected>Partiellement conforme</option>
+                                    <option>Non conforme</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Mise à la terre
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option selected>Présente partout</option>
+                                    <option>Partielle</option>
+                                    <option>Absente</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Nombre de prises par pièce
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Prises RJ45 réseau
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <div class="toggle-row">
+                                    <button class="toggle-switch on"></button>
+                                    <span class="toggle-label">Oui</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Puissance souscrite (kVA)
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <input type="number" class="form-input" value="9">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Alarme intrusion
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <div class="toggle-row">
+                                    <button class="toggle-switch"></button>
+                                    <span class="toggle-label">Non</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Compteur Linky
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <div class="toggle-row">
+                                    <button class="toggle-switch on"></button>
+                                    <span class="toggle-label">Oui</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Domotique — Protocole
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Aucun</option>
+                                    <option>KNX</option>
+                                    <option>Zigbee</option>
+                                    <option>Z-Wave</option>
+                                    <option>Matter</option>
+                                    <option>Propriétaire</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- CATEGORY 9: INSTALLATIONS DE PLOMBERIE -->
+                <div class="accordion-item">
+                    <div class="accordion-header">
+                        <div class="accordion-arrow">▼</div>
+                        <div class="accordion-title-section">
+                            <span class="accordion-title">Installations de Plomberie</span>
+                            <span class="accordion-number">9</span>
+                        </div>
+                        <div class="accordion-progress low">
+                            <div class="accordion-progress-bar">
+                                <div class="accordion-progress-fill" style="width: 50%;"></div>
+                            </div>
+                            <div class="accordion-progress-text">4/8</div>
+                        </div>
+                    </div>
+                    <div class="accordion-content">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Matériaux des canalisations
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <select class="form-select">
+                                    <option selected>Cuivre</option>
+                                    <option>PER polyéthylène</option>
+                                    <option>PVC</option>
+                                    <option>Galvanisé</option>
+                                    <option>Plomb (à remplacer)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Âge des canalisations (ans)
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <input type="number" class="form-input" value="30">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Pression de l'eau (bar)
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Chauffe-eau — Type
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option selected>Électrique</option>
+                                    <option>Gaz instantané</option>
+                                    <option>Gaz accumulation</option>
+                                    <option>Thermodynamique</option>
+                                    <option>Solaire</option>
+                                    <option>Ballon collectif</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Chauffe-eau — Capacité (L)
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Chauffe-eau — Âge (ans)
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <input type="number" class="form-input" value="8">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Adoucisseur d'eau
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <div class="toggle-row">
+                                    <button class="toggle-switch"></button>
+                                    <span class="toggle-label">Non</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    État des évacuations
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>PVC récent</option>
+                                    <option>Fonte ancien</option>
+                                    <option>Étanche</option>
+                                    <option>Bouchons chroniques</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- CATEGORY 10: CHAUFFAGE -->
+                <div class="accordion-item">
+                    <div class="accordion-header">
+                        <div class="accordion-arrow">▼</div>
+                        <div class="accordion-title-section">
+                            <span class="accordion-title">Chauffage</span>
+                            <span class="accordion-number">10</span>
+                        </div>
+                        <div class="accordion-progress low">
+                            <div class="accordion-progress-bar">
+                                <div class="accordion-progress-fill" style="width: 45%;"></div>
+                            </div>
+                            <div class="accordion-progress-text">5/11</div>
+                        </div>
+                    </div>
+                    <div class="accordion-content">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Type de chauffage
+                                    <span class="field-tag critique">Critique</span>
+                                </label>
+                                <select class="form-select">
+                                    <option>Collectif</option>
+                                    <option selected>Individuel central</option>
+                                    <option>Électrique direct</option>
+                                    <option>PAC air-eau</option>
+                                    <option>PAC géothermique</option>
+                                    <option>Poêle</option>
+                                    <option>Insert</option>
+                                    <option>Plancher chauffant</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Énergie principale
+                                    <span class="field-tag critique">Critique</span>
+                                </label>
+                                <select class="form-select">
+                                    <option selected>Gaz naturel</option>
+                                    <option>Fioul</option>
+                                    <option>GPL</option>
+                                    <option>Électricité</option>
+                                    <option>Bois</option>
+                                    <option>Granulés</option>
+                                    <option>Géothermie</option>
+                                    <option>Solaire</option>
+                                    <option>Réseau de chaleur</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Chaudière — Type
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <select class="form-select">
+                                    <option>Standard</option>
+                                    <option>Basse température</option>
+                                    <option selected>Condensation</option>
+                                    <option>Micro-cogénération</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Chaudière — Marque / Modèle
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <input type="text" class="form-input" placeholder="Marque et modèle">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Chaudière — Âge (ans)
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <input type="number" class="form-input" value="8">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Chaudière — Rendement (%)
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    PAC — COP hiver
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    PAC — SCOP annuel
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Type d'émetteurs
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option>Radiateurs fonte</option>
+                                    <option selected>Radiateurs acier</option>
+                                    <option>Radiateurs alu</option>
+                                    <option>Convecteurs</option>
+                                    <option>Plancher chauffant</option>
+                                    <option>Ventilo-convecteurs</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Régulation du chauffage
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Thermostat simple</option>
+                                    <option>Programmable</option>
+                                    <option>Connecté</option>
+                                    <option>Robinets thermostatiques</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Contrat entretien à jour
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <div class="toggle-row">
+                                    <button class="toggle-switch"></button>
+                                    <span class="toggle-label">Non</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- CATEGORY 11: CLIMATISATION -->
+                <div class="accordion-item">
+                    <div class="accordion-header">
+                        <div class="accordion-arrow">▼</div>
+                        <div class="accordion-title-section">
+                            <span class="accordion-title">Climatisation</span>
+                            <span class="accordion-number">11</span>
+                        </div>
+                        <div class="accordion-progress low">
+                            <div class="accordion-progress-bar">
+                                <div class="accordion-progress-fill" style="width: 14%;"></div>
+                            </div>
+                            <div class="accordion-progress-text">1/7</div>
+                        </div>
+                    </div>
+                    <div class="accordion-content">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Type de climatisation
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option selected>Aucune</option>
+                                    <option>Monobloc mobile</option>
+                                    <option>Split mural</option>
+                                    <option>Multi-split</option>
+                                    <option>Gainable</option>
+                                    <option>PAC réversible</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Nombre d'unités intérieures
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Puissance par unité (kW)
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Marque / Modèle
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <input type="text" class="form-input" placeholder="Marque et modèle">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    SEER
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Âge (ans)
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Entretien filtres
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <div class="toggle-row">
+                                    <button class="toggle-switch"></button>
+                                    <span class="toggle-label">Non</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- CATEGORY 12: VENTILATION -->
+                <div class="accordion-item">
+                    <div class="accordion-header">
+                        <div class="accordion-arrow">▼</div>
+                        <div class="accordion-title-section">
+                            <span class="accordion-title">Ventilation</span>
+                            <span class="accordion-number">12</span>
+                        </div>
+                        <div class="accordion-progress low">
+                            <div class="accordion-progress-bar">
+                                <div class="accordion-progress-fill" style="width: 0%;"></div>
+                            </div>
+                            <div class="accordion-progress-text">0/7</div>
+                        </div>
+                    </div>
+                    <div class="accordion-content">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Type de ventilation
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Naturelle</option>
+                                    <option>VMC SF autoréglable</option>
+                                    <option>VMC SF hygroréglable A</option>
+                                    <option>VMC SF hygroréglable B</option>
+                                    <option>VMC double flux</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Débit extraction (m³/h)
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    État réseau et bouches
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Bouches propres</option>
+                                    <option>Obstruées</option>
+                                    <option>Réseau non visité</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Récupération chaleur (%)
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    CO₂ ambiant (ppm)
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Humidité relative (%)
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    COV intérieurs (µg/m³)
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- CATEGORY 13: ISOLATION THERMIQUE -->
+                <div class="accordion-item">
+                    <div class="accordion-header">
+                        <div class="accordion-arrow">▼</div>
+                        <div class="accordion-title-section">
+                            <span class="accordion-title">Isolation Thermique</span>
+                            <span class="accordion-number">13</span>
+                        </div>
+                        <div class="accordion-progress low">
+                            <div class="accordion-progress-bar">
+                                <div class="accordion-progress-fill" style="width: 25%;"></div>
+                            </div>
+                            <div class="accordion-progress-text">3/12</div>
+                        </div>
+                    </div>
+                    <div class="accordion-content">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Isolation toiture — Matériau
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Laine de verre</option>
+                                    <option>Laine de roche</option>
+                                    <option>Ouate de cellulose</option>
+                                    <option>Laine de bois</option>
+                                    <option>PSE</option>
+                                    <option>PIR</option>
+                                    <option>Sarking</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Isolation toiture — Épaisseur (cm)
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Isolation toiture — État
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Intact</option>
+                                    <option>Tassé</option>
+                                    <option>Rongeurs</option>
+                                    <option>Absent</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Isolation murs — Type
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>ITI (par l'intérieur)</option>
+                                    <option>ITE (par l'extérieur)</option>
+                                    <option>Remplissage doublage</option>
+                                    <option>Aucune</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Isolation murs — Épaisseur (cm)
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Ponts thermiques
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Présents</option>
+                                    <option>Traités</option>
+                                    <option>Absents</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Isolation plancher bas
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <div class="toggle-row">
+                                    <button class="toggle-switch"></button>
+                                    <span class="toggle-label">Non</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    DPE — Étiquette énergie
+                                    <span class="field-tag critique">Critique</span>
+                                </label>
+                                <select class="form-select">
+                                    <option>A</option>
+                                    <option>B</option>
+                                    <option>C</option>
+                                    <option selected>D</option>
+                                    <option>E</option>
+                                    <option>F</option>
+                                    <option>G</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    DPE — Consommation (kWh/m²/an)
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <input type="number" class="form-input" value="210">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    DPE — Étiquette GES
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <select class="form-select">
+                                    <option>A</option>
+                                    <option>B</option>
+                                    <option>C</option>
+                                    <option selected>D</option>
+                                    <option>E</option>
+                                    <option>F</option>
+                                    <option>G</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Audit énergétique réalisé
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <div class="toggle-row">
+                                    <button class="toggle-switch"></button>
+                                    <span class="toggle-label">Non</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    DPE atteignable post-travaux
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>A</option>
+                                    <option>B</option>
+                                    <option>C</option>
+                                    <option>D</option>
+                                    <option>E</option>
+                                    <option>F</option>
+                                    <option>G</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- CATEGORY 14: HUMIDITÉ ET PATHOLOGIES -->
+                <div class="accordion-item">
+                    <div class="accordion-header">
+                        <div class="accordion-arrow">▼</div>
+                        <div class="accordion-title-section">
+                            <span class="accordion-title">Humidité et Pathologies</span>
+                            <span class="accordion-number">14</span>
+                        </div>
+                        <div class="accordion-progress low">
+                            <div class="accordion-progress-bar">
+                                <div class="accordion-progress-fill" style="width: 22%;"></div>
+                            </div>
+                            <div class="accordion-progress-text">2/9</div>
+                        </div>
+                    </div>
+                    <div class="accordion-content">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Taux humidité ambiante (%)
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Taux humidité parois (%)
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Moisissures — Localisation
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <input type="text" class="form-input" placeholder="Angles, derrière mobilier...">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Moisissures — Étendue
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <select class="form-select">
+                                    <option selected>Aucune</option>
+                                    <option>Ponctuelles (<50 cm²)</option>
+                                    <option>Moyennes</option>
+                                    <option>Étendues (>1 m²)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Traces d'infiltration
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <div class="toggle-row">
+                                    <button class="toggle-switch"></button>
+                                    <span class="toggle-label">Non</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Remontées capillaires
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <div class="toggle-row">
+                                    <button class="toggle-switch"></button>
+                                    <span class="toggle-label">Non</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Condensation toiture/combles
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <div class="toggle-row">
+                                    <button class="toggle-switch"></button>
+                                    <span class="toggle-label">Non</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Condensation sous-sol/cave
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <div class="toggle-row">
+                                    <button class="toggle-switch"></button>
+                                    <span class="toggle-label">Non</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Odeurs caractéristiques
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Aucune</option>
+                                    <option>Moisissure</option>
+                                    <option>Humidité</option>
+                                    <option>Renfermé persistant</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- CATEGORY 15: CUISINE -->
+                <div class="accordion-item">
+                    <div class="accordion-header">
+                        <div class="accordion-arrow">▼</div>
+                        <div class="accordion-title-section">
+                            <span class="accordion-title">Cuisine</span>
+                            <span class="accordion-number">15</span>
+                        </div>
+                        <div class="accordion-progress low">
+                            <div class="accordion-progress-bar">
+                                <div class="accordion-progress-fill" style="width: 33%;"></div>
+                            </div>
+                            <div class="accordion-progress-text">3/9</div>
+                        </div>
+                    </div>
+                    <div class="accordion-content">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Surface cuisine (m²)
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <input type="number" class="form-input" value="10">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Configuration
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option selected>Ouverte sur séjour</option>
+                                    <option>Semi-ouverte</option>
+                                    <option>Fermée indépendante</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Cuisine équipée
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <div class="toggle-row">
+                                    <button class="toggle-switch on"></button>
+                                    <span class="toggle-label">Oui</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Plan de travail — Matériau
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Stratifié</option>
+                                    <option>Granit naturel</option>
+                                    <option>Quartz composite</option>
+                                    <option>Bois</option>
+                                    <option>Inox</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Plaque de cuisson
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Gaz</option>
+                                    <option>Induction</option>
+                                    <option>Vitrocéramique</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Hotte
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Aspirante</option>
+                                    <option>Filtrante</option>
+                                    <option>Centrale îlot</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Four
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Intégré</option>
+                                    <option>Pose libre</option>
+                                    <option>Combiné micro-ondes</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Lave-vaisselle
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Intégré</option>
+                                    <option>Pose libre</option>
+                                    <option>Semi-intégré</option>
+                                    <option>Absent</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    État général cuisine
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Évaluer —</option>
+                                    <option>Neuf</option>
+                                    <option>Bon état</option>
+                                    <option>Daté</option>
+                                    <option>À refaire entièrement</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- CATEGORY 16: SALLES DE BAIN ET WC -->
+                <div class="accordion-item">
+                    <div class="accordion-header">
+                        <div class="accordion-arrow">▼</div>
+                        <div class="accordion-title-section">
+                            <span class="accordion-title">Salles de Bain et WC</span>
+                            <span class="accordion-number">16</span>
+                        </div>
+                        <div class="accordion-progress low">
+                            <div class="accordion-progress-bar">
+                                <div class="accordion-progress-fill" style="width: 30%;"></div>
+                            </div>
+                            <div class="accordion-progress-text">3/10</div>
+                        </div>
+                    </div>
+                    <div class="accordion-content">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Nombre de salles de bain
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <input type="number" class="form-input" value="1">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Surface SDB (m²)
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <input type="number" class="form-input" value="5.5">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Baignoire
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Aucune</option>
+                                    <option>Encastrée</option>
+                                    <option>Îlot</option>
+                                    <option>Balnéo</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Douche
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <select class="form-select">
+                                    <option selected>Italienne</option>
+                                    <option>Sans receveur</option>
+                                    <option>Cabine préfabriquée</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Vasque
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Simple</option>
+                                    <option>Double</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    WC suspendus
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <div class="toggle-row">
+                                    <button class="toggle-switch"></button>
+                                    <span class="toggle-label">Non</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Carrelage SDB — État
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Évaluer —</option>
+                                    <option>Joints propres</option>
+                                    <option>Fissures</option>
+                                    <option>Décollements</option>
+                                    <option>Carreaux cassés</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Ventilation SDB
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>VMC débit suffisant</option>
+                                    <option>Fenêtre seule</option>
+                                    <option>Absence totale</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Robinetterie SDB
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Thermostatique</option>
+                                    <option>Standard</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Radiateur sèche-serviettes
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Aucun</option>
+                                    <option>Électrique</option>
+                                    <option>Hydraulique</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- CATEGORY 17: PARTIES COMMUNES -->
+                <div class="accordion-item">
+                    <div class="accordion-header">
+                        <div class="accordion-arrow">▼</div>
+                        <div class="accordion-title-section">
+                            <span class="accordion-title">Parties Communes</span>
+                            <span class="accordion-number">17</span>
+                        </div>
+                        <div class="accordion-progress low">
+                            <div class="accordion-progress-bar">
+                                <div class="accordion-progress-fill" style="width: 50%;"></div>
+                            </div>
+                            <div class="accordion-progress-text">4/8</div>
+                        </div>
+                    </div>
+                    <div class="accordion-content">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Hall d'entrée — État
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Évaluer —</option>
+                                    <option>Neuf</option>
+                                    <option selected>Correct</option>
+                                    <option>Dégradé</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Cage d'escalier — État
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Évaluer —</option>
+                                    <option>Neuf</option>
+                                    <option selected>Correct</option>
+                                    <option>Dégradé</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Ascenseur — Âge (ans)
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <input type="number" class="form-input" value="12">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Carnet d'entretien à jour
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <div class="toggle-row">
+                                    <button class="toggle-switch on"></button>
+                                    <span class="toggle-label">Oui</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Charges courantes (€/mois)
+                                    <span class="field-tag critique">Critique</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Fonds de travaux ALUR (€)
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Travaux votés à venir
+                                    <span class="field-tag critique">Critique</span>
+                                </label>
+                                <input type="text" class="form-input" placeholder="Description des travaux votés">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Taux d'impayés (%)
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- CATEGORY 18: DIAGNOSTICS OBLIGATOIRES -->
+                <div class="accordion-item">
+                    <div class="accordion-header">
+                        <div class="accordion-arrow">▼</div>
+                        <div class="accordion-title-section">
+                            <span class="accordion-title">Diagnostics Obligatoires</span>
+                            <span class="accordion-number">18</span>
+                        </div>
+                        <div class="accordion-progress low">
+                            <div class="accordion-progress-bar">
+                                <div class="accordion-progress-fill" style="width: 33%;"></div>
+                            </div>
+                            <div class="accordion-progress-text">4/12</div>
+                        </div>
+                    </div>
+                    <div class="accordion-content">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    DPE — Étiquette énergie
+                                    <span class="field-tag critique">Critique</span>
+                                </label>
+                                <select class="form-select">
+                                    <option>A</option>
+                                    <option>B</option>
+                                    <option>C</option>
+                                    <option selected>D</option>
+                                    <option>E</option>
+                                    <option>F</option>
+                                    <option>G</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Diagnostic amiante
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option>Non requis</option>
+                                    <option>Absent</option>
+                                    <option selected>Présent sans risque</option>
+                                    <option>Présent à traiter</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    CREP — Plomb
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Non requis</option>
+                                    <option>Absent</option>
+                                    <option>Présent < seuil</option>
+                                    <option>Présent > seuil</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Diagnostic termites
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <div class="toggle-row">
+                                    <button class="toggle-switch"></button>
+                                    <span class="toggle-label">Non</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Diagnostic gaz
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option selected>Conforme</option>
+                                    <option>Anomalies mineures</option>
+                                    <option>Danger immédiat</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Diagnostic électricité
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option selected>Conforme</option>
+                                    <option>Anomalies mineures</option>
+                                    <option>Danger immédiat</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Diagnostic assainissement
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Raccordé tout-à-l'égout</option>
+                                    <option>Fosse conforme</option>
+                                    <option>Fosse non conforme</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    ERP (Risques et Pollutions)
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <div class="toggle-row">
+                                    <button class="toggle-switch"></button>
+                                    <span class="toggle-label">Non</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Audit énergétique
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <div class="toggle-row">
+                                    <button class="toggle-switch"></button>
+                                    <span class="toggle-label">Non</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Mesurage Carrez (m²)
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Diagnostic mérule
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <div class="toggle-row">
+                                    <button class="toggle-switch"></button>
+                                    <span class="toggle-label">Non</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Diagnostic bruit PEB
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Hors zone PEB</option>
+                                    <option>Zone C</option>
+                                    <option>Zone B</option>
+                                    <option>Zone A</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- CATEGORY 19: ÉQUIPEMENTS TECHNOLOGIQUES -->
+                <div class="accordion-item">
+                    <div class="accordion-header">
+                        <div class="accordion-arrow">▼</div>
+                        <div class="accordion-title-section">
+                            <span class="accordion-title">Équipements Technologiques</span>
+                            <span class="accordion-number">19</span>
+                        </div>
+                        <div class="accordion-progress low">
+                            <div class="accordion-progress-bar">
+                                <div class="accordion-progress-fill" style="width: 17%;"></div>
+                            </div>
+                            <div class="accordion-progress-text">2/12</div>
+                        </div>
+                    </div>
+                    <div class="accordion-content">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Fibre optique
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <select class="form-select">
+                                    <option>Non éligible</option>
+                                    <option>Éligible FTTH</option>
+                                    <option selected>Raccordée immeuble</option>
+                                    <option>Présente logement</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Débit internet (Mbit/s)
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Domotique — Protocole
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <select class="form-select">
+                                    <option value="">— Sélectionner —</option>
+                                    <option>Aucun</option>
+                                    <option>KNX</option>
+                                    <option>Zigbee</option>
+                                    <option>Z-Wave</option>
+                                    <option>Matter</option>
+                                    <option>Propriétaire</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Panneaux solaires PV (kWc)
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Production PV annuelle (kWh/an)
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Contrat rachat EDF OA
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <input type="text" class="form-input" placeholder="Tarif et durée">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Batterie stockage (kWh)
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Borne recharge VE (kW)
+                                    <span class="field-tag important">Important</span>
+                                </label>
+                                <select class="form-select">
+                                    <option selected>Aucune</option>
+                                    <option>3,7 kW mono</option>
+                                    <option>7,4 kW mono</option>
+                                    <option>22 kW triphasé</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Panneaux solaires thermiques (m²)
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <input type="number" class="form-input" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Récupération eau de pluie
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <div class="toggle-row">
+                                    <button class="toggle-switch"></button>
+                                    <span class="toggle-label">Non</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Puits canadien
+                                    <span class="field-tag contextuel">Contextuel</span>
+                                </label>
+                                <div class="toggle-row">
+                                    <button class="toggle-switch"></button>
+                                    <span class="toggle-label">Non</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    Alarme intrusion
+                                    <span class="field-tag informatif">Informatif</span>
+                                </label>
+                                <div class="toggle-row">
+                                    <button class="toggle-switch"></button>
+                                    <span class="toggle-label">Non</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- BUTTONS -->
+                <div class="buttons-area">
+                    <button class="btn btn-ghost">← Retour</button>
+                    <button class="btn btn-primary">Étape suivante : Contexte Zone →</button>
+                </div>
+            </div>
+
+            <!-- RIGHT SIDEBAR -->
+            <div class="sidebar-right">
+                <!-- PHOTOS SECTION -->
+                <div class="photos-section">
+                    <div class="photos-header">📸 Photos du bien</div>
+                    <div class="photos-grid">
+                        <div class="photo-placeholder">📷</div>
+                        <div class="photo-placeholder">📷</div>
+                        <div class="photo-placeholder">📷</div>
+                        <div class="photo-placeholder">📷</div>
+                    </div>
+                    <div class="photos-count">12 photos</div>
+                    <div class="photos-alert">
+                        <span class="photos-alert-icon">💡</span>
+                        <span class="photos-alert-text">Ajoutez des photos supplémentaires pour avoir une meilleure visibilité du bien présenté</span>
+                    </div>
+                    <button class="btn-add-photos">+ Ajouter des photos</button>
+                </div>
+
+                <!-- MAP SECTION -->
+                <div class="map-section">
+                    <div id="leaflet-map"></div>
+                    <div class="map-address"><strong>12 rue des Lilas</strong><br>69003 Lyon</div>
+                    <div class="map-iris"><strong>IRIS:</strong> 690353501</div>
+                </div>
+
+                <!-- CRITICAL FIELDS SECTION -->
+                <div class="critical-section">
+                    <div class="critical-header">
+                        <span class="critical-icon">⚠️</span>
+                        Champs critiques manquants
+                    </div>
+                    <div class="critical-list">
+                        <div class="critical-item">❌ Garage / Box fermé</div>
+                        <div class="critical-item">❌ Hauteur sous plafond</div>
+                        <div class="critical-item">❌ Fissures structurelles</div>
+                        <div class="critical-item">❌ Toiture état</div>
+                        <div class="critical-item">❌ Type de vitrage</div>
+                    </div>
+                </div>
+
+                <!-- NOTES SECTION -->
+                <div class="notes-section">
+                    <div class="notes-label">📝 Notes terrain</div>
+                    <textarea class="form-textarea" placeholder="Observations de visite..."></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.querySelectorAll('.accordion-header').forEach(header => {
+            header.addEventListener('click', function() {
+                const content = this.nextElementSibling;
+                const isOpen = this.classList.contains('open');
+                // Close all
+                document.querySelectorAll('.accordion-header').forEach(h => h.classList.remove('open'));
+                document.querySelectorAll('.accordion-content').forEach(c => c.classList.remove('open'));
+                // Toggle clicked
+                if (!isOpen) {
+                    this.classList.add('open');
+                    if (content) content.classList.add('open');
+                }
+            });
+        });
+    </script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Leaflet map — 12 rue des Lilas, 69003 Lyon
+        var map = L.map('leaflet-map', { zoomControl: false }).setView([45.7580, 4.8590], 16);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+        L.control.zoom({ position: 'topright' }).addTo(map);
+        L.marker([45.7580, 4.8590]).addTo(map)
+            .bindPopup('<strong>12 rue des Lilas</strong><br>69003 Lyon');
+    </script>
+</body>
+</html>

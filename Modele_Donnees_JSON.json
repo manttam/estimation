@@ -1,0 +1,662 @@
+{
+  "_meta": {
+    "projet": "Ideeri — Module Étude de Marché & Avis de Valeur",
+    "version": "1.0.0",
+    "date": "2026-03-24",
+    "description": "Modèle de données complet pour le système d'estimation immobilière. 6 entités interconnectées : Bien_Cible, Bien_Comparable, Contexte_Zone, Profil_Acquereur, Tension_Marche, Avis_Valeur + module Complétude."
+  },
+
+  "Bien_Cible": {
+    "_description": "Point d'entrée du système. Bien immobilier à estimer, saisi dans Ideeri par l'agent.",
+    "_relations": {
+      "Bien_Comparable": "1 → N (sélection dans un rayon configurable)",
+      "Contexte_Zone": "1 → 1 (enrichissement automatique par GPS)",
+      "Tension_Marche": "1 → 1 (calcul croisé offre/demande)",
+      "Avis_Valeur": "1 → 1 (résultat final)",
+      "Completude": "1 → 1 (qualité des données)"
+    },
+    "exemple": {
+      "id": "bien_2026_00142",
+      "agent_id": "agent_vca_001",
+      "statut": "estimation_en_cours",
+      "date_creation": "2026-03-24T10:30:00Z",
+
+      "localisation": {
+        "adresse_complete": "12 rue des Lilas, 69003 Lyon",
+        "code_postal": "69003",
+        "commune": "Lyon 3ème",
+        "code_insee": "69383",
+        "code_iris": "693830107",
+        "lat": 45.7578,
+        "lng": 4.8567,
+        "reference_cadastrale": "69383000AB0125"
+      },
+
+      "identification": {
+        "type_bien": "Appartement",
+        "regime_propriete": "Copropriété",
+        "numero_lot": "42",
+        "quote_part_milliemes": 85,
+        "bail_en_cours": null,
+        "servitudes": "Aucune",
+        "droits_preemption": false
+      },
+
+      "caracteristiques_principales": {
+        "surface_carrez_m2": 72.5,
+        "surface_shab_m2": 70.1,
+        "nb_pieces_principales": 3,
+        "nb_chambres": 2,
+        "nb_sdb": 1,
+        "nb_wc": 1,
+        "etage": 4,
+        "nb_etages_immeuble": 6,
+        "orientation_principale": "Sud-Est",
+        "ascenseur": true,
+        "hauteur_sous_plafond_cm": 265
+      },
+
+      "annexes": {
+        "cave_m2": 4.5,
+        "garage_box": false,
+        "parking_exterieur": true,
+        "terrasse_m2": 0,
+        "balcon_m2": 5.2,
+        "jardin_m2": 0,
+        "piscine": false,
+        "dependances": "Cellier 2m²"
+      },
+
+      "etat_et_travaux": {
+        "annee_construction": 1972,
+        "epoque": "1948-1975",
+        "etat_general": "Bon — rafraîchissement prévu",
+        "toiture_etat": "Bon",
+        "facade_etat": "Ravalement 2022",
+        "fissures_structurelles": false,
+        "amiante": "Non détecté",
+        "plomb": "Absent",
+        "merule": false
+      },
+
+      "energie": {
+        "dpe_etiquette": "D",
+        "dpe_kwh_m2_an": 215,
+        "dpe_ges": "D",
+        "type_chauffage": "Collectif",
+        "energie_principale": "Gaz",
+        "type_vitrage": "Double vitrage",
+        "isolation_murs": "Intérieure laine de verre 8cm",
+        "ventilation": "VMC simple flux",
+        "dpe_atteignable_post_travaux": "C"
+      },
+
+      "copropriete": {
+        "charges_mensuelles_euros": 180,
+        "fonds_travaux_alur_euros": 2400,
+        "travaux_votes": "Ravalement façade arrière — 15 000€ quote-part",
+        "taux_impayes_pct": 3.2,
+        "nb_lots_copro": 48
+      },
+
+      "equipements": {
+        "cuisine_equipee": true,
+        "fibre_optique": true,
+        "debit_internet_mbit": 920,
+        "borne_recharge_ve": false,
+        "panneaux_solaires": false,
+        "domotique": null
+      },
+
+      "donnees_intrinseques_completes": "→ Réfère au CSV des 202 champs renseignés pour ce bien",
+
+      "completude": {
+        "champs_renseignes": 156,
+        "champs_applicables": 178,
+        "champs_non_applicables": 24,
+        "taux_completude_brut_pct": 87.6,
+        "taux_completude_pondere_pct": 91.2,
+        "nb_champs_critiques_renseignes": 18,
+        "nb_champs_critiques_total": 19,
+        "score_fiabilite_donnees": 93,
+        "completude_par_categorie": {
+          "identification_juridique": { "renseignes": 8, "applicables": 10, "pct": 80.0, "pct_pondere": 85.0 },
+          "caracteristiques_generales": { "renseignes": 21, "applicables": 23, "pct": 91.3, "pct_pondere": 94.5 },
+          "structure_gros_oeuvre": { "renseignes": 16, "applicables": 21, "pct": 76.2, "pct_pondere": 82.0 },
+          "revetements_muraux": { "renseignes": 8, "applicables": 10, "pct": 80.0, "pct_pondere": 78.0 },
+          "revetements_sols": { "renseignes": 6, "applicables": 7, "pct": 85.7, "pct_pondere": 83.0 },
+          "menuiseries_fenetres": { "renseignes": 7, "applicables": 8, "pct": 87.5, "pct_pondere": 90.0 },
+          "portes_acces": { "renseignes": 5, "applicables": 7, "pct": 71.4, "pct_pondere": 68.0 },
+          "installations_electriques": { "renseignes": 8, "applicables": 11, "pct": 72.7, "pct_pondere": 75.0 },
+          "plomberie": { "renseignes": 6, "applicables": 8, "pct": 75.0, "pct_pondere": 78.0 },
+          "chauffage": { "renseignes": 9, "applicables": 11, "pct": 81.8, "pct_pondere": 88.0 },
+          "climatisation": { "renseignes": 0, "applicables": 0, "pct": null, "pct_pondere": null, "_note": "Non applicable — pas de climatisation" },
+          "ventilation": { "renseignes": 4, "applicables": 7, "pct": 57.1, "pct_pondere": 65.0 },
+          "isolation_performance": { "renseignes": 10, "applicables": 12, "pct": 83.3, "pct_pondere": 88.0 },
+          "humidite_pathologies": { "renseignes": 7, "applicables": 9, "pct": 77.8, "pct_pondere": 80.0 },
+          "cuisine": { "renseignes": 7, "applicables": 9, "pct": 77.8, "pct_pondere": 75.0 },
+          "salles_de_bain": { "renseignes": 8, "applicables": 10, "pct": 80.0, "pct_pondere": 78.0 },
+          "parties_communes": { "renseignes": 8, "applicables": 8, "pct": 100.0, "pct_pondere": 100.0 },
+          "diagnostics_obligatoires": { "renseignes": 11, "applicables": 12, "pct": 91.7, "pct_pondere": 93.0 },
+          "equipements_tech_durables": { "renseignes": 6, "applicables": 10, "pct": 60.0, "pct_pondere": 65.0 }
+        }
+      }
+    }
+  },
+
+  "Bien_Comparable": {
+    "_description": "Bien utilisé comme référence de comparaison. Peut provenir de 4 sources avec des niveaux de données très différents. L'agent sélectionne manuellement ceux qu'il retient.",
+    "_sources": {
+      "DVF": "6 champs, complétude pondérée max 4.5%, prix = transaction réelle",
+      "IDEERI_VENTE": "jusqu'à 203 champs, complétude pondérée jusqu'à 100%, prix = transaction réelle + contexte qualitatif",
+      "IDEERI_ENCOURS": "jusqu'à 203 champs, prix = prix affiché ou sous offre",
+      "PORTAIL": "~29 champs, complétude pondérée max 22.7%, prix = prix affiché"
+    },
+    "exemple_ideeri_vente": {
+      "id": "comp_2026_00891",
+      "bien_cible_id": "bien_2026_00142",
+      "source": "IDEERI_VENTE",
+      "fiabilite_prix": "transaction_reelle",
+      "statut": "vendu",
+
+      "localisation": {
+        "adresse": "8 rue Victor Hugo, 69003 Lyon",
+        "lat": 45.7582,
+        "lng": 4.8590,
+        "distance_bien_cible_m": 280,
+        "code_iris": "693830107",
+        "meme_iris": true
+      },
+
+      "donnees_comparables": {
+        "type_bien": "Appartement",
+        "surface_m2": 68.0,
+        "nb_pieces": 3,
+        "nb_chambres": 2,
+        "etage": 3,
+        "ascenseur": true,
+        "dpe": "D",
+        "annee_construction": 1968,
+        "balcon_m2": 3.5,
+        "garage": false,
+        "parking": true,
+        "charges_mensuelles": 165
+      },
+
+      "prix": {
+        "prix_vente": 225000,
+        "prix_m2": 3309,
+        "date_vente": "2025-11-15",
+        "duree_en_vente_jours": 62,
+        "prix_initial_affiche": 239000,
+        "ecart_prix_initial_pct": -5.9,
+        "negociation_pct": 5.9
+      },
+
+      "ajustements_vs_bien_cible": {
+        "surface": { "ecart_m2": -4.5, "ajustement_pct": -2.1, "methode": "proportionnel" },
+        "etage": { "ecart": -1, "ajustement_pct": -1.5, "methode": "barème étage" },
+        "balcon": { "ecart_m2": -1.7, "ajustement_pct": -0.5, "methode": "prix m² extérieur" },
+        "travaux_copro": { "ajustement_pct": +3.2, "methode": "quote-part travaux bien cible" },
+        "total_ajustement_pct": -0.9,
+        "prix_ajuste": 222975,
+        "prix_m2_ajuste": 3075
+      },
+
+      "completude": {
+        "taux_completude_brut_pct": 85.4,
+        "taux_completude_pondere_pct": 89.1,
+        "nb_champs_critiques_renseignes": 18,
+        "score_fiabilite": 91
+      },
+
+      "selectionne_par_agent": true,
+      "poids_dans_estimation": 0.30,
+      "commentaire_agent": "Même copropriété, vendu il y a 4 mois. Très bon comparable."
+    },
+
+    "exemple_dvf": {
+      "id": "comp_dvf_69383_2025_04521",
+      "bien_cible_id": "bien_2026_00142",
+      "source": "DVF",
+      "fiabilite_prix": "transaction_reelle",
+      "statut": "vendu",
+
+      "localisation": {
+        "adresse": "25 rue Paul Bert, 69003 Lyon",
+        "lat": 45.7565,
+        "lng": 4.8601,
+        "distance_bien_cible_m": 420
+      },
+
+      "donnees_comparables": {
+        "type_bien": "Appartement",
+        "surface_m2": 74.0,
+        "nb_pieces": 3,
+        "nb_chambres": null,
+        "etage": null,
+        "ascenseur": null,
+        "dpe": null,
+        "annee_construction": null
+      },
+
+      "prix": {
+        "prix_vente": 240000,
+        "prix_m2": 3243,
+        "date_vente": "2025-09-22"
+      },
+
+      "ajustements_vs_bien_cible": {
+        "surface": { "ecart_m2": +1.5, "ajustement_pct": +0.7 },
+        "etage": { "ajustement_pct": 0, "methode": "inconnu — pas d'ajustement" },
+        "total_ajustement_pct": +0.7,
+        "prix_ajuste": 241680,
+        "prix_m2_ajuste": 3333,
+        "_avertissement": "Ajustement limité — données insuffisantes (complétude 4.5%)"
+      },
+
+      "completude": {
+        "taux_completude_brut_pct": 3.0,
+        "taux_completude_pondere_pct": 4.5,
+        "nb_champs_critiques_renseignes": 4,
+        "score_fiabilite": 35
+      },
+
+      "selectionne_par_agent": true,
+      "poids_dans_estimation": 0.15,
+      "commentaire_agent": "Transaction récente même quartier, mais peu de données."
+    },
+
+    "exemple_portail": {
+      "id": "comp_melo_69003_2026_08832",
+      "bien_cible_id": "bien_2026_00142",
+      "source": "PORTAIL",
+      "fiabilite_prix": "prix_affiche",
+      "statut": "en_vente",
+      "source_portail": "seloger",
+      "url_annonce": "https://www.seloger.com/annonces/...",
+
+      "localisation": {
+        "adresse": "Rue Montesquieu, 69003 Lyon",
+        "lat": 45.7575,
+        "lng": 4.8555,
+        "distance_bien_cible_m": 150
+      },
+
+      "donnees_comparables": {
+        "type_bien": "Appartement",
+        "surface_m2": 70.0,
+        "nb_pieces": 3,
+        "nb_chambres": 2,
+        "etage": 5,
+        "ascenseur": true,
+        "dpe": "C",
+        "annee_construction": 1975,
+        "balcon_m2": 8.0,
+        "charges_mensuelles": 195
+      },
+
+      "prix": {
+        "prix_affiche": 259000,
+        "prix_m2": 3700,
+        "date_mise_en_vente": "2026-01-10",
+        "duree_en_vente_jours": 73,
+        "historique_prix": [
+          { "date": "2026-01-10", "prix": 269000 },
+          { "date": "2026-02-15", "prix": 259000, "baisse_pct": -3.7 }
+        ]
+      },
+
+      "completude": {
+        "taux_completude_brut_pct": 14.3,
+        "taux_completude_pondere_pct": 22.7,
+        "nb_champs_critiques_renseignes": 14,
+        "score_fiabilite": 48
+      },
+
+      "selectionne_par_agent": true,
+      "poids_dans_estimation": 0.10,
+      "commentaire_agent": "Concurrent direct, en vente depuis 73 jours avec baisse de prix."
+    }
+  },
+
+  "Contexte_Zone": {
+    "_description": "Données extrinsèques calculées automatiquement à partir des coordonnées GPS. Sources : data.gouv, INSEE, Géorisques, etc. S'applique au bien cible ET à chaque comparable pour permettre les ajustements.",
+    "_sources_api": [
+      "Géorisques (risques naturels, PPRI, Seveso, radon, cavités)",
+      "INSEE Filosofi (revenus médians IRIS, taux pauvreté)",
+      "INSEE Emploi-Diplômes (chômage, diplômes, démographie)",
+      "DVF Etalab (transactions historiques zone)",
+      "Géoportail Urbanisme (PLU, zones, servitudes)",
+      "Atmo France (qualité air NO2, PM2.5, ATMO)",
+      "Bruitparif / Cartes bruit (nuisances sonores)",
+      "BRGM BASOL/BASIAS (pollution sols)",
+      "transport.data.gouv (arrêts, lignes, fréquences)",
+      "Education Nationale (écoles, collèges, lycées)",
+      "Ameli (médecins, déserts médicaux)",
+      "Ministère Intérieur (criminalité communale)"
+    ],
+    "exemple": {
+      "id": "ctx_693830107_2026",
+      "bien_id": "bien_2026_00142",
+      "lat": 45.7578,
+      "lng": 4.8567,
+      "code_iris": "693830107",
+      "commune": "Lyon 3ème",
+      "date_enrichissement": "2026-03-24T10:31:00Z",
+
+      "risques": {
+        "source": "georisques.gouv.fr",
+        "ppri_inondation": false,
+        "zone_sismique": 2,
+        "zone_radon": 1,
+        "seveso": false,
+        "cavites_souterraines": 0,
+        "retrait_gonflement_argiles": "faible",
+        "score_risques": 88,
+        "_note": "88/100 = risques très faibles"
+      },
+
+      "environnement": {
+        "qualite_air": {
+          "source": "atmo-france.org",
+          "indice_atmo_moyen": "Bon",
+          "no2_moyenne_annuelle_ug_m3": 28,
+          "pm25_moyenne_annuelle_ug_m3": 12
+        },
+        "bruit": {
+          "source": "cartes-bruit.gouv.fr",
+          "lden_route_db": 62,
+          "lden_fer_db": 45,
+          "zone_peb_aeroport": null,
+          "score_calme": 55
+        },
+        "sols": {
+          "source": "georisques.gouv.fr",
+          "sites_basol_500m": 0,
+          "sites_basias_500m": 2,
+          "score_sols": 85
+        },
+        "score_environnemental_global": 72
+      },
+
+      "socio_economique": {
+        "source": "INSEE Filosofi + Emploi",
+        "annee_reference": 2023,
+        "revenu_median_iris": 24800,
+        "taux_pauvrete_iris_pct": 14.2,
+        "taux_chomage_commune_pct": 8.1,
+        "part_diplomes_sup_pct": 52.3,
+        "population_iris": 3200,
+        "densite_hab_km2": 12500,
+        "part_proprietaires_pct": 38.5,
+        "score_socio_eco": 68
+      },
+
+      "accessibilite": {
+        "transports": {
+          "source": "transport.data.gouv.fr",
+          "metro_station_plus_proche": { "nom": "Place Guichard", "distance_m": 180, "lignes": ["B"] },
+          "tram_station_plus_proche": { "nom": "Part-Dieu Servient", "distance_m": 350, "lignes": ["T1", "T4"] },
+          "bus_arrets_500m": 6,
+          "gare_sncf_distance_m": 800,
+          "score_transport": 95
+        },
+        "commerces": {
+          "source": "OpenStreetMap + BPE INSEE",
+          "boulangeries_500m": 4,
+          "supermarches_1km": 3,
+          "pharmacies_500m": 2,
+          "restaurants_500m": 18,
+          "score_commerces": 92
+        },
+        "score_accessibilite_global": 93
+      },
+
+      "services": {
+        "education": {
+          "source": "education.gouv.fr",
+          "ecoles_maternelles_1km": 3,
+          "ecoles_primaires_1km": 4,
+          "colleges_2km": 2,
+          "lycees_3km": 3,
+          "score_education": 88
+        },
+        "sante": {
+          "source": "data.ameli.fr",
+          "medecins_generalistes_1km": 12,
+          "dentistes_1km": 5,
+          "pharmacies_500m": 2,
+          "hopital_distance_m": 2100,
+          "score_sante": 82
+        },
+        "score_services_global": 85
+      },
+
+      "urbanisme": {
+        "source": "geoportail-urbanisme.gouv.fr",
+        "zone_plu": "UA",
+        "type_zone": "Urbaine dense",
+        "hauteur_max_m": 25,
+        "cos_ces_applicable": "CES 0.8",
+        "servitudes_utlite_publique": []
+      },
+
+      "marche_local": {
+        "source": "DVF Etalab + données internes Ideeri",
+        "prix_m2_median_iris_12_mois": 3280,
+        "evolution_prix_m2_12_mois_pct": +2.4,
+        "nb_transactions_iris_12_mois": 87,
+        "delai_vente_median_jours": 58,
+        "volume_offre_actuel": 34
+      },
+
+      "scores_agreges": {
+        "score_environnemental": 72,
+        "score_accessibilite": 93,
+        "score_services": 85,
+        "score_socio_eco": 68,
+        "score_risques": 88,
+        "score_global_zone": 81,
+        "_methode": "Moyenne pondérée : accessibilité 30%, services 25%, environnement 20%, risques 15%, socio-éco 10%"
+      }
+    }
+  },
+
+  "Tension_Marche": {
+    "_description": "Croisement offre/demande. Mesure combien d'acquéreurs actifs dans Ideeri matchent avec le bien cible et quel est le niveau de concurrence. Détermine la durée de vente estimée et influence le positionnement prix.",
+    "_flux": "Bien_Cible → scoring radar (31 critères) → Profils_Acquéreur actifs → Tension_Marche",
+    "exemple": {
+      "id": "tension_2026_00142",
+      "bien_cible_id": "bien_2026_00142",
+      "date_calcul": "2026-03-24T10:35:00Z",
+      "parametres_calcul": {
+        "rayon_recherche_km": 3,
+        "seuil_matching_minimum": 0.50,
+        "scoring_utilise": "radar_31_criteres_v1"
+      },
+
+      "demande": {
+        "nb_acquereurs_actifs_zone": 48,
+        "nb_acquereurs_matches": 12,
+        "nb_forte_compatibilite": 5,
+        "score_matching_moyen": 0.72,
+        "score_matching_median": 0.68,
+        "budget_moyen_matches": 245000,
+        "budget_median_matches": 235000,
+        "distribution_scores": {
+          "0.50_0.59": 2,
+          "0.60_0.69": 3,
+          "0.70_0.79": 4,
+          "0.80_0.89": 2,
+          "0.90_1.00": 1
+        },
+        "top_acquereurs": [
+          { "id": "acq_0087", "score": 0.94, "budget_max": 260000, "critere_fort": "Télétravail + 2 chambres + balcon", "delai_achat": "urgent" },
+          { "id": "acq_0134", "score": 0.88, "budget_max": 250000, "critere_fort": "Proximité Part-Dieu + DPE ≤ D", "delai_achat": "3 mois" },
+          { "id": "acq_0201", "score": 0.85, "budget_max": 230000, "critere_fort": "T3 + ascenseur + cave", "delai_achat": "6 mois" },
+          { "id": "acq_0156", "score": 0.82, "budget_max": 240000, "critere_fort": "Lyon 3ème + balcon + parking", "delai_achat": "3 mois" },
+          { "id": "acq_0312", "score": 0.78, "budget_max": 255000, "critere_fort": "Surface > 65m² + lumineux", "delai_achat": "flexible" }
+        ]
+      },
+
+      "offre": {
+        "nb_biens_similaires_en_vente": 8,
+        "prix_m2_moyen_concurrents": 3450,
+        "prix_m2_median_concurrents": 3380,
+        "duree_moyenne_en_vente_jours": 65,
+        "biens_avec_baisse_prix_pct": 37.5,
+        "sources_biens": {
+          "ideeri_encours": 2,
+          "portail": 6
+        }
+      },
+
+      "indicateurs_tension": {
+        "ratio_demande_offre": 1.50,
+        "tension": "moderee_favorable",
+        "interpretation": "12 acquéreurs pour 8 biens similaires — marché légèrement favorable au vendeur",
+        "duree_vente_estimee_jours": 52,
+        "indice_liquidite": 0.72,
+        "fourchette_negociation_estimee_pct": { "min": -3, "max": -7 },
+        "confiance_estimation_tension": 78
+      },
+
+      "_note_pour_agent": "5 acquéreurs à forte compatibilité (>0.80), dont 1 urgent. Argumentaire vendeur : demande présente et qualifiée. Positionnement prix recommandé : haut de fourchette."
+    }
+  },
+
+  "Avis_Valeur": {
+    "_description": "Résultat final de l'estimation. Agrège les comparables sélectionnés et ajustés, le contexte extrinsèque, et la tension de marché pour produire une fourchette argumentée.",
+    "_flux": "Comparables ajustés + Contexte_Zone + Tension_Marche → Avis_Valeur",
+    "exemple": {
+      "id": "avis_2026_00142",
+      "bien_cible_id": "bien_2026_00142",
+      "agent_id": "agent_vca_001",
+      "date_creation": "2026-03-24T11:00:00Z",
+      "statut": "brouillon",
+
+      "estimation": {
+        "prix_estime_bas": 225000,
+        "prix_estime_haut": 248000,
+        "prix_estime_median": 236000,
+        "prix_m2_estime": 3255,
+        "amplitude_fourchette_pct": 9.7,
+        "strategie_recommandee": "marche",
+        "prix_affichage_suggere": 245000,
+        "_logique_prix_affichage": "Haut de fourchette car tension favorable (ratio demande/offre 1.5) et 1 acquéreur urgent à score 0.94"
+      },
+
+      "indice_confiance": {
+        "score_global": 82,
+        "facteurs": {
+          "completude_bien_cible": { "valeur": 91.2, "impact": "positif" },
+          "completude_moyenne_comparables": { "valeur": 62.3, "impact": "modere" },
+          "nb_comparables_ideeri": { "valeur": 2, "impact": "positif" },
+          "nb_comparables_total": { "valeur": 5, "impact": "suffisant" },
+          "anciennete_comparables_mois": { "valeur": 5.2, "impact": "bon" },
+          "homogeneite_prix_m2": { "valeur": 0.85, "impact": "bon" },
+          "couverture_champs_critiques": { "valeur": 0.95, "impact": "excellent" }
+        }
+      },
+
+      "comparables_utilises": [
+        {
+          "id": "comp_2026_00891",
+          "source": "IDEERI_VENTE",
+          "prix_m2_ajuste": 3075,
+          "poids": 0.30,
+          "score_fiabilite": 91,
+          "ajustement_total_pct": -0.9
+        },
+        {
+          "id": "comp_2026_00765",
+          "source": "IDEERI_VENTE",
+          "prix_m2_ajuste": 3180,
+          "poids": 0.25,
+          "score_fiabilite": 88,
+          "ajustement_total_pct": +1.2
+        },
+        {
+          "id": "comp_dvf_69383_2025_04521",
+          "source": "DVF",
+          "prix_m2_ajuste": 3333,
+          "poids": 0.15,
+          "score_fiabilite": 35,
+          "ajustement_total_pct": +0.7
+        },
+        {
+          "id": "comp_dvf_69383_2025_03892",
+          "source": "DVF",
+          "prix_m2_ajuste": 3150,
+          "poids": 0.20,
+          "score_fiabilite": 38,
+          "ajustement_total_pct": -1.5
+        },
+        {
+          "id": "comp_melo_69003_2026_08832",
+          "source": "PORTAIL",
+          "prix_m2_ajuste": 3700,
+          "poids": 0.10,
+          "score_fiabilite": 48,
+          "ajustement_total_pct": 0,
+          "_note": "Prix affiché (non vendu) — poids réduit"
+        }
+      ],
+
+      "prix_m2_pondere": {
+        "valeur": 3191,
+        "methode": "Moyenne pondérée par (poids_agent × score_fiabilite)",
+        "ecart_type": 215,
+        "coeff_variation_pct": 6.7
+      },
+
+      "ajustements_extrinseques": {
+        "contexte_zone": {
+          "score_global_zone": 81,
+          "score_reference_marche": 75,
+          "ajustement_pct": +1.5,
+          "justification": "Zone au-dessus de la moyenne (accessibilité 93, services 85)"
+        },
+        "travaux_copro_en_cours": {
+          "montant_quote_part": 15000,
+          "ajustement_euros": -15000,
+          "justification": "Travaux votés — quote-part à déduire du prix estimé"
+        }
+      },
+
+      "impact_tension_marche": {
+        "ratio_demande_offre": 1.50,
+        "tension": "moderee_favorable",
+        "ajustement_prix_pct": +2.0,
+        "duree_vente_estimee_jours": 52,
+        "justification": "12 acquéreurs matchés dont 5 à forte compatibilité — justifie positionnement haut de fourchette"
+      },
+
+      "argumentaire_vendeur": {
+        "points_forts": [
+          "5 acquéreurs actifs à forte compatibilité (score > 0.80) dont 1 en recherche urgente",
+          "Localisation premium : score accessibilité 93/100 (métro à 180m, commerces excellents)",
+          "DPE D avec potentiel C post-travaux : argument de valorisation future",
+          "2 comparables Ideeri ultra-détaillés confirment le niveau de prix (fiabilité > 88%)"
+        ],
+        "points_vigilance": [
+          "Travaux de ravalement votés : 15 000€ de quote-part à intégrer dans le prix",
+          "8 biens concurrents similaires actuellement en vente, 37.5% ont déjà baissé leur prix",
+          "Copropriété avec 3.2% d'impayés : signal de fragilité à surveiller"
+        ],
+        "positionnement_vs_marche": "Prix/m² estimé à 3 255€ vs 3 280€ médian IRIS — cohérent avec le marché, légèrement en-dessous pour absorber les travaux copro"
+      },
+
+      "historique_versions": [
+        {
+          "version": 1,
+          "date": "2026-03-24T11:00:00Z",
+          "prix_median": 236000,
+          "agent": "agent_vca_001",
+          "action": "Création brouillon"
+        }
+      ]
+    }
+  }
+}

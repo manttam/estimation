@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ideeri — Modèle de Données : Étude de Marché & Avis de Valeur</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f1117; color: #e2e8f0; padding: 24px; line-height: 1.6; }
+  h1 { font-size: 1.6rem; color: #fff; margin-bottom: 4px; }
+  .subtitle { color: #94a3b8; font-size: 0.9rem; margin-bottom: 32px; }
+
+  /* Diagram */
+  .diagram-container { background: #1a1d2e; border-radius: 16px; padding: 32px; margin-bottom: 40px; border: 1px solid #2d3148; }
+  .diagram-title { font-size: 1.1rem; color: #818cf8; margin-bottom: 20px; font-weight: 600; }
+
+  svg { width: 100%; max-width: 1100px; margin: 0 auto; display: block; }
+
+  .entity-box { fill: #1e2235; stroke: #3b4168; stroke-width: 1.5; rx: 10; }
+  .entity-box-highlight { fill: #1e2a35; stroke: #60a5fa; stroke-width: 2; rx: 10; }
+  .entity-box-result { fill: #1e3528; stroke: #4ade80; stroke-width: 2; rx: 10; }
+  .entity-title { font-size: 13px; font-weight: 700; fill: #fff; font-family: -apple-system, sans-serif; }
+  .entity-subtitle { font-size: 10px; fill: #94a3b8; font-family: -apple-system, sans-serif; }
+  .entity-field { font-size: 10px; fill: #cbd5e1; font-family: 'SF Mono', 'Fira Code', monospace; }
+  .entity-type { font-size: 10px; fill: #64748b; font-family: 'SF Mono', 'Fira Code', monospace; }
+  .relation-line { stroke: #475569; stroke-width: 1.5; fill: none; }
+  .relation-line-data { stroke: #60a5fa; stroke-width: 1.5; fill: none; stroke-dasharray: 6,3; }
+  .relation-line-result { stroke: #4ade80; stroke-width: 1.5; fill: none; }
+  .relation-label { font-size: 9px; fill: #94a3b8; font-family: -apple-system, sans-serif; }
+  .badge { rx: 4; }
+  .badge-critical { fill: #dc2626; }
+  .badge-source { fill: #2563eb; }
+  .badge-auto { fill: #7c3aed; }
+  .badge-text { font-size: 8px; fill: #fff; font-weight: 600; font-family: -apple-system, sans-serif; }
+  .arrow { fill: #475569; }
+  .arrow-data { fill: #60a5fa; }
+  .arrow-result { fill: #4ade80; }
+
+  /* Completude comparison */
+  .completude-section { background: #1a1d2e; border-radius: 16px; padding: 32px; margin-bottom: 40px; border: 1px solid #2d3148; }
+  .bar-container { display: flex; align-items: center; margin-bottom: 16px; gap: 12px; }
+  .bar-label { width: 140px; font-size: 0.85rem; color: #cbd5e1; text-align: right; flex-shrink: 0; }
+  .bar-track { flex: 1; height: 32px; background: #2d3148; border-radius: 8px; position: relative; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 8px; display: flex; align-items: center; padding-left: 12px; font-size: 0.8rem; font-weight: 700; color: #fff; transition: width 1s ease; }
+  .bar-dvf { background: linear-gradient(90deg, #dc2626, #ef4444); width: 4.5%; }
+  .bar-portail { background: linear-gradient(90deg, #f59e0b, #fbbf24); width: 22.7%; }
+  .bar-ideeri { background: linear-gradient(90deg, #059669, #34d399); width: 100%; }
+  .bar-value { font-size: 0.85rem; color: #94a3b8; width: 60px; flex-shrink: 0; }
+  .bar-chips { display: flex; gap: 6px; margin-top: 2px; }
+  .chip { font-size: 0.7rem; padding: 2px 8px; border-radius: 4px; color: #fff; }
+  .chip-fields { background: #374151; }
+  .chip-critical { background: #7c2d12; }
+
+  /* Entity cards */
+  .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; margin-bottom: 40px; }
+  .card { background: #1a1d2e; border-radius: 12px; padding: 24px; border: 1px solid #2d3148; }
+  .card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .card-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+  .card-icon-blue { background: #1e3a5f; }
+  .card-icon-green { background: #14532d; }
+  .card-icon-purple { background: #3b1f6e; }
+  .card-icon-orange { background: #5c2d0e; }
+  .card-icon-red { background: #5c1a1a; }
+  .card-icon-teal { background: #134e4a; }
+  .card-title { font-size: 1rem; font-weight: 700; color: #fff; }
+  .card-desc { font-size: 0.8rem; color: #94a3b8; margin-bottom: 16px; }
+  .card-fields { list-style: none; }
+  .card-fields li { font-size: 0.8rem; color: #cbd5e1; padding: 4px 0; border-bottom: 1px solid #2d3148; display: flex; justify-content: space-between; }
+  .card-fields li:last-child { border-bottom: none; }
+  .field-name { font-family: 'SF Mono', monospace; color: #818cf8; }
+  .field-type { font-family: 'SF Mono', monospace; color: #64748b; font-size: 0.75rem; }
+  .card-relation { font-size: 0.75rem; color: #60a5fa; margin-top: 12px; padding: 8px; background: #1e2a3a; border-radius: 6px; }
+
+  /* Flow */
+  .flow-section { background: #1a1d2e; border-radius: 16px; padding: 32px; margin-bottom: 40px; border: 1px solid #2d3148; }
+  .flow-steps { display: flex; align-items: stretch; gap: 0; flex-wrap: wrap; justify-content: center; }
+  .flow-step { background: #252940; border-radius: 10px; padding: 16px; width: 180px; text-align: center; }
+  .flow-step-num { font-size: 0.7rem; color: #818cf8; font-weight: 700; margin-bottom: 4px; }
+  .flow-step-title { font-size: 0.85rem; color: #fff; font-weight: 600; margin-bottom: 6px; }
+  .flow-step-desc { font-size: 0.7rem; color: #94a3b8; }
+  .flow-arrow { display: flex; align-items: center; color: #475569; font-size: 1.5rem; padding: 0 8px; }
+
+  /* Legend */
+  .legend { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 16px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: #94a3b8; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+
+  @media (max-width: 768px) {
+    .cards-grid { grid-template-columns: 1fr; }
+    .flow-steps { flex-direction: column; align-items: center; }
+    .flow-arrow { transform: rotate(90deg); }
+  }
+</style>
+</head>
+<body>
+
+<h1>Ideeri — Modèle de Données</h1>
+<p class="subtitle">Module Étude de Marché & Avis de Valeur · v1.0 · Mars 2026</p>
+
+<!-- FLUX -->
+<div class="flow-section">
+  <div class="diagram-title">Flux de données — De l'adresse à l'avis de valeur</div>
+  <div class="flow-steps">
+    <div class="flow-step">
+      <div class="flow-step-num">ÉTAPE 1</div>
+      <div class="flow-step-title">Bien Cible</div>
+      <div class="flow-step-desc">Agent saisit un bien avec ses 202 champs intrinsèques</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="flow-step-num">ÉTAPE 2</div>
+      <div class="flow-step-title">Contexte Zone</div>
+      <div class="flow-step-desc">Enrichissement auto par GPS (data.gouv, 33+ sources)</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="flow-step-num">ÉTAPE 3</div>
+      <div class="flow-step-title">Comparables</div>
+      <div class="flow-step-desc">Agent sélectionne sur carte (DVF + Ideeri + Portails)</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="flow-step-num">ÉTAPE 4</div>
+      <div class="flow-step-title">Tension Marché</div>
+      <div class="flow-step-desc">Croisement offre/demande via scoring radar 31 critères</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step" style="background: #1a3328; border: 1px solid #4ade80;">
+      <div class="flow-step-num" style="color: #4ade80;">RÉSULTAT</div>
+      <div class="flow-step-title">Avis de Valeur</div>
+      <div class="flow-step-desc">Fourchette argumentée + indice de confiance</div>
+    </div>
+  </div>
+</div>
+
+<!-- COMPLÉTUDE -->
+<div class="completude-section">
+  <div class="diagram-title">Complétude pondérée par source — L'avantage Ideeri</div>
+  <p style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 24px;">
+    Chaque champ est pondéré par son impact sur l'estimation (Critique ×4, Important ×3, Contextuel ×2, Informatif ×1).
+    La complétude pondérée mesure la richesse des données qui <em>comptent vraiment</em> pour estimer un prix.
+  </p>
+
+  <div class="bar-container">
+    <div class="bar-label">
+      DVF
+      <div class="bar-chips"><span class="chip chip-fields">6 champs</span><span class="chip chip-critical">4 critiques</span></div>
+    </div>
+    <div class="bar-track"><div class="bar-fill bar-dvf"></div></div>
+    <div class="bar-value">4.5%</div>
+  </div>
+
+  <div class="bar-container">
+    <div class="bar-label">
+      Portail
+      <div class="bar-chips"><span class="chip chip-fields">29 champs</span><span class="chip chip-critical">14 critiques</span></div>
+    </div>
+    <div class="bar-track"><div class="bar-fill bar-portail"></div></div>
+    <div class="bar-value">22.7%</div>
+  </div>
+
+  <div class="bar-container">
+    <div class="bar-label">
+      Ideeri
+      <div class="bar-chips"><span class="chip chip-fields">203 champs</span><span class="chip chip-critical">19 critiques</span></div>
+    </div>
+    <div class="bar-track"><div class="bar-fill bar-ideeri"></div></div>
+    <div class="bar-value">100%</div>
+  </div>
+</div>
+
+<!-- ENTITY CARDS -->
+<div class="diagram-title" style="margin-bottom: 16px; padding-left: 4px;">Les 6 entités du système</div>
+
+<div class="cards-grid">
+
+  <!-- BIEN CIBLE -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon card-icon-blue">🏠</div>
+      <div class="card-title">Bien_Cible</div>
+    </div>
+    <div class="card-desc">Point d'entrée. Bien à estimer saisi par l'agent dans Ideeri.</div>
+    <ul class="card-fields">
+      <li><span class="field-name">id</span><span class="field-type">string PK</span></li>
+      <li><span class="field-name">localisation</span><span class="field-type">{ lat, lng, iris, adresse }</span></li>
+      <li><span class="field-name">type_bien</span><span class="field-type">string — Critique ×4</span></li>
+      <li><span class="field-name">surface_carrez_m2</span><span class="field-type">float — Critique ×4</span></li>
+      <li><span class="field-name">nb_pieces / chambres</span><span class="field-type">int — Critique ×4</span></li>
+      <li><span class="field-name">dpe_etiquette</span><span class="field-type">string — Critique ×4</span></li>
+      <li><span class="field-name">donnees_intrinseques</span><span class="field-type">json — 202 champs</span></li>
+      <li><span class="field-name">completude</span><span class="field-type">→ Complétude</span></li>
+    </ul>
+    <div class="card-relation">
+      → 1:N Bien_Comparable · 1:1 Contexte_Zone · 1:1 Tension_Marche · 1:1 Avis_Valeur
+    </div>
+  </div>
+
+  <!-- BIEN COMPARABLE -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon card-icon-purple">📊</div>
+      <div class="card-title">Bien_Comparable</div>
+    </div>
+    <div class="card-desc">Bien de référence sélectionné par l'agent. 4 sources possibles, modèle unifié.</div>
+    <ul class="card-fields">
+      <li><span class="field-name">source</span><span class="field-type">DVF | IDEERI_VENTE | IDEERI_ENCOURS | PORTAIL</span></li>
+      <li><span class="field-name">fiabilite_prix</span><span class="field-type">transaction_reelle | prix_signe | prix_affiche</span></li>
+      <li><span class="field-name">prix / prix_m2</span><span class="field-type">float</span></li>
+      <li><span class="field-name">distance_bien_cible_m</span><span class="field-type">float — calculé</span></li>
+      <li><span class="field-name">ajustements_vs_cible</span><span class="field-type">json — écarts chiffrés</span></li>
+      <li><span class="field-name">selectionne_par_agent</span><span class="field-type">bool — choix manuel</span></li>
+      <li><span class="field-name">poids_dans_estimation</span><span class="field-type">float 0→1</span></li>
+      <li><span class="field-name">completude</span><span class="field-type">→ Complétude</span></li>
+    </ul>
+    <div class="card-relation">
+      → N:1 Bien_Cible · 1:1 Contexte_Zone · N:M Tension_Marche
+    </div>
+  </div>
+
+  <!-- CONTEXTE ZONE -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon card-icon-teal">🌍</div>
+      <div class="card-title">Contexte_Zone</div>
+    </div>
+    <div class="card-desc">Données extrinsèques auto-calculées par GPS. 33+ sources data.gouv/INSEE.</div>
+    <ul class="card-fields">
+      <li><span class="field-name">risques</span><span class="field-type">json — Géorisques (PPRI, radon...)</span></li>
+      <li><span class="field-name">environnement</span><span class="field-type">json — air, bruit, sols</span></li>
+      <li><span class="field-name">socio_economique</span><span class="field-type">json — INSEE Filosofi IRIS</span></li>
+      <li><span class="field-name">accessibilite</span><span class="field-type">json — transports, commerces</span></li>
+      <li><span class="field-name">services</span><span class="field-type">json — éducation, santé</span></li>
+      <li><span class="field-name">urbanisme</span><span class="field-type">json — PLU, zone</span></li>
+      <li><span class="field-name">marche_local</span><span class="field-type">json — prix/m² IRIS, tendances</span></li>
+      <li><span class="field-name">scores_agreges</span><span class="field-type">5 scores 0→100</span></li>
+    </ul>
+    <div class="card-relation">
+      → 1:1 Bien_Cible · 1:1 Bien_Comparable (chaque comparable a son contexte)
+    </div>
+  </div>
+
+  <!-- PROFIL ACQUÉREUR -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon card-icon-orange">👤</div>
+      <div class="card-title">Profil_Acquéreur</div>
+    </div>
+    <div class="card-desc">Acquéreur actif dans Ideeri avec critères de recherche structurés.</div>
+    <ul class="card-fields">
+      <li><span class="field-name">budget_min / max</span><span class="field-type">float</span></li>
+      <li><span class="field-name">criteres_obligatoires</span><span class="field-type">json — filtres éliminatoires</span></li>
+      <li><span class="field-name">criteres_preferentiels</span><span class="field-type">json — pondérés</span></li>
+      <li><span class="field-name">mode_de_vie</span><span class="field-type">json — télétravail, hobbies...</span></li>
+      <li><span class="field-name">zones_recherche</span><span class="field-type">json — communes, IRIS, polygones</span></li>
+      <li><span class="field-name">statut</span><span class="field-type">actif | en_pause | converti</span></li>
+    </ul>
+    <div class="card-relation">
+      → N:M Tension_Marche (via scoring radar 31 critères)
+    </div>
+  </div>
+
+  <!-- TENSION MARCHÉ -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon card-icon-red">⚡</div>
+      <div class="card-title">Tension_Marche</div>
+    </div>
+    <div class="card-desc">Croisement offre/demande. Influence directement le prix et la durée de vente.</div>
+    <ul class="card-fields">
+      <li><span class="field-name">nb_acquereurs_matches</span><span class="field-type">int — score > seuil</span></li>
+      <li><span class="field-name">nb_forte_compatibilite</span><span class="field-type">int — score > 0.75</span></li>
+      <li><span class="field-name">ratio_demande_offre</span><span class="field-type">float — acquéreurs / biens en vente</span></li>
+      <li><span class="field-name">tension</span><span class="field-type">forte | equilibree | faible</span></li>
+      <li><span class="field-name">duree_vente_estimee_jours</span><span class="field-type">int</span></li>
+      <li><span class="field-name">indice_liquidite</span><span class="field-type">float 0→1</span></li>
+      <li><span class="field-name">top_acquereurs</span><span class="field-type">json — top 5 + scores</span></li>
+    </ul>
+    <div class="card-relation">
+      → 1:1 Bien_Cible · N:M Profil_Acquéreur · N:M Bien_Comparable
+    </div>
+  </div>
+
+  <!-- AVIS DE VALEUR -->
+  <div class="card" style="border-color: #4ade80;">
+    <div class="card-header">
+      <div class="card-icon card-icon-green">💰</div>
+      <div class="card-title">Avis_Valeur</div>
+    </div>
+    <div class="card-desc">Résultat final. Fourchette de prix argumentée avec traçabilité complète.</div>
+    <ul class="card-fields">
+      <li><span class="field-name">prix_estime_bas / haut / median</span><span class="field-type">float</span></li>
+      <li><span class="field-name">prix_m2_estime</span><span class="field-type">float</span></li>
+      <li><span class="field-name">indice_confiance</span><span class="field-type">0→100 (complétude × homogénéité)</span></li>
+      <li><span class="field-name">comparables_utilises</span><span class="field-type">json — poids + ajustements</span></li>
+      <li><span class="field-name">ajustements_extrinseques</span><span class="field-type">json — impact zone</span></li>
+      <li><span class="field-name">impact_tension_marche</span><span class="field-type">json — demande → prix</span></li>
+      <li><span class="field-name">argumentaire_vendeur</span><span class="field-type">json — points forts/vigilance</span></li>
+      <li><span class="field-name">strategie_prix</span><span class="field-type">agressif | marche | prudent</span></li>
+    </ul>
+    <div class="card-relation">
+      → 1:1 Bien_Cible · N:M Bien_Comparable · 1:1 Contexte_Zone · 1:1 Tension_Marche
+    </div>
+  </div>
+
+</div>
+
+<!-- COMPLETUDE CARD -->
+<div class="card" style="margin-bottom: 40px; border-color: #818cf8;">
+  <div class="card-header">
+    <div class="card-icon" style="background: #312e81;">📈</div>
+    <div class="card-title">Complétude (module transversal)</div>
+  </div>
+  <div class="card-desc">Mesure la richesse des données de chaque bien. S'applique au Bien_Cible et à chaque Bien_Comparable. La complétude pondérée influence le poids du comparable et l'amplitude de la fourchette d'estimation.</div>
+  <ul class="card-fields">
+    <li><span class="field-name">taux_completude_brut_pct</span><span class="field-type">champs renseignés / applicables</span></li>
+    <li><span class="field-name">taux_completude_pondere_pct</span><span class="field-type">pondéré par impact (4/3/2/1)</span></li>
+    <li><span class="field-name">nb_champs_critiques_renseignes</span><span class="field-type">sur 19 champs critiques</span></li>
+    <li><span class="field-name">completude_par_categorie</span><span class="field-type">json — 20 catégories</span></li>
+    <li><span class="field-name">score_fiabilite_donnees</span><span class="field-type">0→100 — confiance globale</span></li>
+  </ul>
+  <div class="card-relation" style="background: #1e1e3a; color: #818cf8;">
+    DVF → max 4.5% pondéré · Portail → max 22.7% pondéré · Ideeri → jusqu'à 100% pondéré
+  </div>
+</div>
+
+<!-- LEGEND -->
+<div style="padding: 16px; color: #64748b; font-size: 0.75rem; text-align: center;">
+  Ideeri · Module Estimation · Modèle de données v1.0 · Mars 2026<br>
+  19 champs critiques · 50 champs importants · 80 champs contextuels · 54 champs informatifs · 440 points de poids total
+</div>
+
+</body>
+</html>

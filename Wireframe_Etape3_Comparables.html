@@ -1,0 +1,1589 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ideeri - Étape 3: Comparables</title>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        /* ═══ FIGMA HEADER — Compact ═══ */
+        @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap');
+        .prop-card { background: #fff !important; border: 1px solid #e5e5e5 !important; border-radius: 10px !important; margin-bottom: 12px !important; overflow: hidden !important; }
+        .prop-header { padding: 14px 20px 0 !important; border: none !important; margin-bottom: 0 !important; display: block !important; }
+        .prop-back { font-size: 11px; color: #949494; cursor: pointer; margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
+        .prop-back:hover { color: #393939; }
+        .prop-title { font-size: 18px; font-weight: 700; color: #393939; margin-bottom: 8px; line-height: 1.3; font-family: 'Open Sans', sans-serif; }
+        .prop-meta-row { display: flex; align-items: center; gap: 18px; margin-bottom: 10px; flex-wrap: wrap; }
+        .prop-meta-item { display: flex; align-items: center; gap: 5px; font-size: 12px; }
+        .prop-meta-label { color: #949494; font-weight: 400; }
+        .prop-meta-value { color: #393939; font-weight: 600; }
+        .prop-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+        .prop-tag { background: #DEDEDE !important; color: #666 !important; font-size: 11px !important; font-weight: 600 !important; padding: 3px 10px !important; border-radius: 5px !important; border: none !important; }
+        .prop-dispo { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+        .prop-dispo-label { font-size: 12px; color: #949494; font-weight: 400; }
+        .prop-dispo-input { background: #F5F4F4; border: none; border-radius: 6px; padding: 6px 12px; font-size: 12px; color: #393939; font-family: 'Open Sans', sans-serif; }
+        .completude-block { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+        .completude-label { font-size: 11px !important; color: #949494 !important; font-weight: 400 !important; }
+        .completude-bar { width: 100px; height: 5px; background: #eee; border-radius: 3px; overflow: hidden; }
+        .completude-fill { height: 100%; background: #46B962 !important; width: 64%; border-radius: 3px; }
+        .completude-pct { font-size: 12px !important; font-weight: 700 !important; color: #46B962 !important; }
+        .completude-detail { font-size: 10px !important; color: #949494 !important; }
+        .tab-bar { border-top: 1px solid #e5e5e5 !important; border: none !important; border-top: 1px solid #e5e5e5 !important; border-radius: 0 !important; padding: 0 20px !important; display: flex; gap: 0; margin-top: 0 !important; margin-bottom: 0 !important; overflow-x: auto !important; }
+        .tab { padding: 9px 12px !important; font-size: 12px !important; font-weight: 600 !important; color: #949494 !important; border-bottom: 3px solid transparent; cursor: pointer; white-space: nowrap; margin-bottom: -1px; }
+        .tab:hover { color: #393939 !important; }
+        .tab.active { color: #46B962 !important; border-bottom-color: #46B962 !important; }
+        /* ═══ END FIGMA HEADER ═══ */
+
+        /* ════ DESIGN OVERRIDE — ALLÈGEMENT ══════ */
+        body, .shell { background: #fafafa !important; }
+        .topbar { box-shadow: 0 1px 0 #eee !important; border-bottom: none !important; }
+        .sidebar-icon { display: none !important; }
+        .sidebar-item { gap: 0 !important; }
+        .stepper, .filter-panel, .map-card, .comp-card,
+        .summary-section, .pdf-bar {
+            box-shadow: none !important;
+        }
+        .prop-header .meta, .property-meta { color: #888 !important; font-size: 11px !important; }
+        .breadcrumb { color: #888 !important; }
+        .stepper { padding: 10px 14px !important; }
+        .stepper-badge { width: 22px !important; height: 22px !important; font-size: 10px !important; }
+        .stepper-label { font-size: 11px !important; }
+        .stepper-item { color: #888 !important; }
+        .stepper-arrow { color: #bbb !important; font-size: 14px !important; }
+        .tab { font-size: 12px !important; padding: 8px 14px !important; }
+        .filter-panel { padding: 14px !important; }
+        .filter-section-title { font-size: 12px !important; font-weight: 500 !important; color: #666 !important; }
+        .filter-label { font-size: 11px !important; font-weight: 400 !important; color: #666 !important; }
+        .filter-hint { font-size: 10px !important; color: #888 !important; }
+        .source-cb-count { color: #888 !important; }
+        .comp-card { border: 1px solid #eee !important; border-radius: 8px !important; }
+        .comp-card-header { padding: 10px 12px !important; }
+        .comp-card-title { font-size: 13px !important; font-weight: 500 !important; }
+        .source-tag { font-size: 9px !important; padding: 2px 6px !important; color: #777 !important; }
+        .comp-card-body { padding: 10px 12px !important; }
+        .comp-detail-label { font-size: 11px !important; color: #777 !important; }
+        .comp-detail-value { font-size: 12px !important; font-weight: 500 !important; }
+        .score-badge, .match-badge { font-size: 11px !important; padding: 2px 8px !important; font-weight: 500 !important; }
+        .section-label { font-size: 12px !important; font-weight: 500 !important; color: #666 !important; }
+        .result-count { font-size: 11px !important; background: #f5f5f5 !important; color: #666 !important; padding: 4px 10px !important; }
+        .compact-card { border: 1px solid #eee !important; }
+        .compact-title { font-size: 12px !important; font-weight: 500 !important; }
+        .compact-details span { font-size: 10px !important; color: #777 !important; }
+        .map-control-btn { box-shadow: none !important; border: 1px solid #eee !important; }
+        .pdf-bar { box-shadow: none !important; border-top: 1px solid #eee !important; }
+        .summary-table th { font-size: 11px !important; font-weight: 500 !important; }
+        .summary-table td { font-size: 11px !important; }
+        /* ══════════════════════════════════════════════ */
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --green: #46B962;
+            --blue: #4a6cf7;
+            --orange: #f5a623;
+            --red: #e74c3c;
+            --dark: #3a3541;
+            --bg: #fafafa;
+            --white: #ffffff;
+            --text: #393939;
+            --muted: #949494;
+            --border: #eee;
+        }
+        body { font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", sans-serif; background: var(--bg); color: var(--text); font-size: 13px; line-height: 1.4; }
+        .shell { display: flex; height: 100vh; overflow: hidden; }
+
+        /* SIDEBAR */
+        .sidebar { width: 220px; background: #4D4545; color: white; padding: 0; flex-shrink: 0; display: flex; flex-direction: column; }
+        .sidebar-logo { padding: 24px 34px 32px; display: flex; align-items: center; gap: 0; }
+        .sidebar-logo svg { height: 38px; width: auto; }
+        .sidebar-nav { list-style: none; }
+        .sidebar-nav li { padding: 14px 0 14px 24px; cursor: pointer; font-size: 14px; font-weight: 600; color: #D4CECE; display: flex; align-items: center; justify-content: space-between; font-family: 'Open Sans', sans-serif; }
+        .sidebar-nav li:hover { background: rgba(255,255,255,0.04); }
+        .sidebar-nav li.active { background: #595050; color: white; }
+        .nav-left { display: flex; align-items: center; gap: 14px; }
+        .nav-left svg { width: 16px; height: 16px; flex-shrink: 0; }
+        .nav-active-bar { width: 4px; height: 25px; border-radius: 2.5px 0 0 2.5px; background: transparent; }
+        .sidebar-nav li.active .nav-active-bar { background: #46B962; }
+
+        /* MAIN */
+        .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+        /* TOPBAR */
+        .topbar { background: var(--white); border-bottom: 1px solid #eee; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 56px; flex-shrink: 0; box-shadow: 0 1px 0 #eee; }
+        .topbar-logo { font-size: 16px; font-weight: 700; color: var(--green); }
+        .topbar-search { flex: 1; max-width: 360px; margin: 0 32px; padding: 7px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); font-size: 13px; }
+        .topbar-user { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+        .topbar-right { display: flex; align-items: center; gap: 12px; }
+        .topbar-photo { width: 34px; height: 34px; border-radius: 50%; background: #d4cece; overflow: hidden; flex-shrink: 0; }
+        .topbar-user-info { display: flex; flex-direction: column; line-height: 1.3; }
+        .topbar-user-name { font-size: 13px; font-weight: 600; color: #393939; }
+        .topbar-user-role { font-size: 11px; color: #949494; }
+        .topbar-logout { padding: 6px 14px; border: 1px solid #999; border-radius: 6px; font-size: 11px; color: #666; cursor: pointer; background: white; font-family: 'Open Sans', sans-serif; }
+
+        /* SCROLLABLE AREA */
+        .scroll-area { flex: 1; overflow-y: auto; padding: 20px 24px 60px 24px; }
+
+        /* BREADCRUMB */
+        .breadcrumb { font-size: 12px; color: #bbb; margin-bottom: 12px; }
+        .breadcrumb a { color: var(--blue); text-decoration: none; }
+
+        /* PROPERTY HEADER */
+        .prop-header { background: var(--white); border-radius: 10px; padding: 16px 20px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; box-shadow: none; border: 1px solid #eee; }
+        .prop-header h2 { font-size: 15px; font-weight: 600; }
+        .prop-header .meta { font-size: 12px; color: #bbb; margin-top: 2px; }
+        .completude { display: flex; align-items: center; gap: 8px; }
+        .completude-bar { width: 100px; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+        .completude-fill { height: 100%; background: linear-gradient(90deg, var(--green), var(--blue)); width: 85%; }
+        .completude-pct { font-size: 12px; font-weight: 700; color: var(--green); }
+
+        /* TAB BAR — overridden by Figma header block */
+
+        /* STEPPER */
+        .stepper { display: flex; justify-content: center; align-items: center; gap: 14px; margin-bottom: 14px; background: var(--white); padding: 14px; border-radius: 10px; box-shadow: none; border: 1px solid #eee; }
+        .stepper-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #aaa; }
+        .stepper-item.completed .stepper-badge { background: var(--green); color: white; }
+        .stepper-item.active .stepper-badge { background: var(--green); color: white; box-shadow: 0 0 0 3px rgba(29,186,110,0.2); }
+        .stepper-item.active .stepper-label { color: var(--green); font-weight: 600; }
+        .stepper-badge { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #f0f0f0; color: #ccc; font-size: 11px; font-weight: 600; flex-shrink: 0; }
+        .stepper-label { white-space: nowrap; }
+        .stepper-arrow { color: #ddd; font-size: 16px; }
+
+        /* ============================================ */
+        /* FILTER PANEL                                 */
+        /* ============================================ */
+        .filter-panel { background: var(--white); border-radius: 10px; padding: 16px 20px; margin-bottom: 14px; box-shadow: none; border: 1px solid #eee; }
+        .filter-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+        .filter-top-left { display: flex; align-items: center; gap: 12px; }
+        .filter-top-left h3 { font-size: 13px; font-weight: 500; }
+        .result-count { font-size: 12px; color: #666; font-weight: 500; background: #f5f5f5; padding: 3px 10px; border-radius: 12px; }
+        .btn-reset-filters { font-size: 11px; color: var(--muted); background: none; border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+        .btn-reset-filters:hover { background: var(--bg); }
+
+        /* Radius slider row */
+        .radius-row { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; padding: 12px 16px; background: #f9fafb; border-radius: 8px; border: 1px solid #eee; }
+        .radius-label { font-size: 12px; font-weight: 500; color: #333; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+        .commune-badge { background: #f0f0f0; color: #333; font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 12px; white-space: nowrap; }
+        .radius-slider-wrap { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+        .radius-slider-labels { display: flex; justify-content: space-between; font-size: 10px; color: #bbb; }
+        .radius-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 3px; background: linear-gradient(to right, var(--green) 0%, var(--green) var(--slider-pct, 20%), var(--border) var(--slider-pct, 20%), var(--border) 100%); outline: none; cursor: pointer; }
+        .radius-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--green); border: 3px solid white; box-shadow: 0 1px 4px rgba(0,0,0,0.2); cursor: pointer; }
+        .radius-slider::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: var(--green); border: 3px solid white; box-shadow: 0 1px 4px rgba(0,0,0,0.2); cursor: pointer; }
+        .radius-value { font-size: 16px; font-weight: 700; color: var(--green); min-width: 60px; text-align: right; }
+
+        /* FILTER GRID */
+        .filter-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
+        .filter-item { background: #fafafa; border: 1px solid #eee; border-radius: 8px; padding: 10px 14px; }
+        .filter-item-label { font-size: 11px; font-weight: 500; color: #333; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+        .filter-item-label .chip-close { font-size: 14px; color: #ccc; cursor: pointer; }
+        .filter-item-label .chip-close:hover { color: var(--red); }
+        .filter-range { display: flex; align-items: center; gap: 6px; }
+        .filter-range input[type="number"] { width: 80px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; font-family: inherit; text-align: center; background: white; }
+        .filter-range input[type="number"]:focus { border-color: var(--green); outline: none; box-shadow: 0 0 0 2px rgba(29,186,110,0.15); }
+        .filter-range .sep { font-size: 11px; color: #bbb; }
+        .filter-range .unit { font-size: 10px; color: var(--muted); white-space: nowrap; }
+        .filter-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 5px; border-radius: 3px; background: var(--border); outline: none; cursor: pointer; margin-top: 6px; }
+        .filter-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--green); border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.2); cursor: pointer; }
+        .filter-select { width: 100%; padding: 5px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; font-family: inherit; background: white; cursor: pointer; }
+        .filter-select:focus { border-color: var(--green); outline: none; }
+        .filter-hint { font-size: 10px; color: #ccc; margin-top: 4px; }
+        .source-checkboxes { display: flex; flex-direction: column; gap: 4px; }
+        .source-cb-label { display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; padding: 3px 0; }
+        .source-cb-label input[type="checkbox"] { accent-color: var(--green); width: 14px; height: 14px; cursor: pointer; }
+        .source-cb-count { font-size: 10px; color: #999; font-weight: 400; margin-left: auto; }
+
+        /* ADD FILTER CHIPS */
+        .filter-add-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+        .filter-chip-add { display: flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; border: 1px dashed var(--border); background: var(--white); color: var(--muted); transition: all 0.15s; }
+        .filter-chip-add:hover { border-color: var(--blue); color: var(--blue); background: #f0f4ff; }
+        .filter-chip-add.added { border-style: solid; border-color: var(--green); color: var(--green); background: #edfdf5; cursor: default; }
+
+        /* Source legend */
+        .source-legend { display: flex; gap: 14px; margin-top: 12px; padding-top: 10px; border-top: 1px solid #f0f0f0; }
+        .source-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+        .source-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .dot-dvf { background: var(--blue); }
+        .dot-ideeri { background: var(--green); }
+        .dot-encours { background: var(--orange); }
+        .dot-portail { background: #e87722; }
+
+        /* ============================================ */
+        /* SPLIT VIEW                                   */
+        /* ============================================ */
+        .split-view { display: flex; gap: 14px; margin-bottom: 14px; height: 560px; }
+
+        /* MAP CARD */
+        .map-card { flex: 1; background: var(--white); border-radius: 10px; box-shadow: none; border: 1px solid #eee; overflow: hidden; position: relative; display: flex; flex-direction: column; }
+        #map { flex: 1; z-index: 1; }
+
+        /* MAP OVERLAY CONTROLS */
+        .map-controls-overlay { position: absolute; top: 12px; left: 12px; z-index: 1000; display: flex; flex-direction: column; gap: 8px; }
+        .map-ctrl-btn { width: 36px; height: 36px; border-radius: 8px; border: 1px solid #e5e5e5; background: var(--white); box-shadow: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #666; transition: all 0.15s; }
+        .map-ctrl-btn:hover { background: var(--bg); transform: scale(1.05); }
+
+        /* MAP STYLE TOGGLE */
+        .map-style-toggle { position: absolute; top: 12px; right: 12px; z-index: 1000; display: flex; background: var(--white); border-radius: 8px; border: 1px solid #e5e5e5; box-shadow: none; overflow: hidden; }
+        .map-style-btn { padding: 6px 12px; font-size: 11px; font-weight: 600; border: none; background: transparent; cursor: pointer; color: var(--muted); transition: all 0.15s; }
+        .map-style-btn.active { background: var(--green); color: white; }
+
+        /* MAP BOTTOM INFO BAR */
+        .map-info-bar { position: absolute; bottom: 12px; left: 12px; right: 12px; z-index: 1000; display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.98); backdrop-filter: blur(8px); border-radius: 10px; padding: 10px 16px; box-shadow: none; border: 1px solid rgba(238,238,238,0.8); }
+        .map-info-left { display: flex; align-items: center; gap: 16px; }
+        .map-info-stat { display: flex; flex-direction: column; align-items: center; }
+        .map-info-stat-val { font-size: 16px; font-weight: 700; color: var(--green); }
+        .map-info-stat-label { font-size: 10px; color: var(--muted); }
+        .map-info-divider { width: 1px; height: 28px; background: #e5e5e5; }
+        .map-legend-inline { display: flex; gap: 12px; align-items: center; }
+        .map-legend-item { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--muted); cursor: pointer; padding: 3px 6px; border-radius: 4px; transition: all 0.15s; }
+        .map-legend-item:hover { background: #f0f0f0; }
+        .map-legend-item.dimmed { opacity: 0.35; }
+        .legend-dot { width: 10px; height: 10px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 0 1px rgba(0,0,0,0.1); }
+
+        /* MAP HOVER TOOLTIP */
+        .map-tooltip { background: var(--white); border-radius: 10px; padding: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border: 1px solid #e5e5e5; min-width: 220px; overflow: hidden; }
+        .map-tooltip .tooltip-header { padding: 10px 14px; border-bottom: 1px solid #f5f5f5; display: flex; justify-content: space-between; align-items: center; }
+        .map-tooltip .tooltip-title { font-size: 12px; font-weight: 500; color: #333; }
+        .map-tooltip .tooltip-body { padding: 10px 14px; }
+        .map-tooltip .tooltip-row { display: flex; justify-content: space-between; font-size: 11px; padding: 2px 0; }
+        .map-tooltip .tooltip-row .lbl { color: #999; }
+        .map-tooltip .tooltip-row .val { font-weight: 500; }
+        .map-tooltip .tooltip-footer { padding: 8px 14px; background: #fafafa; display: flex; gap: 8px; }
+        .map-tooltip .tooltip-btn { padding: 4px 10px; border-radius: 5px; font-size: 10px; font-weight: 600; border: none; cursor: pointer; }
+        .map-tooltip .tooltip-btn-primary { background: var(--green); color: white; }
+        .map-tooltip .tooltip-btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--muted); }
+
+        /* Custom Leaflet markers */
+        .custom-marker { border-radius: 50%; border: 3px solid white; box-shadow: 0 1px 4px rgba(0,0,0,0.15); cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; }
+        .custom-marker:hover { transform: scale(1.3); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+        .custom-marker.selected { border-color: var(--green); box-shadow: 0 0 0 3px rgba(29,186,110,0.35), 0 2px 8px rgba(0,0,0,0.25); }
+        .custom-marker-dvf { background: var(--blue); }
+        .custom-marker-ideeri { background: var(--green); }
+        .custom-marker-encours { background: var(--orange); }
+        .custom-marker-portail { background: #e87722; }
+
+        /* Target pin (property being estimated) */
+        .target-marker { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; position: relative; }
+        .target-marker-inner { width: 16px; height: 16px; background: var(--red); border-radius: 50%; border: 3px solid white; box-shadow: 0 0 0 3px rgba(231,76,60,0.2), 0 1px 4px rgba(0,0,0,0.15); }
+        .target-marker-pulse { position: absolute; width: 40px; height: 40px; border-radius: 50%; background: rgba(231,76,60,0.15); animation: pulse 2s ease-out infinite; }
+        @keyframes pulse {
+            0% { transform: scale(0.5); opacity: 1; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+
+        /* Leaflet overrides */
+        .leaflet-popup-content-wrapper { padding: 0; border-radius: 10px; overflow: hidden; }
+        .leaflet-popup-content { margin: 0; min-width: 220px; }
+        .leaflet-popup-tip { background: var(--white); }
+        .leaflet-control-zoom { border: 1px solid #e5e5e5 !important; box-shadow: none !important; border-radius: 8px !important; overflow: hidden; }
+        .leaflet-control-zoom a { width: 36px !important; height: 36px !important; line-height: 36px !important; font-size: 18px !important; color: #666 !important; border-bottom: 1px solid #e5e5e5 !important; }
+        .leaflet-control-zoom a:hover { background: var(--bg) !important; }
+
+        /* LIST PANEL */
+        .list-panel { width: 420px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+        .list-panel::-webkit-scrollbar { width: 5px; }
+        .list-panel::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+        .section-label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; color: #666; padding: 4px 0; }
+        .section-label.others { color: var(--muted); }
+
+        /* COMP CARD PHOTO */
+        .comp-card-photo { width: 100%; height: 120px; border-radius: 8px; margin-bottom: 10px; overflow: hidden; position: relative; }
+        .comp-card-photo img { width: 100%; height: 100%; object-fit: cover; }
+        .comp-card-photo .photo-placeholder { width: 100%; height: 100%; background: linear-gradient(135deg, #e8f5ee 0%, #d1ecdb 50%, #b8e0c8 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+        .comp-card-photo .photo-placeholder svg { opacity: 0.35; }
+        .comp-card-photo .photo-placeholder span { font-size: 10px; color: #999; font-weight: 500; }
+        .comp-card-photo .photo-count { position: absolute; bottom: 6px; right: 6px; background: rgba(0,0,0,0.6); color: white; font-size: 10px; padding: 2px 7px; border-radius: 10px; font-weight: 500; }
+        .comp-card-photo .photo-badge-ideeri { position: absolute; top: 6px; left: 6px; background: rgba(29,186,110,0.9); color: white; font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: 600; letter-spacing: 0.3px; }
+        .comp-card-photo.no-photo { height: 48px; background: #f5f5f5; border-radius: 8px; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        .comp-card-photo.no-photo svg { opacity: 0.25; }
+        .comp-card-photo.no-photo span { font-size: 10px; color: #bbb; }
+        .compact-photo { width: 48px; height: 48px; border-radius: 6px; overflow: hidden; flex-shrink: 0; }
+        .compact-photo img { width: 100%; height: 100%; object-fit: cover; }
+        .compact-photo .photo-placeholder-sm { width: 100%; height: 100%; background: linear-gradient(135deg, #e8f5ee, #d1ecdb); display: flex; align-items: center; justify-content: center; }
+        .compact-photo .photo-placeholder-sm svg { opacity: 0.3; }
+        .compact-photo.no-photo-sm { background: #f0f0f0; display: flex; align-items: center; justify-content: center; }
+        .compact-photo.no-photo-sm svg { opacity: 0.2; }
+
+        /* COMPARABLE CARD */
+        .comp-card { background: var(--white); border-radius: 10px; padding: 14px; box-shadow: none; border: 1px solid #eee; position: relative; transition: border-color 0.2s, box-shadow 0.2s; }
+        .comp-card.selected { border-color: #ddd; }
+        .comp-card.highlighted { box-shadow: 0 0 0 2px var(--green); border-color: var(--green); }
+        .comp-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+        .comp-card-title { font-size: 13px; font-weight: 600; }
+        .comp-card-addr { font-size: 11px; color: var(--muted); }
+        .source-badge { padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+        .source-badge.dvf { background: #f0f4ff; color: #666; }
+        .source-badge.ideeri { background: #f0f8f5; color: #666; }
+        .source-badge.encours { background: #fffbf0; color: #666; }
+        .source-badge.portail { background: #fef6f0; color: #666; }
+
+        .comp-prices { display: flex; gap: 16px; padding: 8px 0; border-bottom: 1px solid #f0f0f0; margin-bottom: 8px; font-size: 12px; }
+        .comp-prices .p-item { flex: 1; }
+        .comp-prices .p-label { font-size: 10px; color: var(--muted); margin-bottom: 2px; }
+        .comp-prices .p-val { font-weight: 600; }
+
+        .comp-meta { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+
+        .reliability { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: 500; margin-bottom: 8px; }
+        .reliability.real { background: #f0f8f5; color: #666; }
+        .reliability.listed { background: #fffbf0; color: #666; }
+
+        /* SCORING BADGES — similarité + données */
+        .scoring-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+        .score-badge { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 8px; font-size: 11px; background: #fafafa; border: 1px solid #eee; }
+        .score-badge-label { color: #999; font-weight: 400; }
+        .score-badge-value { font-weight: 600; }
+        .score-badge-bar { width: 40px; height: 5px; border-radius: 3px; background: #e5e5e5; overflow: hidden; }
+        .score-badge-fill { height: 100%; border-radius: 3px; }
+        .score-high .score-badge-value { color: var(--green); }
+        .score-high .score-badge-fill { background: var(--green); }
+        .score-mid .score-badge-value { color: #d97706; }
+        .score-mid .score-badge-fill { background: #d97706; }
+        .score-low .score-badge-value { color: var(--red); }
+        .score-low .score-badge-fill { background: var(--red); }
+        .data-count { font-size: 10px; color: #bbb; font-weight: 400; }
+
+        /* Tooltip scoring */
+        .tooltip-scoring { padding: 6px 14px; border-top: 1px solid #f5f5f5; display: flex; gap: 12px; }
+        .tooltip-score-item { display: flex; align-items: center; gap: 4px; font-size: 10px; }
+        .tooltip-score-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+        /* Valuation row (avis de valeur + prix de vente) */
+        .comp-valuations { display: flex; gap: 12px; padding: 8px 0; border-bottom: 1px solid #f5f5f5; margin-bottom: 8px; }
+        .val-item { flex: 1; padding: 8px 12px; border-radius: 8px; background: #fafafa; border: 1px solid #eee; }
+        .val-item-label { font-size: 10px; color: var(--muted); margin-bottom: 3px; display: flex; align-items: center; gap: 4px; }
+        .val-item-value { font-size: 14px; font-weight: 700; color: var(--text); }
+        .val-item-value.highlight { color: var(--green); }
+        .val-item-value.na { font-size: 12px; color: #ccc; font-weight: 500; }
+        .val-item .val-delta { font-size: 10px; font-weight: 600; margin-top: 2px; }
+        .val-delta.pos { color: var(--green); }
+        .val-delta.neg { color: var(--red); }
+        .compact-vals { display: flex; gap: 8px; align-items: center; margin-top: 2px; }
+        .compact-val { font-size: 10px; color: var(--muted); }
+        .compact-val strong { font-weight: 600; color: var(--text); }
+        .compact-val.highlight strong { color: var(--green); }
+
+        /* Compact card scoring */
+        .compact-scores { display: flex; gap: 8px; align-items: center; margin-top: 3px; }
+        .compact-score { font-size: 10px; font-weight: 500; padding: 1px 6px; border-radius: 4px; }
+        .compact-score.high { background: #f0f8f5; color: #666; }
+        .compact-score.mid { background: #fffbf0; color: #666; }
+        .compact-score.low { background: #fff0f0; color: #666; }
+
+        .adj-section { background: #fafafa; border-radius: 6px; padding: 10px; margin-bottom: 8px; border: 1px solid #eee; }
+        .adj-title { font-size: 11px; font-weight: 500; display: flex; justify-content: space-between; margin-bottom: 6px; }
+        .adj-row { display: flex; justify-content: space-between; font-size: 11px; padding: 3px 0; }
+        .adj-row .lbl { color: var(--muted); }
+        .adj-val { font-weight: 600; padding: 1px 6px; border-radius: 4px; font-size: 11px; }
+        .adj-val.pos { background: rgba(29,186,110,0.1); color: var(--green); }
+        .adj-val.neg { background: rgba(231,76,60,0.1); color: var(--red); }
+
+        .comp-actions { display: flex; gap: 8px; padding-top: 8px; border-top: 1px solid #f0f0f0; align-items: center; }
+        .link-edit { color: var(--blue); font-size: 11px; text-decoration: none; cursor: pointer; }
+        .btn-remove { background: none; border: none; color: var(--red); font-size: 11px; cursor: pointer; margin-left: auto; }
+        .btn-add { background: none; border: none; color: var(--green); font-size: 11px; cursor: pointer; font-weight: 600; margin-left: auto; }
+
+        /* COMPACT CARD (others) */
+        .comp-card.compact { padding: 10px 14px; border-left: none; }
+        .compact-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .compact-left { flex: 1; }
+        .compact-title { font-size: 12px; font-weight: 500; }
+        .compact-meta { font-size: 10px; color: var(--muted); display: flex; align-items: center; gap: 4px; }
+
+        /* SUMMARY TABLE */
+        .summary-card { background: var(--white); border-radius: 10px; padding: 16px; box-shadow: none; border: 1px solid #eee; margin-bottom: 14px; position: relative; overflow-x: auto; }
+        .summary-title { font-size: 13px; font-weight: 500; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        th { background: #fafafa; padding: 8px 6px; text-align: left; font-weight: 500; color: #999; border-bottom: 1px solid #eee; white-space: nowrap; }
+        td { padding: 8px 6px; border-bottom: 1px solid #f5f5f5; }
+        .t-price { font-weight: 600; text-align: right; }
+        .t-adj { text-align: center; font-weight: 500; }
+        .t-adj.pos { color: var(--green); }
+        .t-adj.neg { color: var(--red); }
+        .t-avg { background: #fafafa; font-weight: 600; }
+        .t-avg td { color: #333; }
+
+        /* FOOTER */
+        .footer-buttons { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; }
+        .btn { padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-primary { background: var(--green); color: white; }
+        .btn-primary:hover { background: #1aa564; }
+        .btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+        .btn-ghost:hover { background: var(--bg); }
+        .min-note { font-size: 11px; color: var(--green); margin-top: 4px; }
+
+        /* PDF TOGGLE */
+        .pdf-toggle { position: absolute; top: 8px; right: 8px; display: flex; align-items: center; gap: 5px; z-index: 1001; }
+        .pdf-toggle input[type="checkbox"] { display: none; }
+        .pdf-toggle label { display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 10px; color: #bbb; padding: 3px 8px; border-radius: 5px; border: 1px solid transparent; transition: all 0.2s; user-select: none; background: rgba(255,255,255,0.9); }
+        .pdf-toggle label:hover { color: #888; background: rgba(245,245,245,0.95); }
+        .pdf-toggle input:checked + label { color: var(--blue); background: rgba(238,242,255,0.95); border-color: #c7d2fe; }
+        .pdf-toggle input:checked + label .pdf-icon { opacity: 1; }
+        .pdf-icon { font-size: 12px; opacity: 0.4; transition: opacity 0.2s; }
+
+        /* PDF BAR */
+        .pdf-bar { position: fixed; bottom: 0; left: 200px; right: 0; background: var(--white); border-top: 1px solid #eee; padding: 10px 24px; display: flex; align-items: center; justify-content: space-between; z-index: 100; box-shadow: none; }
+        .pdf-bar-left { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+        .pdf-counter { background: var(--blue); color: white; padding: 2px 10px; border-radius: 12px; font-weight: 700; font-size: 12px; }
+        .pdf-bar-actions { display: flex; align-items: center; gap: 10px; }
+        .btn-select-all { padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; border: 1px solid var(--border); background: white; color: var(--muted); }
+        .btn-pdf { padding: 8px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; background: var(--blue); color: white; display: flex; align-items: center; gap: 6px; }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <!-- SIDEBAR -->
+        <div class="sidebar">
+            <div class="sidebar-logo">
+                <svg viewBox="0 0 152 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <text x="0" y="24" font-family="Open Sans" font-weight="700" font-size="24" fill="#46B962" letter-spacing="-0.5">ideeri</text>
+                </svg>
+            </div>
+            <ul class="sidebar-nav">
+                <li class="active">
+                    <span class="nav-left">
+                        <svg viewBox="0 0 16 16" fill="none"><path d="M8 1L1 7v7a1 1 0 001 1h4v-5h4v5h4a1 1 0 001-1V7L8 1z" fill="currentColor" opacity="0.9"/></svg>
+                        <span>Dashboard</span>
+                    </span>
+                    <span class="nav-active-bar"></span>
+                </li>
+                <li>
+                    <span class="nav-left">
+                        <svg viewBox="0 0 16 16" fill="none"><rect x="1" y="2" width="14" height="13" rx="1.5" stroke="currentColor" stroke-width="1.4" fill="none"/><line x1="1" y1="6" x2="15" y2="6" stroke="currentColor" stroke-width="1.4"/><line x1="5" y1="2" x2="5" y2="0.5" stroke="currentColor" stroke-width="1.4"/><line x1="11" y1="2" x2="11" y2="0.5" stroke="currentColor" stroke-width="1.4"/></svg>
+                        <span>Agenda</span>
+                    </span>
+                    <span class="nav-active-bar"></span>
+                </li>
+                <li>
+                    <span class="nav-left">
+                        <svg viewBox="0 0 16 16" fill="none"><circle cx="6" cy="5" r="2.5" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M1 14c0-2.8 2.2-5 5-5s5 2.2 5 5" stroke="currentColor" stroke-width="1.3" fill="none"/><circle cx="11.5" cy="5.5" r="2" stroke="currentColor" stroke-width="1.2" fill="none"/><path d="M11.5 9c2.2 0 4 1.8 4 4" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>
+                        <span>Mes clients</span>
+                    </span>
+                    <span class="nav-active-bar"></span>
+                </li>
+                <li>
+                    <span class="nav-left">
+                        <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M2 15c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>
+                        <span>Collaborateurs</span>
+                    </span>
+                    <span class="nav-active-bar"></span>
+                </li>
+                <li>
+                    <span class="nav-left">
+                        <svg viewBox="0 0 16 16" fill="none"><rect x="1.5" y="1.5" width="13" height="13" rx="1.5" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M4.5 8l2.5 2.5L11.5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+                        <span>Mes tâches</span>
+                    </span>
+                    <span class="nav-active-bar"></span>
+                </li>
+                <li>
+                    <span class="nav-left">
+                        <svg viewBox="0 0 16 16" fill="none"><path d="M8 1.5C5 1.5 2.5 4 2.5 7c0 4 5.5 7.5 5.5 7.5s5.5-3.5 5.5-7.5c0-3-2.5-5.5-5.5-5.5z" stroke="currentColor" stroke-width="1.3" fill="none"/><circle cx="8" cy="7" r="2" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>
+                        <span>Secteurs</span>
+                    </span>
+                    <span class="nav-active-bar"></span>
+                </li>
+            </ul>
+        </div>
+
+        <!-- MAIN -->
+        <div class="main">
+            <!-- TOPBAR -->
+            <div class="topbar">
+                <div class="topbar-left">
+                    <div class="topbar-logo">ideeri</div>
+                </div>
+                <div class="topbar-right">
+                    <div class="topbar-photo"></div>
+                    <div class="topbar-user-info">
+                        <span class="topbar-user-name">Manon MATRAT</span>
+                        <span class="topbar-user-role">Administratif</span>
+                    </div>
+                    <button class="topbar-logout">Déconnexion</button>
+                </div>
+            </div>
+
+            <!-- SCROLLABLE -->
+            <div class="scroll-area">
+<!-- ═══ PROPERTY CARD — Figma ═══ -->
+                <div class="prop-card">
+                    <!-- PROPERTY HEADER -->
+                    <div class="prop-header">
+                        <div class="prop-back">&#8592; Retour</div>
+                        <div class="prop-title">Vente Appartement T3 à Lyon 3ème</div>
+                        <div class="prop-meta-row">
+                            <div class="prop-meta-item">
+                                <span class="prop-meta-label">Collaborateur</span>
+                                <span class="prop-meta-value">Marie Dupont</span>
+                            </div>
+                            <div class="prop-meta-item">
+                                <span class="prop-meta-label">Référence</span>
+                                <span class="prop-meta-value">LYN-2026-00847</span>
+                            </div>
+                            <div class="prop-meta-item">
+                                <span class="prop-meta-label">Créé le</span>
+                                <span class="prop-meta-value">25 Mars 2026</span>
+                            </div>
+                            <div class="prop-meta-item">
+                                <span class="prop-meta-label">Source</span>
+                                <span class="prop-meta-value">Ideeri</span>
+                            </div>
+                        </div>
+                        <div class="prop-tags">
+                            <span class="prop-tag">Appartement</span>
+                            <span class="prop-tag">3 pièces</span>
+                            <span class="prop-tag">72.5 m²</span>
+                            <span class="prop-tag">Lyon 3ème</span>
+                            <span class="prop-tag">DPE D</span>
+                        </div>
+                        <div class="prop-dispo">
+                            <span class="prop-dispo-label">Disponibilité du bien</span>
+                            <input type="date" class="prop-dispo-input" value="2026-06-01">
+                        </div>
+                        <div class="completude-block">
+                            <span class="completude-label">Complétude pondérée</span>
+                            <div class="completude-bar"><div class="completude-fill"></div></div>
+                            <span class="completude-pct">64%</span>
+                            <span class="completude-detail">14/19 critiques · 38/50 importants</span>
+                        </div>
+                    </div>
+
+                    <!-- TAB BAR -->
+                    <div class="tab-bar">
+                        <div class="tab">Dashboard</div>
+                        <div class="tab">Détails du projet</div>
+                        <div class="tab">Documents</div>
+                        <div class="tab active">Estimation</div>
+                        <div class="tab">Publication</div>
+                        <div class="tab">Participants</div>
+                        <div class="tab">Administration</div>
+                        <div class="tab">Notes</div>
+                        <div class="tab">Mandat</div>
+                    </div>
+                </div>
+
+                <!-- STEPPER -->
+                <div class="stepper">
+                    <div class="stepper-item completed">
+                        <div class="stepper-badge">&#10003;</div>
+                        <div class="stepper-label">Bien cible</div>
+                    </div>
+                    <div class="stepper-arrow">&#8250;</div>
+                    <div class="stepper-item completed">
+                        <div class="stepper-badge">&#10003;</div>
+                        <div class="stepper-label">Contexte zone</div>
+                    </div>
+                    <div class="stepper-arrow">&#8250;</div>
+                    <div class="stepper-item active">
+                        <div class="stepper-badge">3</div>
+                        <div class="stepper-label">Comparables</div>
+                    </div>
+                    <div class="stepper-arrow">&#8250;</div>
+                    <div class="stepper-item">
+                        <div class="stepper-badge">4</div>
+                        <div class="stepper-label">Tension marché</div>
+                    </div>
+                    <div class="stepper-arrow">&#8250;</div>
+                    <div class="stepper-item">
+                        <div class="stepper-badge">5</div>
+                        <div class="stepper-label">Avis de valeur</div>
+                    </div>
+                </div>
+
+                <!-- =============================== -->
+                <!-- FILTER PANEL                    -->
+                <!-- =============================== -->
+                <div class="filter-panel">
+                    <div class="filter-top">
+                        <div class="filter-top-left">
+                            <h3>Filtres</h3>
+                            <span class="result-count" id="resultCount">47 résultats</span>
+                        </div>
+                        <button class="btn-reset-filters">Réinitialiser les filtres</button>
+                    </div>
+
+                    <!-- RADIUS SLIDER -->
+                    <div class="radius-row">
+                        <div class="radius-label">Rayon</div>
+                        <span class="commune-badge">Lyon 3ème</span>
+                        <div class="radius-slider-wrap">
+                            <input type="range" class="radius-slider" id="radiusSlider" min="100" max="5000" value="1000" step="100" style="--slider-pct: 18%;">
+                            <div class="radius-slider-labels">
+                                <span>100m</span>
+                                <span>1km</span>
+                                <span>2km</span>
+                                <span>3km</span>
+                                <span>5km</span>
+                            </div>
+                        </div>
+                        <div class="radius-value" id="radiusValue">1.0 km</div>
+                    </div>
+
+                    <!-- FILTER GRID -->
+                    <div class="filter-grid">
+                        <div class="filter-item">
+                            <div class="filter-item-label">Source <span class="chip-close">&times;</span></div>
+                            <div class="source-checkboxes" id="filterSource">
+                                <label class="source-cb-label"><input type="checkbox" value="dvf" checked class="source-cb"> <span class="source-dot dot-dvf"></span> DVF <span class="source-cb-count" id="countDvf"></span></label>
+                                <label class="source-cb-label"><input type="checkbox" value="ideeri" checked class="source-cb"> <span class="source-dot dot-ideeri"></span> Ideeri vendus <span class="source-cb-count" id="countIdeeri"></span></label>
+                                <label class="source-cb-label"><input type="checkbox" value="encours" checked class="source-cb"> <span class="source-dot dot-encours"></span> En cours <span class="source-cb-count" id="countEncours"></span></label>
+                                <label class="source-cb-label"><input type="checkbox" value="portail" checked class="source-cb"> <span class="source-dot dot-portail"></span> Portails <span class="source-cb-count" id="countPortail"></span></label>
+                            </div>
+                        </div>
+                        <div class="filter-item">
+                            <div class="filter-item-label">Type de bien <span class="chip-close">&times;</span></div>
+                            <select class="filter-select" id="filterType">
+                                <option value="appartement">Appartement</option>
+                                <option value="maison">Maison</option>
+                                <option value="tous">Tous types</option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <div class="filter-item-label">Surface <span class="chip-close">&times;</span></div>
+                            <div class="filter-range">
+                                <input type="number" value="55" min="0" max="500" step="1" id="filterSurfMin">
+                                <span class="sep">à</span>
+                                <input type="number" value="90" min="0" max="500" step="1" id="filterSurfMax">
+                                <span class="unit">m²</span>
+                            </div>
+                            <div class="filter-hint">Bien cible : 72.5 m² — <strong id="surfFilterCount" style="color:var(--green);">8 biens</strong></div>
+                        </div>
+                        <div class="filter-item">
+                            <div class="filter-item-label">Nombre de pièces <span class="chip-close">&times;</span></div>
+                            <div class="filter-range">
+                                <input type="number" value="2" min="1" max="10" step="1" id="filterPiecesMin">
+                                <span class="sep">à</span>
+                                <input type="number" value="4" min="1" max="10" step="1" id="filterPiecesMax">
+                                <span class="unit">pièces</span>
+                            </div>
+                            <div class="filter-hint">Bien cible : T3 — <strong id="piecesFilterCount" style="color:var(--green);">8 biens</strong></div>
+                        </div>
+                        <div class="filter-item">
+                            <div class="filter-item-label">Fourchette de prix <span class="chip-close">&times;</span></div>
+                            <div class="filter-range">
+                                <input type="number" value="200000" min="0" max="2000000" step="5000" id="filterPriceMin">
+                                <span class="sep">à</span>
+                                <input type="number" value="400000" min="0" max="2000000" step="5000" id="filterPriceMax">
+                                <span class="unit">&euro;</span>
+                            </div>
+                            <div class="filter-hint">Soit 2 759 — 5 517 &euro;/m² — <strong id="priceFilterCount" style="color:var(--green);">8 biens</strong></div>
+                        </div>
+                        <div class="filter-item">
+                            <div class="filter-item-label">Ancienneté max <span class="chip-close">&times;</span></div>
+                            <div class="filter-range">
+                                <input type="range" class="filter-slider" min="1" max="36" value="12" id="dateSlider" style="flex:1;">
+                                <span class="unit" id="dateVal" style="min-width:55px;text-align:right;font-weight:600;color:var(--green);">12 mois</span>
+                            </div>
+                            <div class="filter-hint" id="dateFilterHint">Transactions ou mises en vente depuis — <strong id="dateFilterCount" style="color:var(--green);">8 biens</strong></div>
+                        </div>
+                    </div>
+
+                    <!-- ADD MORE FILTERS -->
+                    <div class="filter-add-row">
+                        <span style="font-size:11px;color:var(--muted);margin-right:4px;">Ajouter :</span>
+                        <div class="filter-chip-add" onclick="this.classList.add('added');this.innerHTML='&#10003; DPE';">+ DPE</div>
+                        <div class="filter-chip-add" onclick="this.classList.add('added');this.innerHTML='&#10003; Étage';">+ Étage</div>
+                        <div class="filter-chip-add" onclick="this.classList.add('added');this.innerHTML='&#10003; Parking';">+ Parking</div>
+                        <div class="filter-chip-add" onclick="this.classList.add('added');this.innerHTML='&#10003; Extérieur';">+ Extérieur</div>
+                        <div class="filter-chip-add" onclick="this.classList.add('added');this.innerHTML='&#10003; Année construction';">+ Année construction</div>
+                        <div class="filter-chip-add" onclick="this.classList.add('added');this.innerHTML='&#10003; État général';">+ État général</div>
+                    </div>
+
+                    <!-- SOURCE LEGEND -->
+                    <div class="source-legend">
+                        <div class="source-item"><span class="source-dot dot-dvf"></span> DVF (transactions réelles)</div>
+                        <div class="source-item"><span class="source-dot dot-ideeri"></span> Ideeri vendus</div>
+                        <div class="source-item"><span class="source-dot dot-encours"></span> Ideeri en cours</div>
+                        <div class="source-item"><span class="source-dot dot-portail"></span> Portails immo</div>
+                    </div>
+                </div>
+
+                <!-- =============================== -->
+                <!-- SPLIT VIEW: MAP + LIST          -->
+                <!-- =============================== -->
+                <div class="split-view">
+                    <!-- MAP -->
+                    <div class="map-card">
+                        <div class="pdf-toggle"><input type="checkbox" id="pdf-map" class="pdf-cb" checked><label for="pdf-map"><span class="pdf-icon">&#128196;</span> PDF</label></div>
+
+                        <!-- Map container -->
+                        <div id="map"></div>
+
+                        <!-- Map style toggle -->
+                        <div class="map-style-toggle">
+                            <button class="map-style-btn active" onclick="setMapStyle('plan', this)">Plan</button>
+                            <button class="map-style-btn" onclick="setMapStyle('satellite', this)">Satellite</button>
+                        </div>
+
+                        <!-- Map bottom info bar -->
+                        <div class="map-info-bar">
+                            <div class="map-info-left">
+                                <div class="map-info-stat">
+                                    <div class="map-info-stat-val">47</div>
+                                    <div class="map-info-stat-label">dans le rayon</div>
+                                </div>
+                                <div class="map-info-divider"></div>
+                                <div class="map-info-stat">
+                                    <div class="map-info-stat-val">3</div>
+                                    <div class="map-info-stat-label">sélectionnés</div>
+                                </div>
+                                <div class="map-info-divider"></div>
+                                <div class="map-info-stat">
+                                    <div class="map-info-stat-val">4 172 &euro;</div>
+                                    <div class="map-info-stat-label">moy. /m²</div>
+                                </div>
+                            </div>
+                            <div class="map-legend-inline">
+                                <div class="map-legend-item" data-source="dvf" onclick="toggleSource(this)">
+                                    <span class="legend-dot" style="background:var(--blue);"></span> DVF
+                                </div>
+                                <div class="map-legend-item" data-source="ideeri" onclick="toggleSource(this)">
+                                    <span class="legend-dot" style="background:var(--green);"></span> Ideeri
+                                </div>
+                                <div class="map-legend-item" data-source="encours" onclick="toggleSource(this)">
+                                    <span class="legend-dot" style="background:var(--orange);"></span> En cours
+                                </div>
+                                <div class="map-legend-item" data-source="portail" onclick="toggleSource(this)">
+                                    <span class="legend-dot" style="background:#e87722;"></span> Portail
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- LIST -->
+                    <div class="list-panel">
+                        <div class="section-label" id="labelSelected">Sélectionnés (3)</div>
+
+                        <!-- CARD A -->
+                        <div class="comp-card selected" data-comp="villeroy" data-months="4" data-source="dvf" data-surface="68" data-pieces="3" data-price="285000" data-dist="380" onmouseenter="highlightMarker('villeroy')" onmouseleave="unhighlightMarker('villeroy')">
+                            <div class="pdf-toggle"><input type="checkbox" id="pdf-compA" class="pdf-cb" checked><label for="pdf-compA"><span class="pdf-icon">&#128196;</span> PDF</label></div>
+                            <div class="comp-card-photo no-photo">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                                <span>Pas de photo — source DVF</span>
+                            </div>
+                            <div class="comp-card-header">
+                                <div>
+                                    <div class="comp-card-title">T3 68m² — 8 rue Villeroy</div>
+                                    <div class="comp-card-addr">Lyon 3ème</div>
+                                </div>
+                                <span class="source-badge dvf">DVF</span>
+                            </div>
+                            <div class="comp-prices">
+                                <div class="p-item"><div class="p-label">Prix</div><div class="p-val">285 000 &euro;</div></div>
+                                <div class="p-item"><div class="p-label">Prix/m²</div><div class="p-val">4 191 &euro;</div></div>
+                                <div class="p-item"><div class="p-label">Distance</div><div class="p-val" style="color:var(--blue);">380m</div></div>
+                            </div>
+                            <div class="comp-valuations">
+                                <div class="val-item">
+                                    <div class="val-item-label">&#128181; Prix de vente</div>
+                                    <div class="val-item-value">285 000 &euro;</div>
+                                    <div class="val-delta" style="color:#999;font-size:10px;">3 926 &euro;/m² net vendeur</div>
+                                </div>
+                                <div class="val-item">
+                                    <div class="val-item-label">&#128100; Avis de valeur pro</div>
+                                    <div class="val-item-value na">— Non disponible</div>
+                                    <div class="val-delta" style="color:#ccc;font-size:10px;">Source DVF : pas d'avis agent</div>
+                                </div>
+                            </div>
+                            <div class="comp-meta">Étage 3/5 · DPE C · Vendu il y a 4 mois</div>
+                            <div class="scoring-row">
+                                <div class="score-badge score-high">
+                                    <span class="score-badge-label">Similarité</span>
+                                    <span class="score-badge-value">87%</span>
+                                    <span class="score-badge-bar"><span class="score-badge-fill" style="width:87%"></span></span>
+                                </div>
+                                <div class="score-badge score-mid">
+                                    <span class="score-badge-label">Données</span>
+                                    <span class="score-badge-value">68%</span>
+                                    <span class="score-badge-bar"><span class="score-badge-fill" style="width:68%"></span></span>
+                                    <span class="data-count">124 / 182</span>
+                                </div>
+                            </div>
+                            <div class="reliability real">&#128994; Transaction réelle</div>
+                            <div class="adj-section">
+                                <div class="adj-title">Ajustement vs cible <span class="adj-val neg">&minus;2.1%</span></div>
+                                <div class="adj-row"><span class="lbl">Surface (&minus;4.5m²)</span><span class="adj-val pos">+1.8%</span></div>
+                                <div class="adj-row"><span class="lbl">DPE (C vs D)</span><span class="adj-val neg">&minus;2.5%</span></div>
+                                <div class="adj-row"><span class="lbl">Étage (3 vs 4)</span><span class="adj-val neg">&minus;0.8%</span></div>
+                                <div class="adj-row"><span class="lbl">Extérieurs</span><span class="adj-val neg">&minus;0.6%</span></div>
+                            </div>
+                            <div class="comp-actions">
+                                <a class="link-edit">&#9998; Modifier ajustement</a>
+                                <button class="btn-remove">&times; Retirer</button>
+                            </div>
+                        </div>
+
+                        <!-- CARD B -->
+                        <div class="comp-card selected" data-comp="lacassagne" data-months="2" data-source="ideeri" data-surface="75" data-pieces="3" data-price="310000" data-dist="520" onmouseenter="highlightMarker('lacassagne')" onmouseleave="unhighlightMarker('lacassagne')">
+                            <div class="pdf-toggle"><input type="checkbox" id="pdf-compB" class="pdf-cb" checked><label for="pdf-compB"><span class="pdf-icon">&#128196;</span> PDF</label></div>
+                            <div class="comp-card-photo">
+                                <img src="https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=500&h=180&fit=crop&crop=center" alt="Séjour T3 Lacassagne">
+                                <span class="photo-badge-ideeri">IDEERI</span>
+                                <span class="photo-count">&#128247; 12 photos</span>
+                            </div>
+                            <div class="comp-card-header">
+                                <div>
+                                    <div class="comp-card-title">T3 75m² — 22 av. Lacassagne</div>
+                                    <div class="comp-card-addr">Lyon 3ème</div>
+                                </div>
+                                <span class="source-badge ideeri">Ideeri vendu</span>
+                            </div>
+                            <div class="comp-prices">
+                                <div class="p-item"><div class="p-label">Prix</div><div class="p-val">310 000 &euro;</div></div>
+                                <div class="p-item"><div class="p-label">Prix/m²</div><div class="p-val">4 133 &euro;</div></div>
+                                <div class="p-item"><div class="p-label">Distance</div><div class="p-val" style="color:var(--blue);">520m</div></div>
+                            </div>
+                            <div class="comp-valuations">
+                                <div class="val-item">
+                                    <div class="val-item-label">&#128181; Prix de vente</div>
+                                    <div class="val-item-value">310 000 &euro;</div>
+                                    <div class="val-delta" style="color:#999;font-size:10px;">4 133 &euro;/m² net vendeur</div>
+                                </div>
+                                <div class="val-item">
+                                    <div class="val-item-label">&#128100; Avis de valeur pro</div>
+                                    <div class="val-item-value highlight">305 000 &euro;</div>
+                                    <div class="val-delta pos">&#9650; &minus;1.6% vs vente — Estimation précise</div>
+                                </div>
+                            </div>
+                            <div class="comp-meta">Étage 5/6 · DPE D · Vendu il y a 2 mois</div>
+                            <div class="scoring-row">
+                                <div class="score-badge score-high">
+                                    <span class="score-badge-label">Similarité</span>
+                                    <span class="score-badge-value">92%</span>
+                                    <span class="score-badge-bar"><span class="score-badge-fill" style="width:92%"></span></span>
+                                </div>
+                                <div class="score-badge score-high">
+                                    <span class="score-badge-label">Données</span>
+                                    <span class="score-badge-value">95%</span>
+                                    <span class="score-badge-bar"><span class="score-badge-fill" style="width:95%"></span></span>
+                                    <span class="data-count">545 / 575</span>
+                                </div>
+                            </div>
+                            <div class="reliability real">&#128994; Transaction réelle</div>
+                            <div class="adj-section">
+                                <div class="adj-title">Ajustement vs cible <span class="adj-val pos">+1.5%</span></div>
+                                <div class="adj-row"><span class="lbl">Surface (+2.5m²)</span><span class="adj-val neg">&minus;0.9%</span></div>
+                                <div class="adj-row"><span class="lbl">Étage (5 vs 4)</span><span class="adj-val pos">+1.2%</span></div>
+                                <div class="adj-row"><span class="lbl">Terrasse 8m²</span><span class="adj-val pos">+1.2%</span></div>
+                            </div>
+                            <div class="comp-actions">
+                                <a class="link-edit">&#9998; Modifier ajustement</a>
+                                <button class="btn-remove">&times; Retirer</button>
+                            </div>
+                        </div>
+
+                        <!-- CARD C -->
+                        <div class="comp-card selected" data-comp="paulbert" data-months="1.5" data-source="encours" data-surface="62" data-pieces="2" data-price="265000" data-dist="290" onmouseenter="highlightMarker('paulbert')" onmouseleave="unhighlightMarker('paulbert')">
+                            <div class="pdf-toggle"><input type="checkbox" id="pdf-compC" class="pdf-cb" checked><label for="pdf-compC"><span class="pdf-icon">&#128196;</span> PDF</label></div>
+                            <div class="comp-card-photo">
+                                <img src="https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=500&h=180&fit=crop&crop=center" alt="T2 Paul Bert cuisine">
+                                <span class="photo-badge-ideeri" style="background:rgba(217,119,6,0.9);">EN VENTE</span>
+                                <span class="photo-count">&#128247; 8 photos</span>
+                            </div>
+                            <div class="comp-card-header">
+                                <div>
+                                    <div class="comp-card-title">T2 62m² — 15 rue Paul Bert</div>
+                                    <div class="comp-card-addr">Lyon 3ème</div>
+                                </div>
+                                <span class="source-badge encours">En cours</span>
+                            </div>
+                            <div class="comp-prices">
+                                <div class="p-item"><div class="p-label">Prix</div><div class="p-val">265 000 &euro;</div></div>
+                                <div class="p-item"><div class="p-label">Prix/m²</div><div class="p-val">4 274 &euro;</div></div>
+                                <div class="p-item"><div class="p-label">Distance</div><div class="p-val" style="color:var(--blue);">290m</div></div>
+                            </div>
+                            <div class="comp-valuations">
+                                <div class="val-item">
+                                    <div class="val-item-label">&#128181; Prix de vente</div>
+                                    <div class="val-item-value na">— En cours de vente</div>
+                                    <div class="val-delta" style="color:#d97706;font-size:10px;">Prix affiché : 265 000 &euro;</div>
+                                </div>
+                                <div class="val-item">
+                                    <div class="val-item-label">&#128100; Avis de valeur pro</div>
+                                    <div class="val-item-value highlight">258 000 &euro;</div>
+                                    <div class="val-delta neg">&#9660; &minus;2.6% vs prix affiché</div>
+                                </div>
+                            </div>
+                            <div class="comp-meta">Étage 2/4 · DPE E · En vente 45 jours</div>
+                            <div class="scoring-row">
+                                <div class="score-badge score-mid">
+                                    <span class="score-badge-label">Similarité</span>
+                                    <span class="score-badge-value">61%</span>
+                                    <span class="score-badge-bar"><span class="score-badge-fill" style="width:61%"></span></span>
+                                </div>
+                                <div class="score-badge score-low">
+                                    <span class="score-badge-label">Données</span>
+                                    <span class="score-badge-value">7%</span>
+                                    <span class="score-badge-bar"><span class="score-badge-fill" style="width:7%"></span></span>
+                                    <span class="data-count">13 / 182</span>
+                                </div>
+                            </div>
+                            <div class="reliability listed">&#128992; Prix affiché</div>
+                            <div class="adj-section">
+                                <div class="adj-title">Ajustement vs cible <span class="adj-val neg">&minus;3.8%</span></div>
+                                <div class="adj-row"><span class="lbl">Surface (&minus;10.5m²)</span><span class="adj-val pos">+3.1%</span></div>
+                                <div class="adj-row"><span class="lbl">Type (T2 vs T3)</span><span class="adj-val neg">&minus;4.2%</span></div>
+                                <div class="adj-row"><span class="lbl">DPE (E vs D)</span><span class="adj-val neg">&minus;2.7%</span></div>
+                            </div>
+                            <div class="comp-actions">
+                                <a class="link-edit">&#9998; Modifier ajustement</a>
+                                <button class="btn-remove">&times; Retirer</button>
+                            </div>
+                        </div>
+
+                        <!-- OTHERS -->
+                        <div class="section-label others" id="labelOthers">Autres (5)</div>
+
+                        <div class="comp-card compact" data-comp="duguesclin" data-months="6" data-source="dvf" data-surface="70" data-pieces="3" data-price="295000" data-dist="750" onmouseenter="highlightMarker('duguesclin')" onmouseleave="unhighlightMarker('duguesclin')">
+                            <div class="compact-row">
+                                <div class="compact-photo no-photo-sm">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                                </div>
+                                <div class="compact-left">
+                                    <div class="compact-title">T3 70m² — 5 rue Duguesclin, Lyon 3</div>
+                                    <div class="compact-meta"><span class="source-dot dot-dvf"></span> DVF · 295k&euro; · 4 214&euro;/m² · 750m</div>
+                                    <div class="compact-scores"><span class="compact-score high">84% sim.</span><span class="compact-score mid">62% données</span><span class="data-count">113/182</span></div>
+                                    <div class="compact-vals"><span class="compact-val">Vente : <strong>295 000 &euro;</strong></span><span class="compact-val" style="color:#ccc;">· Avis pro : —</span></div>
+                                </div>
+                                <button class="btn-add">+ Ajouter</button>
+                            </div>
+                        </div>
+                        <div class="comp-card compact" data-comp="lafayette" data-months="1" data-source="portail" data-surface="85" data-pieces="4" data-price="340000" data-dist="890" onmouseenter="highlightMarker('lafayette')" onmouseleave="unhighlightMarker('lafayette')">
+                            <div class="compact-row">
+                                <div class="compact-photo no-photo-sm">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                                </div>
+                                <div class="compact-left">
+                                    <div class="compact-title">T4 85m² — 18 cours Lafayette, Lyon 3</div>
+                                    <div class="compact-meta"><span class="source-dot dot-portail"></span> Portail · 340k&euro; · 4 000&euro;/m² · 890m</div>
+                                    <div class="compact-scores"><span class="compact-score mid">58% sim.</span><span class="compact-score low">5% données</span><span class="data-count">9/182</span></div>
+                                    <div class="compact-vals"><span class="compact-val" style="color:#d97706;">Affiché : <strong style="color:#d97706;">340 000 &euro;</strong></span><span class="compact-val" style="color:#ccc;">· Avis pro : —</span></div>
+                                </div>
+                                <button class="btn-add">+ Ajouter</button>
+                            </div>
+                        </div>
+                        <div class="comp-card compact" data-comp="mazenod" data-months="8" data-source="dvf" data-surface="55" data-pieces="2" data-price="240000" data-dist="420" onmouseenter="highlightMarker('mazenod')" onmouseleave="unhighlightMarker('mazenod')">
+                            <div class="compact-row">
+                                <div class="compact-photo no-photo-sm">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                                </div>
+                                <div class="compact-left">
+                                    <div class="compact-title">T2 55m² — 33 rue Mazenod, Lyon 3</div>
+                                    <div class="compact-meta"><span class="source-dot dot-dvf"></span> DVF · 240k&euro; · 4 363&euro;/m² · 420m</div>
+                                    <div class="compact-scores"><span class="compact-score mid">71% sim.</span><span class="compact-score mid">68% données</span><span class="data-count">124/182</span></div>
+                                    <div class="compact-vals"><span class="compact-val">Vente : <strong>240 000 &euro;</strong></span><span class="compact-val" style="color:#ccc;">· Avis pro : —</span></div>
+                                </div>
+                                <button class="btn-add">+ Ajouter</button>
+                            </div>
+                        </div>
+                        <div class="comp-card compact" data-comp="guichard" data-months="3" data-source="ideeri" data-surface="71" data-pieces="3" data-price="298000" data-dist="310" onmouseenter="highlightMarker('guichard')" onmouseleave="unhighlightMarker('guichard')">
+                            <div class="compact-row">
+                                <div class="compact-photo">
+                                    <img src="https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=96&h=96&fit=crop&crop=center" alt="T3 Guichard">
+                                </div>
+                                <div class="compact-left">
+                                    <div class="compact-title">T3 71m² — 7 place Guichard, Lyon 3</div>
+                                    <div class="compact-meta"><span class="source-dot dot-ideeri"></span> Ideeri · 298k&euro; · 4 197&euro;/m² · 310m</div>
+                                    <div class="compact-scores"><span class="compact-score high">89% sim.</span><span class="compact-score high">93% données</span><span class="data-count">538/575</span></div>
+                                    <div class="compact-vals"><span class="compact-val">Vente : <strong>298 000 &euro;</strong></span><span class="compact-val highlight">· Avis pro : <strong>292 000 &euro;</strong></span></div>
+                                </div>
+                                <button class="btn-add">+ Ajouter</button>
+                            </div>
+                        </div>
+                        <div class="comp-card compact" data-comp="felixfaure" data-months="0.5" data-source="portail" data-surface="69" data-pieces="3" data-price="289000" data-dist="1100" onmouseenter="highlightMarker('felixfaure')" onmouseleave="unhighlightMarker('felixfaure')">
+                            <div class="compact-row">
+                                <div class="compact-photo no-photo-sm">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                                </div>
+                                <div class="compact-left">
+                                    <div class="compact-title">T3 69m² — 42 av. Félix Faure, Lyon 3</div>
+                                    <div class="compact-meta"><span class="source-dot dot-portail"></span> Portail · 289k&euro; · 4 188&euro;/m² · 1.1km</div>
+                                    <div class="compact-scores"><span class="compact-score mid">76% sim.</span><span class="compact-score low">7% données</span><span class="data-count">13/182</span></div>
+                                    <div class="compact-vals"><span class="compact-val" style="color:#d97706;">Affiché : <strong style="color:#d97706;">289 000 &euro;</strong></span><span class="compact-val" style="color:#ccc;">· Avis pro : —</span></div>
+                                </div>
+                                <button class="btn-add">+ Ajouter</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- =============================== -->
+                <!-- SUMMARY TABLE                   -->
+                <!-- =============================== -->
+                <div class="summary-card">
+                    <div class="pdf-toggle"><input type="checkbox" id="pdf-summary" class="pdf-cb" checked><label for="pdf-summary"><span class="pdf-icon">&#128196;</span> PDF</label></div>
+                    <div class="summary-title">Récapitulatif</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Comparable</th>
+                                <th>Source</th>
+                                <th class="t-adj">Sim.</th>
+                                <th class="t-adj">Données</th>
+                                <th class="t-price">Prix</th>
+                                <th class="t-price">Prix/m²</th>
+                                <th class="t-price">Prix vente</th>
+                                <th class="t-price">Avis pro</th>
+                                <th class="t-price">Distance</th>
+                                <th class="t-adj">Surface</th>
+                                <th class="t-adj">DPE</th>
+                                <th class="t-adj">Étage</th>
+                                <th class="t-adj">Ext.</th>
+                                <th class="t-adj">Total</th>
+                                <th class="t-price">Ajusté/m²</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>T3 68m² — Villeroy</strong></td>
+                                <td><span class="source-dot dot-dvf" style="display:inline-block;margin-right:4px;"></span>DVF</td>
+                                <td class="t-adj pos">87%</td>
+                                <td class="t-adj" style="color:var(--orange);">68%<br><span style="font-size:9px;color:#bbb;font-weight:400;">124/182</span></td>
+                                <td class="t-price">285 000 &euro;</td>
+                                <td class="t-price">4 191 &euro;</td>
+                                <td class="t-price">285 000 &euro;</td>
+                                <td class="t-price" style="color:#ccc;">—</td>
+                                <td class="t-price">380m</td>
+                                <td class="t-adj pos">+1.8%</td>
+                                <td class="t-adj neg">&minus;2.5%</td>
+                                <td class="t-adj neg">&minus;0.8%</td>
+                                <td class="t-adj neg">&minus;0.6%</td>
+                                <td class="t-adj neg">&minus;2.1%</td>
+                                <td class="t-price">4 103 &euro;</td>
+                            </tr>
+                            <tr>
+                                <td><strong>T3 75m² — Lacassagne</strong></td>
+                                <td><span class="source-dot dot-ideeri" style="display:inline-block;margin-right:4px;"></span>Ideeri</td>
+                                <td class="t-adj pos">92%</td>
+                                <td class="t-adj pos">95%<br><span style="font-size:9px;color:#bbb;font-weight:400;">545/575</span></td>
+                                <td class="t-price">310 000 &euro;</td>
+                                <td class="t-price">4 133 &euro;</td>
+                                <td class="t-price">310 000 &euro;</td>
+                                <td class="t-price" style="color:var(--green);font-weight:700;">305 000 &euro;<br><span style="font-size:9px;color:var(--green);font-weight:400;">&minus;1.6%</span></td>
+                                <td class="t-price">520m</td>
+                                <td class="t-adj neg">&minus;0.9%</td>
+                                <td class="t-adj">—</td>
+                                <td class="t-adj pos">+1.2%</td>
+                                <td class="t-adj pos">+1.2%</td>
+                                <td class="t-adj pos">+1.5%</td>
+                                <td class="t-price">4 195 &euro;</td>
+                            </tr>
+                            <tr>
+                                <td><strong>T2 62m² — Paul Bert</strong></td>
+                                <td><span class="source-dot dot-encours" style="display:inline-block;margin-right:4px;"></span>En cours</td>
+                                <td class="t-adj" style="color:var(--orange);">61%</td>
+                                <td class="t-adj neg">7%<br><span style="font-size:9px;color:#bbb;font-weight:400;">13/182</span></td>
+                                <td class="t-price">265 000 &euro;</td>
+                                <td class="t-price">4 274 &euro;</td>
+                                <td class="t-price" style="color:#d97706;">En cours</td>
+                                <td class="t-price" style="color:var(--green);font-weight:700;">258 000 &euro;<br><span style="font-size:9px;color:var(--red);font-weight:400;">&minus;2.6%</span></td>
+                                <td class="t-price">290m</td>
+                                <td class="t-adj pos">+3.1%</td>
+                                <td class="t-adj neg">&minus;2.7%</td>
+                                <td class="t-adj neg">&minus;1.1%</td>
+                                <td class="t-adj">—</td>
+                                <td class="t-adj neg">&minus;3.8%</td>
+                                <td class="t-price">4 113 &euro;</td>
+                            </tr>
+                            <tr class="t-avg">
+                                <td colspan="14" style="text-align:right;padding-right:12px;"><strong>Moyenne pondérée :</strong></td>
+                                <td class="t-price"><strong>4 172 &euro;/m²</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- FOOTER -->
+                <div class="footer-buttons">
+                    <button class="btn btn-ghost">&larr; Étape précédente : Contexte zone</button>
+                    <div style="text-align:right;">
+                        <button class="btn btn-primary">Étape suivante : Tension marché &rarr;</button>
+                        <div class="min-note">&#10003; Minimum recommandé : 3 comparables sélectionnés</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PDF FLOATING BAR -->
+    <div class="pdf-bar">
+        <div class="pdf-bar-left">
+            <span>&#128196;</span>
+            <span>Rapport vendeur :</span>
+            <span class="pdf-counter" id="pdfCount">5</span>
+            <span style="color:#666;font-size:12px;">sections sélectionnées sur 5</span>
+        </div>
+        <div class="pdf-bar-actions">
+            <button class="btn-select-all" onclick="toggleAllPdf()">Tout désélectionner</button>
+            <button class="btn-pdf" onclick="alert('Aperçu PDF — wireframe')">&#128196; Générer le rapport PDF</button>
+        </div>
+    </div>
+
+    <!-- LEAFLET JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        // =============================================
+        // MAP INITIALIZATION
+        // =============================================
+        const TARGET_LAT = 45.7578;
+        const TARGET_LNG = 4.8590;
+
+        const map = L.map('map', {
+            zoomControl: false,
+            attributionControl: false
+        }).setView([TARGET_LAT, TARGET_LNG], 15);
+
+        // Add zoom control to top-left
+        L.control.zoom({ position: 'topleft' }).addTo(map);
+
+        // Tile layers
+        const planLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19
+        }).addTo(map);
+
+        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 19
+        });
+
+        let currentLayer = 'plan';
+
+        function setMapStyle(style, btn) {
+            document.querySelectorAll('.map-style-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            if (style === 'satellite' && currentLayer !== 'satellite') {
+                map.removeLayer(planLayer);
+                satelliteLayer.addTo(map);
+                currentLayer = 'satellite';
+            } else if (style === 'plan' && currentLayer !== 'plan') {
+                map.removeLayer(satelliteLayer);
+                planLayer.addTo(map);
+                currentLayer = 'plan';
+            }
+        }
+
+        // =============================================
+        // RADIUS CIRCLE
+        // =============================================
+        let radiusCircle = L.circle([TARGET_LAT, TARGET_LNG], {
+            radius: 1000,
+            color: '#46B962',
+            weight: 2,
+            opacity: 0.6,
+            fillColor: '#46B962',
+            fillOpacity: 0.06,
+            dashArray: '8, 6'
+        }).addTo(map);
+
+        // =============================================
+        // TARGET MARKER (bien cible)
+        // =============================================
+        const targetIcon = L.divIcon({
+            className: 'target-marker',
+            html: '<div class="target-marker-pulse"></div><div class="target-marker-inner"></div>',
+            iconSize: [40, 40],
+            iconAnchor: [20, 20]
+        });
+
+        L.marker([TARGET_LAT, TARGET_LNG], { icon: targetIcon, zIndexOffset: 1000 })
+            .addTo(map)
+            .bindPopup(`
+                <div class="map-tooltip">
+                    <div class="tooltip-header">
+                        <span class="tooltip-title">&#127968; Bien cible</span>
+                        <span style="font-size:10px;color:#e74c3c;font-weight:600;">A estimer</span>
+                    </div>
+                    <div class="tooltip-body">
+                        <div class="tooltip-row"><span class="lbl">Adresse</span><span class="val">12 rue des Lilas</span></div>
+                        <div class="tooltip-row"><span class="lbl">Type</span><span class="val">T3 — 72.5 m²</span></div>
+                        <div class="tooltip-row"><span class="lbl">Étage</span><span class="val">4ème / 5</span></div>
+                        <div class="tooltip-row"><span class="lbl">DPE</span><span class="val">D</span></div>
+                    </div>
+                </div>
+            `);
+
+        // =============================================
+        // COMPARABLE MARKERS
+        // =============================================
+        const colors = {
+            dvf: '#4a6cf7',
+            ideeri: '#46B962',
+            encours: '#f5a623',
+            portail: '#e87722'
+        };
+
+        const comparables = [
+            { id: 'villeroy', lat: 45.7598, lng: 4.8555, source: 'dvf', selected: true,
+              title: 'T3 68m²', addr: '8 rue Villeroy', price: '285 000', ppm: '4 191', dist: '380m', dpe: 'C', etage: '3/5', date: '4 mois',
+              similarity: 87, dataScore: 68, dataCount: '124/182',
+              salePrice: '285 000', proValuation: null, proValuationDelta: null },
+            { id: 'lacassagne', lat: 45.7562, lng: 4.8635, source: 'ideeri', selected: true,
+              title: 'T3 75m²', addr: '22 av. Lacassagne', price: '310 000', ppm: '4 133', dist: '520m', dpe: 'D', etage: '5/6', date: '2 mois',
+              similarity: 92, dataScore: 95, dataCount: '545/575',
+              salePrice: '310 000', proValuation: '305 000', proValuationDelta: -1.6 },
+            { id: 'paulbert', lat: 45.7555, lng: 4.8555, source: 'encours', selected: true,
+              title: 'T2 62m²', addr: '15 rue Paul Bert', price: '265 000', ppm: '4 274', dist: '290m', dpe: 'E', etage: '2/4', date: '45j',
+              similarity: 61, dataScore: 7, dataCount: '13/182',
+              salePrice: null, proValuation: '258 000', proValuationDelta: -2.6 },
+            { id: 'duguesclin', lat: 45.7605, lng: 4.8510, source: 'dvf', selected: false,
+              title: 'T3 70m²', addr: '5 rue Duguesclin', price: '295 000', ppm: '4 214', dist: '750m', dpe: 'C', etage: '2/5', date: '6 mois',
+              similarity: 84, dataScore: 62, dataCount: '113/182',
+              salePrice: '295 000', proValuation: null, proValuationDelta: null },
+            { id: 'lafayette', lat: 45.7615, lng: 4.8650, source: 'portail', selected: false,
+              title: 'T4 85m²', addr: '18 cours Lafayette', price: '340 000', ppm: '4 000', dist: '890m', dpe: 'D', etage: '4/6', date: '30j',
+              similarity: 58, dataScore: 5, dataCount: '9/182',
+              salePrice: null, proValuation: null, proValuationDelta: null },
+            { id: 'mazenod', lat: 45.7570, lng: 4.8520, source: 'dvf', selected: false,
+              title: 'T2 55m²', addr: '33 rue Mazenod', price: '240 000', ppm: '4 363', dist: '420m', dpe: 'B', etage: '1/4', date: '8 mois',
+              similarity: 71, dataScore: 68, dataCount: '124/182',
+              salePrice: '240 000', proValuation: null, proValuationDelta: null },
+            { id: 'guichard', lat: 45.7588, lng: 4.8570, source: 'ideeri', selected: false,
+              title: 'T3 71m²', addr: '7 place Guichard', price: '298 000', ppm: '4 197', dist: '310m', dpe: 'C', etage: '3/5', date: '3 mois',
+              similarity: 89, dataScore: 93, dataCount: '538/575',
+              salePrice: '298 000', proValuation: '292 000', proValuationDelta: -2.0 },
+            { id: 'felixfaure', lat: 45.7545, lng: 4.8670, source: 'portail', selected: false,
+              title: 'T3 69m²', addr: '42 av. Félix Faure', price: '289 000', ppm: '4 188', dist: '1.1km', dpe: 'D', etage: '5/7', date: '15j',
+              similarity: 76, dataScore: 7, dataCount: '13/182',
+              salePrice: null, proValuation: null, proValuationDelta: null }
+        ];
+
+        const markers = {};
+
+        function createMarkerIcon(source, selected, size) {
+            size = size || (selected ? 18 : 14);
+            return L.divIcon({
+                className: 'custom-marker custom-marker-' + source + (selected ? ' selected' : ''),
+                iconSize: [size, size],
+                iconAnchor: [size/2, size/2]
+            });
+        }
+
+        function scoreColor(val) {
+            if (val >= 75) return '#46B962';
+            if (val >= 40) return '#f5a623';
+            return '#e74c3c';
+        }
+
+        function buildPopup(comp) {
+            const sourceLabel = { dvf: 'DVF', ideeri: 'Ideeri', encours: 'En cours', portail: 'Portail' };
+            const sourceColor = colors[comp.source];
+            return '<div class="map-tooltip">' +
+                '<div class="tooltip-header">' +
+                    '<span class="tooltip-title">' + comp.title + '</span>' +
+                    '<span style="font-size:10px;color:' + sourceColor + ';font-weight:600;">' + sourceLabel[comp.source] + '</span>' +
+                '</div>' +
+                '<div class="tooltip-scoring">' +
+                    '<div class="tooltip-score-item">' +
+                        '<span class="tooltip-score-dot" style="background:' + scoreColor(comp.similarity) + ';"></span>' +
+                        '<span style="color:#999;">Sim.</span>' +
+                        '<span style="font-weight:700;color:' + scoreColor(comp.similarity) + ';">' + comp.similarity + '%</span>' +
+                    '</div>' +
+                    '<div class="tooltip-score-item">' +
+                        '<span class="tooltip-score-dot" style="background:' + scoreColor(comp.dataScore) + ';"></span>' +
+                        '<span style="color:#999;">Données</span>' +
+                        '<span style="font-weight:700;color:' + scoreColor(comp.dataScore) + ';">' + comp.dataScore + '%</span>' +
+                        '<span style="color:#ccc;font-size:9px;">(' + comp.dataCount + ')</span>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="tooltip-body">' +
+                    '<div class="tooltip-row"><span class="lbl">Adresse</span><span class="val">' + comp.addr + '</span></div>' +
+                    '<div class="tooltip-row"><span class="lbl">Prix</span><span class="val">' + comp.price + ' &euro;</span></div>' +
+                    '<div class="tooltip-row"><span class="lbl">Prix/m²</span><span class="val" style="color:' + sourceColor + ';font-weight:700;">' + comp.ppm + ' &euro;</span></div>' +
+                    '<div class="tooltip-row"><span class="lbl">Prix de vente</span><span class="val">' + (comp.salePrice ? comp.salePrice + ' &euro;' : '<span style="color:#ccc;">—</span>') + '</span></div>' +
+                    '<div class="tooltip-row"><span class="lbl">Avis valeur pro</span><span class="val" style="' + (comp.proValuation ? 'color:#46B962;' : '') + '">' + (comp.proValuation ? comp.proValuation + ' &euro;' : '<span style="color:#ccc;">—</span>') + '</span></div>' +
+                    '<div class="tooltip-row"><span class="lbl">Distance</span><span class="val">' + comp.dist + '</span></div>' +
+                    '<div class="tooltip-row"><span class="lbl">DPE</span><span class="val">' + comp.dpe + '</span></div>' +
+                    '<div class="tooltip-row"><span class="lbl">Étage</span><span class="val">' + comp.etage + '</span></div>' +
+                '</div>' +
+                '<div class="tooltip-footer">' +
+                    (comp.selected
+                        ? '<button class="tooltip-btn tooltip-btn-primary" style="opacity:0.5;cursor:default;">&#10003; Sélectionné</button>'
+                        : '<button class="tooltip-btn tooltip-btn-primary">+ Sélectionner</button>') +
+                    '<button class="tooltip-btn tooltip-btn-ghost">Voir détails</button>' +
+                '</div>' +
+            '</div>';
+        }
+
+        comparables.forEach(function(comp) {
+            const icon = createMarkerIcon(comp.source, comp.selected);
+            const marker = L.marker([comp.lat, comp.lng], { icon: icon })
+                .addTo(map)
+                .bindPopup(buildPopup(comp), { offset: [0, -5], maxWidth: 260 });
+
+            marker._compData = comp;
+            markers[comp.id] = marker;
+
+            // Hover effect on marker -> highlight card
+            marker.on('mouseover', function() {
+                const card = document.querySelector('[data-comp="' + comp.id + '"]');
+                if (card) card.classList.add('highlighted');
+            });
+            marker.on('mouseout', function() {
+                const card = document.querySelector('[data-comp="' + comp.id + '"]');
+                if (card) card.classList.remove('highlighted');
+            });
+        });
+
+        // =============================================
+        // CARD <-> MARKER INTERACTIONS
+        // =============================================
+        function highlightMarker(id) {
+            const m = markers[id];
+            if (m) {
+                const comp = m._compData;
+                m.setIcon(createMarkerIcon(comp.source, comp.selected, 24));
+                m.setZIndexOffset(500);
+            }
+        }
+
+        function unhighlightMarker(id) {
+            const m = markers[id];
+            if (m) {
+                const comp = m._compData;
+                m.setIcon(createMarkerIcon(comp.source, comp.selected));
+                m.setZIndexOffset(0);
+            }
+        }
+
+        // =============================================
+        // SOURCE FILTER TOGGLE (legend)
+        // =============================================
+        const hiddenSources = new Set();
+
+        function toggleSource(el) {
+            const src = el.dataset.source;
+            el.classList.toggle('dimmed');
+            if (hiddenSources.has(src)) {
+                hiddenSources.delete(src);
+            } else {
+                hiddenSources.add(src);
+            }
+            Object.values(markers).forEach(function(m) {
+                if (hiddenSources.has(m._compData.source)) {
+                    m.setOpacity(0);
+                    m.closePopup();
+                } else {
+                    m.setOpacity(1);
+                }
+            });
+        }
+
+        // =============================================
+        // UNIFIED FILTER SYSTEM
+        // =============================================
+        const slider = document.getElementById('radiusSlider');
+        const valDisplay = document.getElementById('radiusValue');
+        const dateSlider = document.getElementById('dateSlider');
+        const dateVal = document.getElementById('dateVal');
+        const labelSelected = document.getElementById('labelSelected');
+        const labelOthers = document.getElementById('labelOthers');
+        const resultCountEl = document.getElementById('resultCount');
+
+        // Filter elements
+        const filterSource = document.getElementById('filterSource');
+        const filterSurfMin = document.getElementById('filterSurfMin');
+        const filterSurfMax = document.getElementById('filterSurfMax');
+        const filterPiecesMin = document.getElementById('filterPiecesMin');
+        const filterPiecesMax = document.getElementById('filterPiecesMax');
+        const filterPriceMin = document.getElementById('filterPriceMin');
+        const filterPriceMax = document.getElementById('filterPriceMax');
+
+        // Per-filter count elements
+        var countEls = {
+            date: document.getElementById('dateFilterCount'),
+            surf: document.getElementById('surfFilterCount'),
+            pieces: document.getElementById('piecesFilterCount'),
+            price: document.getElementById('priceFilterCount')
+        };
+
+        // Add transitions to all cards
+        document.querySelectorAll('.comp-card[data-comp]').forEach(function(card) {
+            card.style.transition = 'opacity 0.3s ease, max-height 0.4s ease, margin-bottom 0.3s ease';
+        });
+
+        function getSelectedSources() {
+            var cbs = document.querySelectorAll('.source-cb:checked');
+            var sources = [];
+            cbs.forEach(function(cb) { sources.push(cb.value); });
+            return sources;
+        }
+
+        function updateRadiusDisplay() {
+            var val = parseInt(slider.value);
+            var pct = ((val - 100) / (5000 - 100)) * 100;
+            slider.style.setProperty('--slider-pct', pct + '%');
+            valDisplay.textContent = val < 1000 ? val + ' m' : (val / 1000).toFixed(1) + ' km';
+            radiusCircle.setRadius(val);
+        }
+
+        function updateDateDisplay() {
+            var maxMonths = parseInt(dateSlider.value);
+            dateVal.textContent = maxMonths + ' mois';
+            var pct = ((maxMonths - 1) / 35) * 100;
+            dateSlider.style.background = 'linear-gradient(to right, var(--green) 0%, var(--green) ' + pct + '%, var(--border) ' + pct + '%, var(--border) 100%)';
+        }
+
+        function cardPassesFilter(card, filterName) {
+            var months = parseFloat(card.getAttribute('data-months') || 0);
+            var source = card.getAttribute('data-source') || '';
+            var surface = parseFloat(card.getAttribute('data-surface') || 0);
+            var pieces = parseInt(card.getAttribute('data-pieces') || 0);
+            var price = parseInt(card.getAttribute('data-price') || 0);
+            var dist = parseInt(card.getAttribute('data-dist') || 0);
+
+            switch(filterName) {
+                case 'radius': return dist <= parseInt(slider.value);
+                case 'source': return getSelectedSources().indexOf(source) !== -1;
+                case 'surface': return surface >= parseInt(filterSurfMin.value) && surface <= parseInt(filterSurfMax.value);
+                case 'pieces': return pieces >= parseInt(filterPiecesMin.value) && pieces <= parseInt(filterPiecesMax.value);
+                case 'price': return price >= parseInt(filterPriceMin.value) && price <= parseInt(filterPriceMax.value);
+                case 'date': return months <= parseInt(dateSlider.value);
+                default: return true;
+            }
+        }
+
+        function applyAllFilters() {
+            updateRadiusDisplay();
+            updateDateDisplay();
+
+            var allCards = document.querySelectorAll('.comp-card[data-comp]');
+            var filterNames = ['radius', 'source', 'surface', 'pieces', 'price', 'date'];
+            var visibleSelected = 0;
+            var visibleOthers = 0;
+
+            // Per-filter counts (how many pass THAT filter alone, ignoring others)
+            var perFilterCounts = { date: 0, surf: 0, pieces: 0, price: 0 };
+            var sourceCounts = {};
+
+            allCards.forEach(function(card) {
+                var compId = card.getAttribute('data-comp');
+
+                // Check each filter
+                var passAll = true;
+                for (var i = 0; i < filterNames.length; i++) {
+                    if (!cardPassesFilter(card, filterNames[i])) { passAll = false; break; }
+                }
+
+                // Source counts (per source, ignoring source filter)
+                var src = card.getAttribute('data-source') || '';
+                var passNonSource = true;
+                ['radius', 'surface', 'pieces', 'price', 'date'].forEach(function(fn) {
+                    if (!cardPassesFilter(card, fn)) passNonSource = false;
+                });
+                if (passNonSource) {
+                    if (!sourceCounts[src]) sourceCounts[src] = 0;
+                    sourceCounts[src]++;
+                }
+
+                // Per-filter counts: count cards that pass ALL OTHER filters except the one in question
+                ['date', 'surf', 'pieces', 'price'].forEach(function(f) {
+                    var mapF = f === 'surf' ? 'surface' : f === 'pieces' ? 'pieces' : f === 'price' ? 'price' : 'date';
+                    var passOthers = true;
+                    for (var i = 0; i < filterNames.length; i++) {
+                        if (filterNames[i] === mapF) continue;
+                        if (!cardPassesFilter(card, filterNames[i])) { passOthers = false; break; }
+                    }
+                    if (passOthers) perFilterCounts[f]++;
+                });
+
+                if (passAll) {
+                    card.style.opacity = '1';
+                    card.style.maxHeight = '2000px';
+                    card.style.marginBottom = '';
+                    card.style.overflow = '';
+                    card.style.padding = '';
+                    if (markers[compId]) markers[compId].setOpacity(1);
+                    if (card.classList.contains('selected')) visibleSelected++;
+                    else visibleOthers++;
+                } else {
+                    card.style.opacity = '0';
+                    card.style.maxHeight = '0';
+                    card.style.marginBottom = '0';
+                    card.style.overflow = 'hidden';
+                    card.style.padding = '0 14px';
+                    if (markers[compId]) markers[compId].setOpacity(0.15);
+                }
+            });
+
+            var total = visibleSelected + visibleOthers;
+
+            // Update section labels
+            if (labelSelected) labelSelected.textContent = 'Comparables sélectionnés (' + visibleSelected + ')';
+            if (labelOthers) labelOthers.textContent = 'Autres résultats (' + visibleOthers + ')';
+
+            // Update global result count
+            if (resultCountEl) resultCountEl.textContent = total + ' résultat' + (total > 1 ? 's' : '');
+
+            // Update per-filter counts
+            if (countEls.date) countEls.date.textContent = perFilterCounts.date + ' bien' + (perFilterCounts.date > 1 ? 's' : '');
+            if (countEls.surf) countEls.surf.textContent = perFilterCounts.surf + ' bien' + (perFilterCounts.surf > 1 ? 's' : '');
+            if (countEls.pieces) countEls.pieces.textContent = perFilterCounts.pieces + ' bien' + (perFilterCounts.pieces > 1 ? 's' : '');
+            if (countEls.price) countEls.price.textContent = perFilterCounts.price + ' bien' + (perFilterCounts.price > 1 ? 's' : '');
+
+            // Update source counts
+            var srcMap = { dvf: 'countDvf', ideeri: 'countIdeeri', encours: 'countEncours', portail: 'countPortail' };
+            for (var s in srcMap) {
+                var el = document.getElementById(srcMap[s]);
+                if (el) el.textContent = '(' + (sourceCounts[s] || 0) + ')';
+            }
+        }
+
+        // Bind all filter inputs
+        slider.addEventListener('input', applyAllFilters);
+        dateSlider.addEventListener('input', applyAllFilters);
+        document.querySelectorAll('.source-cb').forEach(function(cb) {
+            cb.addEventListener('change', applyAllFilters);
+        });
+        [filterSurfMin, filterSurfMax, filterPiecesMin, filterPiecesMax, filterPriceMin, filterPriceMax].forEach(function(el) {
+            el.addEventListener('input', applyAllFilters);
+        });
+
+        // Reset button
+        document.querySelector('.btn-reset-filters').addEventListener('click', function() {
+            slider.value = 1000;
+            dateSlider.value = 12;
+            filterSurfMin.value = 55; filterSurfMax.value = 90;
+            filterPiecesMin.value = 2; filterPiecesMax.value = 4;
+            filterPriceMin.value = 200000; filterPriceMax.value = 400000;
+            // Reset source: check all
+            document.querySelectorAll('.source-cb').forEach(function(cb) { cb.checked = true; });
+            applyAllFilters();
+        });
+
+        // Initial apply
+        applyAllFilters();
+
+        // =============================================
+        // PDF TOGGLE COUNTER
+        // =============================================
+        const pdfCbs = document.querySelectorAll('.pdf-cb');
+        const pdfCounter = document.getElementById('pdfCount');
+        let allPdfSelected = true;
+
+        function updatePdfCount() {
+            const checked = document.querySelectorAll('.pdf-cb:checked').length;
+            pdfCounter.textContent = checked;
+            pdfCbs.forEach(function(cb) {
+                const card = cb.closest('.map-card, .comp-card, .summary-card');
+                if (card) {
+                    card.style.opacity = cb.checked ? '1' : '0.45';
+                    card.style.transition = 'opacity 0.2s';
+                }
+            });
+        }
+        pdfCbs.forEach(function(cb) { cb.addEventListener('change', updatePdfCount); });
+
+        function toggleAllPdf() {
+            allPdfSelected = !allPdfSelected;
+            pdfCbs.forEach(function(cb) { cb.checked = allPdfSelected; });
+            document.querySelector('.btn-select-all').textContent = allPdfSelected ? 'Tout désélectionner' : 'Tout sélectionner';
+            updatePdfCount();
+        }
+        updatePdfCount();
+
+        // =============================================
+        // ATTRIBUTION (small, bottom right)
+        // =============================================
+        L.control.attribution({ position: 'bottomright', prefix: false })
+            .addAttribution('&copy; <a href="https://carto.com">CARTO</a>')
+            .addTo(map);
+    </script>
+</body>
+</html>

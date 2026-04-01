@@ -1,0 +1,152 @@
+---
+title: "Ideeri — Modèle de Données : Étude de Marché & Avis de Valeur"
+---
+
+erDiagram
+    BIEN_CIBLE ||--o{ BIEN_COMPARABLE : "sélectionne dans un rayon"
+    BIEN_CIBLE ||--|| CONTEXTE_ZONE : "enrichi par (GPS → data.gouv)"
+    BIEN_CIBLE ||--|| TENSION_MARCHE : "croise offre/demande"
+    BIEN_CIBLE ||--|| AVIS_VALEUR : "produit"
+    BIEN_CIBLE ||--|| COMPLETUDE : "mesure la richesse data"
+
+    BIEN_COMPARABLE }o--|| CONTEXTE_ZONE : "enrichi par (GPS → data.gouv)"
+    BIEN_COMPARABLE ||--|| COMPLETUDE : "mesure la richesse data"
+
+    TENSION_MARCHE }o--o{ PROFIL_ACQUEREUR : "acquéreurs matchés via scoring radar"
+    TENSION_MARCHE }o--o{ BIEN_COMPARABLE : "biens concurrents en vente"
+
+    AVIS_VALEUR }o--o{ BIEN_COMPARABLE : "basé sur comparables sélectionnés"
+    AVIS_VALEUR ||--|| CONTEXTE_ZONE : "ajusté par contexte extrinsèque"
+    AVIS_VALEUR ||--|| TENSION_MARCHE : "éclairé par pression demande"
+
+    BIEN_CIBLE {
+        string id PK
+        string adresse_complete
+        float lat
+        float lng
+        string code_iris
+        string type_bien
+        float surface_carrez_m2
+        int nb_pieces
+        int nb_chambres
+        int etage
+        string dpe_etiquette
+        json donnees_intrinseques "202 champs structurés"
+        string statut "mandat | estimation | prospection"
+        string agent_id FK
+        datetime date_creation
+    }
+
+    BIEN_COMPARABLE {
+        string id PK
+        string bien_cible_id FK
+        string source "DVF | IDEERI_VENTE | IDEERI_ENCOURS | PORTAIL"
+        string fiabilite_prix "transaction_reelle | prix_signe | prix_affiche"
+        string statut "vendu | sous_offre | compromis | en_vente"
+        float lat
+        float lng
+        float distance_bien_cible_m
+        string type_bien
+        float surface_m2
+        int nb_pieces
+        int nb_chambres
+        int etage
+        string dpe
+        float prix
+        float prix_m2
+        date date_reference
+        json donnees_intrinseques "si Ideeri sinon null"
+        string description_annonce "si portail"
+        json photos "si portail ou Ideeri"
+        int duree_en_vente_jours "si portail avec historique"
+        float ecart_prix_initial_pct "si portail avec suivi"
+        bool selectionne_par_agent "choix manuel"
+        float ajustement_pct "écart calculé vs bien cible"
+    }
+
+    CONTEXTE_ZONE {
+        string id PK
+        string bien_id FK "bien_cible ou comparable"
+        float lat
+        float lng
+        string code_iris
+        json risques "Géorisques : PPRI inondation sismique radon"
+        json environnement "bruit pollution air sols"
+        json socio_economique "revenus IRIS chomage diplomes"
+        json transports "stations distances temps trajet"
+        json commerces_services "proximite nombre qualite"
+        json education "ecoles colleges lycees distances"
+        json sante "medecins pharmacies hopitaux"
+        json urbanisme "PLU zone servitudes"
+        float score_environnemental "0-100 agrégé"
+        float score_accessibilite "0-100 agrégé"
+        float score_services "0-100 agrégé"
+        datetime date_enrichissement
+    }
+
+    PROFIL_ACQUEREUR {
+        string id PK
+        string nom
+        float budget_min
+        float budget_max
+        string type_bien_recherche
+        float surface_min_m2
+        int nb_chambres_min
+        json criteres_obligatoires "filtres éliminatoires"
+        json criteres_preferentiels "pondérés par importance"
+        json mode_de_vie "télétravail hobbies animaux enfants"
+        json zones_recherche "communes IRIS polygones"
+        string statut "actif | en_pause | converti"
+        datetime date_creation
+    }
+
+    TENSION_MARCHE {
+        string id PK
+        string bien_cible_id FK
+        int nb_acquereurs_matches "acquéreurs compatibles score > seuil"
+        int nb_acquereurs_forte_compatibilite "score > 0.75"
+        float score_matching_moyen "0 à 1"
+        int nb_biens_concurrents "biens similaires en vente"
+        float prix_m2_moyen_concurrents
+        float ratio_demande_offre "nb acquéreurs / nb biens en vente"
+        string tension "forte | equilibree | faible"
+        int duree_vente_estimee_jours
+        float indice_liquidite "0 à 1"
+        json distribution_scores "histogramme des scores matching"
+        json top_acquereurs "top 5 acquéreurs les plus compatibles"
+        datetime date_calcul
+    }
+
+    COMPLETUDE {
+        string id PK
+        string bien_id FK
+        string source "DVF | PORTAIL | IDEERI"
+        int champs_renseignes
+        int champs_applicables
+        float taux_completude_brut_pct
+        float taux_completude_pondere_pct "pondéré par impact estimation"
+        json completude_par_categorie "20 catégories avec pct chacune"
+        int nb_champs_critiques_renseignes "sur 19 critiques"
+        float score_fiabilite_donnees "0 à 100"
+    }
+
+    AVIS_VALEUR {
+        string id PK
+        string bien_cible_id FK
+        string agent_id FK
+        float prix_estime_bas
+        float prix_estime_haut
+        float prix_estime_median
+        float prix_m2_estime
+        float amplitude_fourchette_pct
+        float indice_confiance "0 à 100"
+        json comparables_utilises "liste avec poids et ajustements"
+        json ajustements_extrinseques "impact contexte zone"
+        json impact_tension_marche "influence demande sur prix"
+        float duree_vente_estimee_jours
+        string strategie_prix "agressif | marche | prudent"
+        json argumentaire "points forts et faibles chiffrés"
+        string statut "brouillon | valide | envoye_vendeur"
+        datetime date_creation
+        datetime date_validation
+    }
