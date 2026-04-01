@@ -1569,7 +1569,7 @@ export default function Step3Comparables() {
               <th className="t-adj">Donn&eacute;es</th>
               <th className="t-price">Prix</th>
               <th className="t-price">Prix/m&sup2;</th>
-              <th className="t-adj">Total adj.</th>
+              <th className="t-adj">Correction</th>
               <th className="t-price">Ajust&eacute;/m&sup2;</th>
             </tr>
           </thead>
