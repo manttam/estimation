@@ -1,5 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import 'leaflet-draw';
+import 'leaflet-draw/dist/leaflet.draw.css';
+import FreeDraw, { ALL, NONE } from 'leaflet-freedraw';
 import PropertyCard from '../components/PropertyCard';
 import Stepper from '../components/Stepper';
 import { comparables } from '../data/propertyData';
@@ -438,6 +443,56 @@ const cssStyles = `
     color: white;
   }
 
+  /* MAP DRAW CONTROLS */
+  .map-draw-controls {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .map-draw-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    background: white;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    color: #555;
+    font-family: 'Open Sans', sans-serif;
+    transition: all 0.15s;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+  .map-draw-btn:hover {
+    border-color: #4a6cf7;
+    color: #4a6cf7;
+    background: #f8f9ff;
+  }
+  .map-draw-btn.active {
+    background: #4a6cf7;
+    color: white;
+    border-color: #4a6cf7;
+  }
+  .map-draw-btn.danger {
+    color: #e74c3c;
+    border-color: #fdd;
+  }
+  .map-draw-btn.danger:hover {
+    background: #fef2f2;
+    border-color: #e74c3c;
+  }
+  @keyframes pulse {
+    0% { transform: scale(1); opacity: 0.3; }
+    50% { transform: scale(1.5); opacity: 0; }
+    100% { transform: scale(1); opacity: 0; }
+  }
+
   /* LIST PANEL */
   .list-panel {
     width: 420px;
@@ -527,9 +582,29 @@ const cssStyles = `
     font-weight: 600;
   }
 
+  .comp-description {
+    font-size: 11px;
+    color: #666;
+    line-height: 1.5;
+    padding: 8px 10px;
+    background: #f9fafb;
+    border-radius: 6px;
+    border: 1px solid #f0f0f0;
+    margin-bottom: 8px;
+  }
+  .comp-description-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 4px;
+  }
+
   .comp-meta {
     font-size: 11px;
-    color: #949494;
+    color: #555;
+    font-weight: 500;
     margin-bottom: 8px;
   }
 
@@ -550,47 +625,61 @@ const cssStyles = `
   .scoring-row {
     display: flex;
     gap: 8px;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
     flex-wrap: wrap;
   }
   .score-badge {
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    gap: 5px;
-    padding: 5px 10px;
-    border-radius: 8px;
-    font-size: 11px;
-    background: #fafafa;
-    border: 1px solid #eee;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 12px;
+    flex: 1;
+    min-width: 0;
+  }
+  .score-high {
+    background: #f0f8f3;
+    border: 1.5px solid #46B962;
+  }
+  .score-mid {
+    background: #fef9f0;
+    border: 1.5px solid #d97706;
+  }
+  .score-low {
+    background: #fef2f2;
+    border: 1.5px solid #e74c3c;
   }
   .score-badge-label {
-    color: #999;
-    font-weight: 400;
+    color: #555;
+    font-weight: 600;
+    font-size: 11px;
   }
   .score-badge-value {
-    font-weight: 600;
+    font-weight: 700;
+    font-size: 16px;
   }
   .score-badge-bar {
-    width: 40px;
-    height: 5px;
+    flex: 1;
+    height: 6px;
     border-radius: 3px;
-    background: #e5e5e5;
+    background: rgba(0,0,0,0.06);
     overflow: hidden;
   }
   .score-badge-fill {
     height: 100%;
     border-radius: 3px;
   }
-  .score-high .score-badge-value { color: #46B962; }
+  .score-high .score-badge-value { color: #2d8a47; }
   .score-high .score-badge-fill { background: #46B962; }
-  .score-mid .score-badge-value { color: #d97706; }
+  .score-mid .score-badge-value { color: #b45309; }
   .score-mid .score-badge-fill { background: #d97706; }
-  .score-low .score-badge-value { color: #e74c3c; }
+  .score-low .score-badge-value { color: #c0392b; }
   .score-low .score-badge-fill { background: #e74c3c; }
   .data-count {
     font-size: 10px;
-    color: #bbb;
-    font-weight: 400;
+    color: #888;
+    font-weight: 500;
   }
 
   /* ADJUSTMENTS */
@@ -855,6 +944,21 @@ const cssStyles = `
   .val-delta.neg { color: #e74c3c; }
 `;
 
+// Coordinates for comparables (Lyon 3ème area)
+const COMP_COORDS = {
+  villeroy: [45.7565, 4.8635],
+  lacassagne: [45.7545, 4.8680],
+  paulbert: [45.7600, 4.8560],
+  duguesclin: [45.7530, 4.8550],
+  lafayette: [45.7590, 4.8720],
+  mazenod: [45.7575, 4.8510],
+  guichard: [45.7610, 4.8600],
+  felixfaure: [45.7540, 4.8470],
+};
+
+// Target property coords
+const TARGET_COORDS = [45.7578, 4.8590];
+
 // Selected comparable data matching the wireframe
 const selectedComps = [
   {
@@ -887,6 +991,7 @@ const selectedComps = [
       { lbl: '\u00c9tage (3 vs 4)', val: '\u22120.8%', cls: 'neg' },
       { lbl: 'Ext\u00e9rieurs', val: '\u22120.6%', cls: 'neg' },
     ],
+    description: 'Bel appartement T3 traversant de 68m² au 3ème étage avec ascenseur. Séjour lumineux donnant sur cour arborée, cuisine équipée récente, deux chambres avec rangements. Parquet ancien, moulures. Cave et local vélo.',
     noPhoto: true,
   },
   {
@@ -919,6 +1024,7 @@ const selectedComps = [
       { lbl: '\u00c9tage (5 vs 4)', val: '+1.2%', cls: 'pos' },
       { lbl: 'Terrasse 8m\u00b2', val: '+1.2%', cls: 'pos' },
     ],
+    description: 'Appartement T3 rénové de 75m² au 5ème étage avec terrasse de 8m². Vue dégagée, séjour double exposition, cuisine ouverte aménagée, salle de bain avec douche italienne. Copropriété bien entretenue, gardien.',
     noPhoto: false,
   },
   {
@@ -952,6 +1058,7 @@ const selectedComps = [
       { lbl: 'Type (T2 vs T3)', val: '\u22124.2%', cls: 'neg' },
       { lbl: 'DPE (E vs D)', val: '\u22122.7%', cls: 'neg' },
     ],
+    description: 'T2 de 62m² au 2ème étage, en cours de vente. Séjour avec balcon côté rue, chambre calme sur cour, cuisine semi-équipée. DPE E, travaux d\'isolation à prévoir. Proche transports et commerces Paul Bert.',
     noPhoto: false,
   },
 ];
@@ -988,14 +1095,20 @@ function SelectedCompCard({ comp }) {
         <div className="p-item"><div className="p-label">Prix/m&sup2;</div><div className="p-val">{comp.prixM2} &euro;</div></div>
         <div className="p-item"><div className="p-label">Distance</div><div className="p-val" style={{ color: '#4a6cf7' }}>{comp.distance}</div></div>
       </div>
+      {comp.description && (
+        <div className="comp-description">
+          <div className="comp-description-label">Description du bien</div>
+          {comp.description}
+        </div>
+      )}
       <div className="comp-valuations">
         <div className="val-item">
-          <div className="val-item-label">&#128181; Prix de vente</div>
+          <div className="val-item-label">Prix de vente</div>
           <div className={`val-item-value ${comp.venteNa ? 'na' : ''}`}>{comp.venteLabel}</div>
           <div className="val-delta" style={{ color: comp.venteNa ? '#d97706' : '#999', fontSize: 10 }}>{comp.venteDetail}</div>
         </div>
         <div className="val-item">
-          <div className="val-item-label">&#128100; Avis de valeur pro</div>
+          <div className="val-item-label">Avis de valeur pro</div>
           <div className={`val-item-value ${comp.avisNa ? 'na' : ''} ${comp.avisHighlight ? 'highlight' : ''}`}>{comp.avisLabel}</div>
           <div className={`val-delta ${comp.avisPos ? 'pos' : ''} ${comp.avisNeg ? 'neg' : ''}`} style={!comp.avisPos && !comp.avisNeg ? { color: '#ccc', fontSize: 10 } : { fontSize: 10 }}>{comp.avisDetail}</div>
         </div>
@@ -1059,27 +1172,142 @@ export default function Step3Comparables() {
   const [radius, setRadius] = useState(1000);
   const [mapStyle, setMapStyle] = useState('plan');
   const [dateSlider, setDateSlider] = useState(12);
+  const [drawMode, setDrawMode] = useState(false);
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  const drawLayerRef = useRef(null);
+  const drawHandlerRef = useRef(null);
+  const freeDrawRef = useRef(null);
 
   const formatRadius = (v) => (v >= 1000 ? `${(v / 1000).toFixed(v % 1000 === 0 ? 0 : 1)} km` : `${v}m`);
   const sliderPct = ((radius - 100) / (5000 - 100)) * 100;
 
-  // Initialize Leaflet map
+  // Source → marker color mapping
+  const sourceMarkerColor = {
+    dvf: '#4a6cf7',
+    ideeri: '#46B962',
+    encours: '#f5a623',
+    portail: '#e87722',
+  };
+
+  // Initialize Leaflet map with markers and draw tool
   useEffect(() => {
     if (mapInstanceRef.current) return;
-    const L = window.L;
     if (!L || !mapRef.current) return;
 
-    const map = L.map(mapRef.current, { zoomControl: false, attributionControl: false }).setView([45.7578, 4.8590], 15);
+    const map = L.map(mapRef.current, { zoomControl: false, attributionControl: false }).setView(TARGET_COORDS, 15);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
     L.control.zoom({ position: 'topleft' }).addTo(map);
 
     // Radius circle
-    L.circle([45.7578, 4.8590], { radius: 1000, color: '#46B962', weight: 2, opacity: 0.6, fillColor: '#46B962', fillOpacity: 0.06, dashArray: '8, 6' }).addTo(map);
+    L.circle(TARGET_COORDS, { radius: 1000, color: '#46B962', weight: 2, opacity: 0.6, fillColor: '#46B962', fillOpacity: 0.06, dashArray: '8, 6' }).addTo(map);
 
-    // Target marker
-    L.marker([45.7578, 4.8590]).addTo(map).bindPopup('<strong>12 rue des Lilas</strong><br>69003 Lyon');
+    // Target marker — large, distinctive house icon with pulsing ring
+    const targetIcon = L.divIcon({
+      className: 'target-marker-icon',
+      html: `<div style="width:40px;height:40px;position:relative;display:flex;align-items:center;justify-content:center">
+        <div style="position:absolute;inset:-8px;border:2.5px solid #46B962;border-radius:50%;opacity:0.4;animation:pulse 2s infinite"></div>
+        <div style="position:absolute;inset:-4px;border:2px solid rgba(70,185,98,0.15);border-radius:50%;animation:pulse 2s infinite 0.5s"></div>
+        <div style="width:40px;height:40px;background:#46B962;border:3px solid white;border-radius:50%;box-shadow:0 3px 12px rgba(70,185,98,0.45);display:flex;align-items:center;justify-content:center">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        </div>
+      </div>`,
+      iconSize: [40, 40],
+      iconAnchor: [20, 20],
+    });
+    L.marker(TARGET_COORDS, { icon: targetIcon, zIndexOffset: 1000 }).addTo(map).bindPopup(
+      `<div style="text-align:center;padding:4px 0">
+        <div style="font-weight:700;font-size:14px;color:#333;margin-bottom:4px">12 rue des Lilas</div>
+        <div style="font-size:12px;color:#666;margin-bottom:6px">69003 Lyon 3ème</div>
+        <div style="display:inline-block;background:#46B962;color:white;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600">Bien cible</div>
+      </div>`
+    );
+
+    // Add comparable markers — SELECTED (large, prominent)
+    selectedComps.forEach((comp) => {
+      const coords = COMP_COORDS[comp.id];
+      if (!coords) return;
+      const color = sourceMarkerColor[comp.source] || '#999';
+      const icon = L.divIcon({
+        className: 'comp-marker-icon',
+        html: `<div style="width:22px;height:22px;background:${color};border:3px solid white;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.35);cursor:pointer;position:relative">
+          <div style="position:absolute;inset:-4px;border:2px solid ${color};border-radius:50%;opacity:0.25"></div>
+        </div>`,
+        iconSize: [22, 22],
+        iconAnchor: [11, 11],
+      });
+      const simClass = comp.similarite >= 80 ? '#46B962' : comp.similarite >= 60 ? '#d97706' : '#e74c3c';
+      L.marker(coords, { icon, zIndexOffset: 500 }).addTo(map).bindPopup(
+        `<div style="min-width:220px;padding:2px 0">
+          <div style="font-weight:700;font-size:13px;margin-bottom:3px">${comp.title}</div>
+          <div style="font-size:11px;color:#666;margin-bottom:6px">${comp.addr} · ${comp.distance}</div>
+          <div style="display:flex;gap:12px;margin-bottom:6px">
+            <div><div style="font-size:10px;color:#999">Prix</div><div style="font-weight:700;font-size:13px">${comp.prix} €</div></div>
+            <div><div style="font-size:10px;color:#999">Prix/m²</div><div style="font-weight:600;font-size:13px">${comp.prixM2} €</div></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:6px">
+            <span style="background:${simClass}22;color:${simClass};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">${comp.similarite}% sim.</span>
+            <span style="background:#4a6cf722;color:#4a6cf7;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">${comp.donnees}% données</span>
+          </div>
+          <div style="display:inline-block;background:#46B962;color:white;padding:3px 10px;border-radius:10px;font-size:10px;font-weight:600">✓ Sélectionné</div>
+        </div>`
+      );
+    });
+
+    // Add comparable markers — OTHERS (medium, with rich popup + Ajouter button)
+    otherComps.forEach((comp) => {
+      const coords = COMP_COORDS[comp.id];
+      if (!coords) return;
+      const color = sourceMarkerColor[comp.source] || '#999';
+      const icon = L.divIcon({
+        className: 'comp-marker-icon',
+        html: `<div style="width:16px;height:16px;background:${color};border:2.5px solid white;border-radius:50%;box-shadow:0 1px 6px rgba(0,0,0,0.25);cursor:pointer;opacity:0.85"></div>`,
+        iconSize: [16, 16],
+        iconAnchor: [8, 8],
+      });
+      // Parse meta for popup details
+      const metaParts = comp.meta.split(' · ');
+      const simColor = comp.simClass === 'high' ? '#46B962' : comp.simClass === 'mid' ? '#d97706' : '#e74c3c';
+      L.marker(coords, { icon }).addTo(map).bindPopup(
+        `<div style="min-width:220px;padding:2px 0">
+          <div style="font-weight:700;font-size:13px;margin-bottom:3px">${comp.title}</div>
+          <div style="font-size:11px;color:#666;margin-bottom:6px">${metaParts.join(' · ')}</div>
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <span style="background:${simColor}22;color:${simColor};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">${comp.simScore}</span>
+            <span style="background:#88888822;color:#666;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">${comp.donScore}</span>
+          </div>
+          <button onclick="this.textContent='✓ Ajouté';this.style.background='#46B962';this.style.color='white';this.style.borderColor='#46B962'" style="width:100%;padding:6px 0;background:white;border:1.5px solid #46B962;color:#46B962;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:Open Sans,sans-serif;transition:all 0.15s">+ Ajouter aux comparables</button>
+        </div>`
+      );
+    });
+
+    // Drawing layer for user-drawn zones
+    const drawnItems = new L.FeatureGroup();
+    map.addLayer(drawnItems);
+    drawLayerRef.current = drawnItems;
+
+    // FreeDraw for freehand polygon drawing
+    const freeDraw = new FreeDraw({
+      mode: NONE,
+      strokeWidth: 2,
+      leaveModeAfterCreate: true,
+      maximumPolygons: 10,
+    });
+    map.addLayer(freeDraw);
+    freeDrawRef.current = freeDraw;
+
+    // Style freedraw polygons after creation
+    freeDraw.on('markers', (event) => {
+      freeDraw.all().forEach((polygon) => {
+        polygon.setStyle({
+          color: '#4a6cf7',
+          weight: 2,
+          fillColor: '#4a6cf7',
+          fillOpacity: 0.12,
+          dashArray: '6, 4',
+        });
+      });
+    });
 
     mapInstanceRef.current = map;
 
@@ -1088,6 +1316,33 @@ export default function Step3Comparables() {
       mapInstanceRef.current = null;
     };
   }, []);
+
+  // Toggle freehand drawing mode (FreeDraw)
+  const toggleDrawMode = () => {
+    if (!freeDrawRef.current) return;
+
+    if (drawMode) {
+      // Exit draw mode
+      freeDrawRef.current.mode(NONE);
+      setDrawMode(false);
+    } else {
+      // Enter freehand draw mode
+      freeDrawRef.current.mode(ALL);
+      setDrawMode(true);
+    }
+  };
+
+  // Clear all drawn zones
+  const clearDrawnZones = () => {
+    if (freeDrawRef.current) {
+      freeDrawRef.current.clear();
+      freeDrawRef.current.mode(NONE);
+    }
+    if (drawLayerRef.current) {
+      drawLayerRef.current.clearLayers();
+    }
+    setDrawMode(false);
+  };
 
   return (
     <div className="step3-page">
@@ -1219,6 +1474,22 @@ export default function Step3Comparables() {
       <div className="split-view">
         <div className="map-card-comp">
           <div ref={mapRef} className="map-container" />
+          {/* Draw controls — top left, below zoom */}
+          <div className="map-draw-controls" style={{ top: 80, left: 12 }}>
+            <button className={`map-draw-btn ${drawMode ? 'active' : ''}`} onClick={toggleDrawMode}>
+              {drawMode ? '✕ Terminer le dessin' : '✏️ Dessiner une zone'}
+            </button>
+            {drawMode && (
+              <div style={{ background: 'rgba(74,108,247,0.9)', color: 'white', padding: '5px 10px', borderRadius: 8, fontSize: 10, fontWeight: 500, maxWidth: 160, textAlign: 'center' }}>
+                Dessinez librement sur la carte, puis relâchez
+              </div>
+            )}
+            {drawLayerRef.current && (
+              <button className="map-draw-btn danger" onClick={clearDrawnZones}>
+                🗑 Effacer les zones
+              </button>
+            )}
+          </div>
           <div className="map-style-toggle">
             <button className={`map-style-btn ${mapStyle === 'plan' ? 'active' : ''}`} onClick={() => setMapStyle('plan')}>Plan</button>
             <button className={`map-style-btn ${mapStyle === 'satellite' ? 'active' : ''}`} onClick={() => setMapStyle('satellite')}>Satellite</button>
