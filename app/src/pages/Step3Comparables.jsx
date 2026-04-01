@@ -1173,6 +1173,7 @@ export default function Step3Comparables() {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const drawLayerRef = useRef(null);
+  const radiusCircleRef = useRef(null);
   const freehandPointsRef = useRef([]);
   const freehandLineRef = useRef(null);
   const isDrawingRef = useRef(false);
@@ -1197,8 +1198,9 @@ export default function Step3Comparables() {
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
     L.control.zoom({ position: 'topleft' }).addTo(map);
 
-    // Radius circle
-    L.circle(TARGET_COORDS, { radius: 1000, color: '#46B962', weight: 2, opacity: 0.6, fillColor: '#46B962', fillOpacity: 0.06, dashArray: '8, 6' }).addTo(map);
+    // Radius circle (will be hidden when user draws a custom zone)
+    const radiusCircle = L.circle(TARGET_COORDS, { radius: 1000, color: '#46B962', weight: 2, opacity: 0.6, fillColor: '#46B962', fillOpacity: 0.06, dashArray: '8, 6' }).addTo(map);
+    radiusCircleRef.current = radiusCircle;
 
     // Target marker — large, distinctive house icon with pulsing ring
     const targetIcon = L.divIcon({
@@ -1306,11 +1308,17 @@ export default function Step3Comparables() {
       freehandLineRef.current = null;
       const pts = freehandPointsRef.current;
       if (pts.length > 4) {
+        // Clear previous drawn zones (only keep the latest)
+        drawnItems.clearLayers();
         const polygon = L.polygon(pts, {
           color: '#4a6cf7', weight: 2, fillColor: '#4a6cf7',
           fillOpacity: 0.12, dashArray: '6, 4',
         });
         drawnItems.addLayer(polygon);
+        // Hide the green radius circle — the drawn zone replaces it
+        if (radiusCircleRef.current) {
+          map.removeLayer(radiusCircleRef.current);
+        }
       }
       freehandPointsRef.current = [];
     };
@@ -1342,14 +1350,18 @@ export default function Step3Comparables() {
     }
   };
 
-  // Clear all drawn zones
+  // Clear all drawn zones and restore the radius circle
   const clearDrawnZones = () => {
     if (drawLayerRef.current) {
       drawLayerRef.current.clearLayers();
     }
+    // Restore the green radius circle
+    const map = mapInstanceRef.current;
+    if (map && radiusCircleRef.current && !map.hasLayer(radiusCircleRef.current)) {
+      map.addLayer(radiusCircleRef.current);
+    }
     isDrawingRef.current = false;
     setDrawMode(false);
-    const map = mapInstanceRef.current;
     if (map) {
       map.getContainer().style.cursor = '';
       map.dragging.enable();
