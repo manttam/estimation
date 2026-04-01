@@ -2,9 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import 'leaflet-draw';
-import 'leaflet-draw/dist/leaflet.draw.css';
-import FreeDraw, { ALL, NONE } from 'leaflet-freedraw';
 import PropertyCard from '../components/PropertyCard';
 import Stepper from '../components/Stepper';
 import { comparables } from '../data/propertyData';
@@ -1176,8 +1173,9 @@ export default function Step3Comparables() {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const drawLayerRef = useRef(null);
-  const drawHandlerRef = useRef(null);
-  const freeDrawRef = useRef(null);
+  const freehandPointsRef = useRef([]);
+  const freehandLineRef = useRef(null);
+  const isDrawingRef = useRef(false);
 
   const formatRadius = (v) => (v >= 1000 ? `${(v / 1000).toFixed(v % 1000 === 0 ? 0 : 1)} km` : `${v}m`);
   const sliderPct = ((radius - 100) / (5000 - 100)) * 100;
@@ -1286,28 +1284,39 @@ export default function Step3Comparables() {
     map.addLayer(drawnItems);
     drawLayerRef.current = drawnItems;
 
-    // FreeDraw for freehand polygon drawing
-    const freeDraw = new FreeDraw({
-      mode: NONE,
-      strokeWidth: 2,
-      leaveModeAfterCreate: true,
-      maximumPolygons: 10,
-    });
-    map.addLayer(freeDraw);
-    freeDrawRef.current = freeDraw;
-
-    // Style freedraw polygons after creation
-    freeDraw.on('markers', (event) => {
-      freeDraw.all().forEach((polygon) => {
-        polygon.setStyle({
-          color: '#4a6cf7',
-          weight: 2,
-          fillColor: '#4a6cf7',
-          fillOpacity: 0.12,
-          dashArray: '6, 4',
+    // Freehand drawing via mouse events
+    const onMouseDown = (e) => {
+      if (!isDrawingRef.current) return;
+      freehandPointsRef.current = [e.latlng];
+      freehandLineRef.current = L.polyline([e.latlng], {
+        color: '#4a6cf7', weight: 2.5, dashArray: '6,4', opacity: 0.8,
+      }).addTo(map);
+      map.dragging.disable();
+    };
+    const onMouseMove = (e) => {
+      if (!isDrawingRef.current || !freehandLineRef.current) return;
+      freehandPointsRef.current.push(e.latlng);
+      freehandLineRef.current.addLatLng(e.latlng);
+    };
+    const onMouseUp = () => {
+      if (!isDrawingRef.current || !freehandLineRef.current) return;
+      map.dragging.enable();
+      // Remove temp polyline, create filled polygon
+      map.removeLayer(freehandLineRef.current);
+      freehandLineRef.current = null;
+      const pts = freehandPointsRef.current;
+      if (pts.length > 4) {
+        const polygon = L.polygon(pts, {
+          color: '#4a6cf7', weight: 2, fillColor: '#4a6cf7',
+          fillOpacity: 0.12, dashArray: '6, 4',
         });
-      });
-    });
+        drawnItems.addLayer(polygon);
+      }
+      freehandPointsRef.current = [];
+    };
+    map.on('mousedown', onMouseDown);
+    map.on('mousemove', onMouseMove);
+    map.on('mouseup', onMouseUp);
 
     mapInstanceRef.current = map;
 
@@ -1317,31 +1326,34 @@ export default function Step3Comparables() {
     };
   }, []);
 
-  // Toggle freehand drawing mode (FreeDraw)
+  // Toggle freehand drawing mode
   const toggleDrawMode = () => {
-    if (!freeDrawRef.current) return;
-
-    if (drawMode) {
-      // Exit draw mode
-      freeDrawRef.current.mode(NONE);
-      setDrawMode(false);
-    } else {
-      // Enter freehand draw mode
-      freeDrawRef.current.mode(ALL);
-      setDrawMode(true);
+    const next = !drawMode;
+    isDrawingRef.current = next;
+    setDrawMode(next);
+    const map = mapInstanceRef.current;
+    if (map) {
+      if (next) {
+        map.getContainer().style.cursor = 'crosshair';
+      } else {
+        map.getContainer().style.cursor = '';
+        map.dragging.enable();
+      }
     }
   };
 
   // Clear all drawn zones
   const clearDrawnZones = () => {
-    if (freeDrawRef.current) {
-      freeDrawRef.current.clear();
-      freeDrawRef.current.mode(NONE);
-    }
     if (drawLayerRef.current) {
       drawLayerRef.current.clearLayers();
     }
+    isDrawingRef.current = false;
     setDrawMode(false);
+    const map = mapInstanceRef.current;
+    if (map) {
+      map.getContainer().style.cursor = '';
+      map.dragging.enable();
+    }
   };
 
   return (
