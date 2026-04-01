@@ -77,8 +77,8 @@ const cssStyles = `
   /* ═══ MAP + MARKET GRID ═══ */
   .grid-top {
     display: grid;
-    grid-template-columns: 1fr 300px;
-    gap: 12px;
+    grid-template-columns: 1fr 240px;
+    gap: 10px;
     margin-bottom: 14px;
   }
 
@@ -187,44 +187,44 @@ const cssStyles = `
     background: #fff;
     border-radius: 10px;
     border: 1px solid #e5e5e5;
-    padding: 14px;
+    padding: 10px;
     display: flex;
     flex-direction: column;
     position: relative;
   }
   .market-title {
-    font-size: 12px;
+    font-size: 10px;
     font-weight: 600;
-    margin-bottom: 10px;
+    margin-bottom: 6px;
     color: #393939;
   }
   .market-price {
     text-align: center;
-    padding: 10px 0;
-    margin-bottom: 8px;
+    padding: 6px 0;
+    margin-bottom: 6px;
   }
   .market-price .big {
-    font-size: 24px;
+    font-size: 20px;
     font-weight: 700;
     color: #46B962;
   }
   .market-price .unit {
-    font-size: 12px;
+    font-size: 11px;
     color: #949494;
   }
   .market-stats {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 6px;
+    gap: 4px;
     flex: 1;
   }
   .market-stat {
     background: #f7f7f8;
-    border-radius: 6px;
-    padding: 8px;
+    border-radius: 5px;
+    padding: 6px;
   }
   .market-stat .val {
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 700;
     color: #393939;
   }
@@ -232,9 +232,9 @@ const cssStyles = `
     color: #46B962;
   }
   .market-stat .lbl {
-    font-size: 9px;
+    font-size: 8px;
     color: #666;
-    margin-top: 2px;
+    margin-top: 1px;
   }
 
   /* ═══ COLLAPSIBLE SECTIONS ═══ */
