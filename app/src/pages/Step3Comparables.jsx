@@ -756,21 +756,28 @@ const cssStyles = `
   .summary-card table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 11px;
+    font-size: 12px;
+    table-layout: fixed;
   }
   .summary-card th {
     background: #fafafa;
-    padding: 8px 6px;
+    padding: 9px 10px;
     text-align: left;
-    font-weight: 500;
-    color: #999;
-    border-bottom: 1px solid #eee;
+    font-weight: 600;
+    color: #949494;
+    border-bottom: 2px solid #f0f0f0;
     white-space: nowrap;
-    font-size: 11px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
   }
   .summary-card td {
-    padding: 8px 6px;
+    padding: 10px 10px;
     border-bottom: 1px solid #f5f5f5;
+    white-space: nowrap;
+  }
+  .summary-card tbody tr:hover {
+    background: #fafafa;
   }
   .t-price {
     font-weight: 600;
@@ -778,16 +785,17 @@ const cssStyles = `
   }
   .t-adj {
     text-align: center;
-    font-weight: 500;
+    font-weight: 600;
   }
   .t-adj.pos { color: #46B962; }
   .t-adj.neg { color: #e74c3c; }
   .t-avg {
-    background: #fafafa;
+    background: #f7f7f8;
     font-weight: 600;
   }
   .t-avg td {
     color: #333;
+    padding: 11px 10px;
   }
 
   /* FOOTER */
@@ -1561,6 +1569,16 @@ export default function Step3Comparables() {
       <div className="summary-card">
         <div className="summary-title">R&eacute;capitulatif</div>
         <table>
+          <colgroup>
+            <col style={{ width: '22%' }} />
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '8%' }} />
+            <col style={{ width: '9%' }} />
+            <col style={{ width: '14%' }} />
+            <col style={{ width: '12%' }} />
+            <col style={{ width: '11%' }} />
+            <col style={{ width: '14%' }} />
+          </colgroup>
           <thead>
             <tr>
               <th>Comparable</th>
