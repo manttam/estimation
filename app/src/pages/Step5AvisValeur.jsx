@@ -1175,7 +1175,14 @@ export default function Step5AvisValeur() {
           <button className="btn btn-ghost" onClick={() => navigate('/step/4')}>
             &larr; &Eacute;tape pr&eacute;c&eacute;dente : Tension march&eacute;
           </button>
-          <div></div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button className="btn btn-ghost" onClick={() => navigate('/report')}>
+              Compte rendu d'estimation
+            </button>
+            <button className="btn btn-primary" onClick={() => navigate('/avis-valeur')}>
+              G&eacute;n&eacute;rer l'avis de valeur &rarr;
+            </button>
+          </div>
         </div>
       </div>
     </div>
