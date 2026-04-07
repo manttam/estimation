@@ -1135,7 +1135,28 @@ export default function Step5AvisValeur() {
             <div className="card">
               <div className="card-title">Actions</div>
               <div className="actions-card">
-                <button className="action-btn secondary">
+                <button className="action-btn secondary" onClick={() => {
+                  const estimations = JSON.parse(localStorage.getItem('ideeri_estimations') || '[]');
+                  const exists = estimations.find(e => e.reference === 'LYN-2026-00847');
+                  if (!exists) {
+                    estimations.unshift({
+                      id: Date.now(),
+                      reference: 'LYN-2026-00847',
+                      adresse: '12 rue des Lilas, 69003 Lyon',
+                      description: 'Appartement T3, 72.5 m\u00b2',
+                      agent: 'Marie Dupont',
+                      date: new Date().toLocaleDateString('fr-FR'),
+                      heure: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+                      statut: 'sauvegarde',
+                      prix: '305 000 \u20ac',
+                    });
+                  } else {
+                    exists.date = new Date().toLocaleDateString('fr-FR');
+                    exists.heure = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                  }
+                  localStorage.setItem('ideeri_estimations', JSON.stringify(estimations));
+                  navigate('/');
+                }}>
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ verticalAlign: '-2px', marginRight: '6px' }}>
                     <path d="M13 11v3H3v-3M5 7l3 3 3-3M8 2v8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
@@ -1152,7 +1173,7 @@ export default function Step5AvisValeur() {
                   G&eacute;n&eacute;rer un compte rendu d&apos;estimation
                   <span className="btn-sub">R&eacute;sum&eacute; de l&apos;&eacute;tude de march&eacute; et avis de valeur</span>
                 </button>
-                <button className="action-btn primary">
+                <button className="action-btn primary" onClick={() => navigate('/avis-valeur')}>
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ verticalAlign: '-2px', marginRight: '6px' }}>
                     <path d="M9 1H3.5A1.5 1.5 0 002 2.5v11A1.5 1.5 0 003.5 15h9a1.5 1.5 0 001.5-1.5V6L9 1z" stroke="currentColor" strokeWidth="1.3" fill="none"/>
                     <path d="M9 1v5h5" stroke="currentColor" strokeWidth="1.3" fill="none"/>
