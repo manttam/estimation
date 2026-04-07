@@ -320,12 +320,54 @@ const cssStyles = `
     color: #949494;
   }
 
+  /* ═══ RESULTS BANNER ═══ */
+  .results-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+    margin-bottom: 14px;
+    background: linear-gradient(135deg, #f0f8f3 0%, #e8f5ee 100%);
+    border: 1.5px solid #46B962;
+    border-radius: 10px;
+  }
+  .results-banner-count {
+    font-size: 28px;
+    font-weight: 700;
+    color: #46B962;
+    line-height: 1;
+  }
+  .results-banner-text {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+  }
+  .results-banner-details {
+    margin-left: auto;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .results-tag {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    background: #46B962;
+    color: white;
+  }
+  .results-tag.outline {
+    background: transparent;
+    color: #46B962;
+    border: 1.5px solid #46B962;
+  }
+
   /* ═══ SPLIT VIEW ═══ */
   .split-view {
     display: flex;
     gap: 14px;
     margin-bottom: 14px;
-    height: 560px;
+    height: 440px;
   }
 
   /* MAP CARD */
@@ -492,7 +534,7 @@ const cssStyles = `
 
   /* LIST PANEL */
   .list-panel {
-    width: 420px;
+    width: 520px;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
@@ -558,6 +600,37 @@ const cssStyles = `
   .source-badge.ideeri { background: #f0f8f5; color: #666; }
   .source-badge.encours { background: #fffbf0; color: #666; }
   .source-badge.portail { background: #fef6f0; color: #666; }
+  .portal-tag {
+    font-size: 9px;
+    font-weight: 600;
+    color: #e87722;
+    background: #fff5ee;
+    border: 1px solid #fdd8b8;
+    padding: 1px 6px;
+    border-radius: 4px;
+    margin-left: 4px;
+    white-space: nowrap;
+  }
+  .btn-view-ad {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #e87722;
+    background: none;
+    border: 1px solid #fdd8b8;
+    border-radius: 6px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-family: 'Open Sans', sans-serif;
+    transition: all 0.15s;
+    text-decoration: none;
+  }
+  .btn-view-ad:hover {
+    background: #fff5ee;
+    border-color: #e87722;
+  }
 
   .comp-prices {
     display: flex;
@@ -964,8 +1037,11 @@ const COMP_COORDS = {
 // Target property coords
 const TARGET_COORDS = [45.7578, 4.8590];
 
+const PORTAL_NAMES = ['Leboncoin', 'SeLoger', 'Bien Ici', 'Belles Demeures'];
+const randomPortalName = () => PORTAL_NAMES[Math.floor(Math.random() * PORTAL_NAMES.length)];
+
 // Selected comparable data matching the wireframe
-const selectedComps = [
+const INITIAL_SELECTED = [
   {
     id: 'villeroy',
     title: 'T3 68m\u00b2 \u2014 8 rue Villeroy',
@@ -1031,6 +1107,7 @@ const selectedComps = [
     ],
     description: 'Appartement T3 rénové de 75m² au 5ème étage avec terrasse de 8m². Vue dégagée, séjour double exposition, cuisine ouverte aménagée, salle de bain avec douche italienne. Copropriété bien entretenue, gardien.',
     noPhoto: false,
+    photoUrl: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=520&h=140&fit=crop&crop=bottom',
   },
   {
     id: 'paulbert',
@@ -1065,27 +1142,33 @@ const selectedComps = [
     ],
     description: 'T2 de 62m² au 2ème étage, en cours de vente. Séjour avec balcon côté rue, chambre calme sur cour, cuisine semi-équipée. DPE E, travaux d\'isolation à prévoir. Proche transports et commerces Paul Bert.',
     noPhoto: false,
+    photoUrl: 'https://images.unsplash.com/photo-1574362848149-11496d93a7c7?w=520&h=140&fit=crop&crop=center',
   },
 ];
 
-const otherComps = [
+const INITIAL_OTHERS = [
   { id: 'duguesclin', title: 'T3 70m\u00b2 \u2014 5 rue Duguesclin, Lyon 3', source: 'dvf', meta: 'DVF \u00b7 295k\u20ac \u00b7 4 214\u20ac/m\u00b2 \u00b7 750m', simScore: '84% sim.', simClass: 'high', donScore: '62% donn\u00e9es', donClass: 'mid', donCount: '113/182' },
-  { id: 'lafayette', title: 'T4 85m\u00b2 \u2014 18 cours Lafayette, Lyon 3', source: 'portail', meta: 'Portail \u00b7 340k\u20ac \u00b7 4 000\u20ac/m\u00b2 \u00b7 890m', simScore: '58% sim.', simClass: 'mid', donScore: '5% donn\u00e9es', donClass: 'low', donCount: '9/182' },
+  { id: 'lafayette', title: 'T4 85m\u00b2 \u2014 18 cours Lafayette, Lyon 3', source: 'portail', portalName: 'SeLoger', meta: 'Portail \u00b7 340k\u20ac \u00b7 4 000\u20ac/m\u00b2 \u00b7 890m', simScore: '58% sim.', simClass: 'mid', donScore: '5% donn\u00e9es', donClass: 'low', donCount: '9/182' },
   { id: 'mazenod', title: 'T2 55m\u00b2 \u2014 33 rue Mazenod, Lyon 3', source: 'dvf', meta: 'DVF \u00b7 240k\u20ac \u00b7 4 363\u20ac/m\u00b2 \u00b7 420m', simScore: '71% sim.', simClass: 'mid', donScore: '68% donn\u00e9es', donClass: 'mid', donCount: '124/182' },
   { id: 'guichard', title: 'T3 71m\u00b2 \u2014 7 place Guichard, Lyon 3', source: 'ideeri', meta: 'Ideeri \u00b7 298k\u20ac \u00b7 4 197\u20ac/m\u00b2 \u00b7 310m', simScore: '89% sim.', simClass: 'high', donScore: '93% donn\u00e9es', donClass: 'high', donCount: '538/575' },
-  { id: 'felixfaure', title: 'T3 69m\u00b2 \u2014 42 av. F\u00e9lix Faure, Lyon 3', source: 'portail', meta: 'Portail \u00b7 289k\u20ac \u00b7 4 188\u20ac/m\u00b2 \u00b7 1.1km', simScore: '76% sim.', simClass: 'mid', donScore: '7% donn\u00e9es', donClass: 'low', donCount: '13/182' },
+  { id: 'felixfaure', title: 'T3 69m\u00b2 \u2014 42 av. F\u00e9lix Faure, Lyon 3', source: 'portail', portalName: 'Leboncoin', meta: 'Portail \u00b7 289k\u20ac \u00b7 4 188\u20ac/m\u00b2 \u00b7 1.1km', simScore: '76% sim.', simClass: 'mid', donScore: '7% donn\u00e9es', donClass: 'low', donCount: '13/182' },
 ];
 
-function SelectedCompCard({ comp }) {
+function SelectedCompCard({ comp, onRemove }) {
   return (
     <div className="comp-card selected">
-      {comp.noPhoto ? (
+      {comp.source === 'dvf' ? (
         <div className="comp-card-photo no-photo">
           <span>Pas de photo &mdash; source {comp.sourceLabel}</span>
         </div>
       ) : (
-        <div className="comp-card-photo" style={{ background: 'linear-gradient(135deg, #e8f5ee 0%, #d1ecdb 50%, #b8e0c8 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ fontSize: 10, color: '#999' }}>Photo placeholder</span>
+        <div className="comp-card-photo" style={{ overflow: 'hidden' }}>
+          <img
+            src={comp.photoUrl}
+            alt={comp.title}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 8 }}
+            onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.style.background = 'linear-gradient(135deg, #e8f5ee 0%, #d1ecdb 50%, #b8e0c8 100%)'; }}
+          />
         </div>
       )}
       <div className="comp-card-header">
@@ -1093,7 +1176,10 @@ function SelectedCompCard({ comp }) {
           <div className="comp-card-title">{comp.title}</div>
           <div className="comp-card-addr">{comp.addr}</div>
         </div>
-        <span className={`source-badge ${comp.source}`}>{comp.sourceLabel}</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span className={`source-badge ${comp.source}`}>{comp.sourceLabel}</span>
+          {comp.portalName && <span className="portal-tag">{comp.portalName}</span>}
+        </span>
       </div>
       <div className="comp-prices">
         <div className="p-item"><div className="p-label">Prix</div><div className="p-val">{comp.prix} &euro;</div></div>
@@ -1146,31 +1232,38 @@ function SelectedCompCard({ comp }) {
       </div>
       <div className="comp-actions">
         <a className="link-edit">&#9998; Modifier ajustement</a>
-        <button className="btn-remove">&times; Retirer</button>
+        {comp.portalName && <a className="btn-view-ad" href="#" onClick={(e) => e.preventDefault()}>&#8599; Voir l&rsquo;annonce {comp.portalName}</a>}
+        <button className="btn-remove" onClick={() => onRemove && onRemove(comp.id)}>&times; Retirer</button>
       </div>
     </div>
   );
 }
 
-function CompactCompCard({ comp }) {
+function CompactCompCard({ comp, onAdd }) {
   const dotClass = comp.source === 'dvf' ? 'dot-dvf' : comp.source === 'ideeri' ? 'dot-ideeri' : comp.source === 'encours' ? 'dot-encours' : 'dot-portail';
   return (
     <div className="comp-card compact">
       <div className="compact-row">
         <div className="compact-left">
           <div className="compact-title">{comp.title}</div>
-          <div className="compact-meta"><span className={`source-dot ${dotClass}`} /> {comp.meta}</div>
+          <div className="compact-meta"><span className={`source-dot ${dotClass}`} /> {comp.meta}{comp.portalName && <span className="portal-tag" style={{ marginLeft: 6 }}>{comp.portalName}</span>}</div>
           <div className="compact-scores">
             <span className={`compact-score ${comp.simClass}`}>{comp.simScore}</span>
             <span className={`compact-score ${comp.donClass}`}>{comp.donScore}</span>
             <span className="data-count">{comp.donCount}</span>
           </div>
         </div>
-        <button className="btn-add">+ Ajouter</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
+          {comp.portalName && <a className="btn-view-ad" href="#" onClick={(e) => e.preventDefault()}>&#8599; Annonce</a>}
+          <button className="btn-add" onClick={() => onAdd && onAdd(comp.id)}>+ Ajouter</button>
+        </div>
       </div>
     </div>
   );
 }
+
+// All 47 mock comparables for filtering simulation
+const ALL_COMPS_COUNT = 47;
 
 export default function Step3Comparables() {
   const navigate = useNavigate();
@@ -1180,11 +1273,151 @@ export default function Step3Comparables() {
   const [drawMode, setDrawMode] = useState(false);
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  const tileLayerRef = useRef(null);
   const drawLayerRef = useRef(null);
   const radiusCircleRef = useRef(null);
   const freehandPointsRef = useRef([]);
   const freehandLineRef = useRef(null);
   const isDrawingRef = useRef(false);
+  const addCompRef = useRef(null);
+
+  // Selected / Others comparable lists (dynamic)
+  const [selected, setSelected] = useState(INITIAL_SELECTED);
+  const [others, setOthers] = useState(INITIAL_OTHERS);
+
+  const addToSelected = (compId) => {
+    const comp = others.find(c => c.id === compId);
+    if (!comp) return;
+    // Parse price/m2 from meta (e.g. "DVF · 295k€ · 4 214€/m² · 750m")
+    const metaParts = comp.meta.split(' · ');
+    const prixStr = metaParts[1] || '0';
+    const prixM2Str = metaParts[2] || '0';
+    const distanceStr = metaParts[3] || '';
+    const prixNum = prixStr.replace(/[^\d]/g, '') + (prixStr.includes('k') ? '000' : '');
+    const sourceLabel = comp.source === 'dvf' ? 'DVF' : comp.source === 'ideeri' ? 'Ideeri vendu' : comp.source === 'encours' ? 'En cours' : 'Portail';
+    const simVal = parseInt(comp.simScore) || 70;
+    const donVal = parseInt(comp.donScore) || 50;
+    // Build a full selected-format object
+    const promoted = {
+      id: comp.id,
+      title: comp.title,
+      addr: 'Lyon 3\u00e8me',
+      source: comp.source,
+      sourceLabel,
+      prix: parseInt(prixNum).toLocaleString('fr-FR').replace(/,/g, ' ').replace(/\./g, ' '),
+      prixM2: prixM2Str.replace('/m\u00b2', '').replace('\u20ac', '').trim(),
+      distance: distanceStr,
+      venteLabel: comp.source === 'encours' ? '\u2014 En cours de vente' : parseInt(prixNum).toLocaleString('fr-FR').replace(/,/g, ' ').replace(/\./g, ' ') + ' \u20ac',
+      venteDetail: comp.source === 'dvf' ? 'Transaction r\u00e9elle DVF' : 'Prix affich\u00e9',
+      venteNa: comp.source === 'encours',
+      avisLabel: '\u2014',
+      avisDetail: 'Non renseign\u00e9',
+      avisNa: true,
+      meta: comp.meta.split(' · ').slice(0, -1).join(' \u00b7 '),
+      similarite: simVal,
+      simClass: simVal >= 80 ? 'score-high' : simVal >= 60 ? 'score-mid' : 'score-low',
+      donnees: donVal,
+      donClass: donVal >= 80 ? 'score-high' : donVal >= 40 ? 'score-mid' : 'score-low',
+      donCount: comp.donCount,
+      reliability: comp.source === 'dvf' || comp.source === 'ideeri' ? 'real' : 'listed',
+      reliabilityLabel: comp.source === 'dvf' || comp.source === 'ideeri' ? '\ud83d\udfe2 Transaction r\u00e9elle' : '\ud83d\udfe0 Prix affich\u00e9',
+      adjTotal: '0%',
+      adjTotalClass: 'pos',
+      adjustments: [],
+      description: '',
+      noPhoto: comp.source === 'dvf',
+      photoUrl: comp.source !== 'dvf' ? `https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=520&h=140&fit=crop&crop=center&seed=${comp.id}` : undefined,
+      portalName: comp.portalName || (comp.source === 'portail' ? randomPortalName() : undefined),
+    };
+    setOthers(prev => prev.filter(c => c.id !== compId));
+    setSelected(prev => [...prev, promoted]);
+  };
+
+  const removeFromSelected = (compId) => {
+    const comp = selected.find(c => c.id === compId);
+    if (!comp) return;
+    // Convert back to compact format
+    const sourcePrefix = comp.source === 'dvf' ? 'DVF' : comp.source === 'ideeri' ? 'Ideeri' : comp.source === 'encours' ? 'En cours' : 'Portail';
+    const demoted = {
+      id: comp.id,
+      title: comp.title,
+      source: comp.source,
+      meta: `${sourcePrefix} \u00b7 ${comp.prix}\u20ac \u00b7 ${comp.prixM2}\u20ac/m\u00b2 \u00b7 ${comp.distance}`,
+      simScore: `${comp.similarite}% sim.`,
+      simClass: comp.similarite >= 80 ? 'high' : comp.similarite >= 60 ? 'mid' : 'low',
+      donScore: `${comp.donnees}% donn\u00e9es`,
+      donClass: comp.donnees >= 80 ? 'high' : comp.donnees >= 40 ? 'mid' : 'low',
+      donCount: comp.donCount,
+      portalName: comp.portalName,
+    };
+    setSelected(prev => prev.filter(c => c.id !== compId));
+    setOthers(prev => [...prev, demoted]);
+  };
+
+  // Expose addToSelected for Leaflet popups
+  addCompRef.current = addToSelected;
+  useEffect(() => {
+    window.__addComp = (id) => addCompRef.current?.(id);
+    return () => { delete window.__addComp; };
+  }, []);
+
+  // Filter states
+  const [surfaceMin, setSurfaceMin] = useState(55);
+  const [surfaceMax, setSurfaceMax] = useState(90);
+  const [piecesMin, setPiecesMin] = useState(2);
+  const [piecesMax, setPiecesMax] = useState(4);
+  const [prixMin, setPrixMin] = useState(200000);
+  const [prixMax, setPrixMax] = useState(400000);
+  const [typeFilter, setTypeFilter] = useState('appartement');
+  const [sourceDvf, setSourceDvf] = useState(true);
+  const [sourceIdeeri, setSourceIdeeri] = useState(true);
+  const [sourceEncours, setSourceEncours] = useState(true);
+  const [sourcePortail, setSourcePortail] = useState(true);
+
+  // Additional optional filters
+  const [extraFilters, setExtraFilters] = useState([]);
+  const allExtraFilters = [
+    { key: 'dpe', label: 'DPE' },
+    { key: 'etage', label: '\u00c9tage' },
+    { key: 'parking', label: 'Parking' },
+    { key: 'exterieur', label: 'Ext\u00e9rieur' },
+    { key: 'annee', label: 'Ann\u00e9e construction' },
+    { key: 'etat', label: '\u00c9tat g\u00e9n\u00e9ral' },
+  ];
+  const availableExtraFilters = allExtraFilters.filter(f => !extraFilters.includes(f.key));
+  const addExtraFilter = (key) => setExtraFilters(prev => [...prev, key]);
+  const removeExtraFilter = (key) => setExtraFilters(prev => prev.filter(k => k !== key));
+
+  // Simulated dynamic bien count based on filters
+  const computeFilteredCount = () => {
+    let count = ALL_COMPS_COUNT;
+    // Radius effect
+    if (radius < 500) count = Math.round(count * 0.3);
+    else if (radius < 1000) count = Math.round(count * 0.7);
+    else if (radius > 2000) count = Math.min(count + 15, 80);
+    // Surface effect
+    const surfaceRange = surfaceMax - surfaceMin;
+    if (surfaceRange < 20) count = Math.max(Math.round(count * 0.4), 2);
+    else if (surfaceRange < 30) count = Math.round(count * 0.7);
+    // Pieces effect
+    const piecesRange = piecesMax - piecesMin;
+    if (piecesRange === 0) count = Math.max(Math.round(count * 0.35), 1);
+    else if (piecesRange === 1) count = Math.round(count * 0.6);
+    // Prix effect
+    const prixRange = prixMax - prixMin;
+    if (prixRange < 100000) count = Math.max(Math.round(count * 0.5), 1);
+    else if (prixRange < 150000) count = Math.round(count * 0.75);
+    // Source effect
+    const sourcesOn = [sourceDvf, sourceIdeeri, sourceEncours, sourcePortail].filter(Boolean).length;
+    if (sourcesOn < 4) count = Math.max(Math.round(count * (sourcesOn / 4)), 1);
+    // Date slider
+    if (dateSlider < 6) count = Math.max(Math.round(count * 0.5), 1);
+    else if (dateSlider < 9) count = Math.round(count * 0.75);
+    // Type
+    if (typeFilter === 'tous') count = Math.min(count + 8, 90);
+    return Math.max(count, 1);
+  };
+  const filteredCount = computeFilteredCount();
 
   const formatRadius = (v) => (v >= 1000 ? `${(v / 1000).toFixed(v % 1000 === 0 ? 0 : 1)} km` : `${v}m`);
   const sliderPct = ((radius - 100) / (5000 - 100)) * 100;
@@ -1203,7 +1436,8 @@ export default function Step3Comparables() {
     if (!L || !mapRef.current) return;
 
     const map = L.map(mapRef.current, { zoomControl: false, attributionControl: false }).setView(TARGET_COORDS, 15);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+    const tile = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+    tileLayerRef.current = tile;
     L.control.zoom({ position: 'topleft' }).addTo(map);
 
     // Radius circle (will be hidden when user draws a custom zone)
@@ -1232,7 +1466,7 @@ export default function Step3Comparables() {
     );
 
     // Add comparable markers — SELECTED (large, prominent)
-    selectedComps.forEach((comp) => {
+    INITIAL_SELECTED.forEach((comp) => {
       const coords = COMP_COORDS[comp.id];
       if (!coords) return;
       const color = sourceMarkerColor[comp.source] || '#999';
@@ -1263,7 +1497,7 @@ export default function Step3Comparables() {
     });
 
     // Add comparable markers — OTHERS (medium, with rich popup + Ajouter button)
-    otherComps.forEach((comp) => {
+    INITIAL_OTHERS.forEach((comp) => {
       const coords = COMP_COORDS[comp.id];
       if (!coords) return;
       const color = sourceMarkerColor[comp.source] || '#999';
@@ -1284,7 +1518,7 @@ export default function Step3Comparables() {
             <span style="background:${simColor}22;color:${simColor};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">${comp.simScore}</span>
             <span style="background:#88888822;color:#666;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">${comp.donScore}</span>
           </div>
-          <button onclick="this.textContent='✓ Ajouté';this.style.background='#46B962';this.style.color='white';this.style.borderColor='#46B962'" style="width:100%;padding:6px 0;background:white;border:1.5px solid #46B962;color:#46B962;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:Open Sans,sans-serif;transition:all 0.15s">+ Ajouter aux comparables</button>
+          <button onclick="window.__addComp&amp;&amp;window.__addComp('${comp.id}');this.textContent='✓ Ajouté';this.style.background='#46B962';this.style.color='white';this.style.borderColor='#46B962';this.disabled=true" style="width:100%;padding:6px 0;background:white;border:1.5px solid #46B962;color:#46B962;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:Open Sans,sans-serif;transition:all 0.15s">+ Ajouter aux comparables</button>
         </div>`
       );
     });
@@ -1342,6 +1576,18 @@ export default function Step3Comparables() {
     };
   }, []);
 
+  // Switch map tile layer when style changes
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const tile = tileLayerRef.current;
+    if (!map || !tile) return;
+    const urls = {
+      plan: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+      satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    };
+    tile.setUrl(urls[mapStyle] || urls.plan);
+  }, [mapStyle]);
+
   // Toggle freehand drawing mode
   const toggleDrawMode = () => {
     const next = !drawMode;
@@ -1388,7 +1634,7 @@ export default function Step3Comparables() {
         <div className="filter-top">
           <div className="filter-top-left">
             <h3>Filtres</h3>
-            <span className="result-count">47 r&eacute;sultats</span>
+            <span className="result-count">{filteredCount} r&eacute;sultats</span>
           </div>
           <button className="btn-reset-filters">R&eacute;initialiser les filtres</button>
         </div>
@@ -1424,15 +1670,15 @@ export default function Step3Comparables() {
           <div className="filter-item">
             <div className="filter-item-label">Source <span className="chip-close">&times;</span></div>
             <div className="source-checkboxes">
-              <label className="source-cb-label"><input type="checkbox" defaultChecked /> <span className="source-dot dot-dvf" /> DVF</label>
-              <label className="source-cb-label"><input type="checkbox" defaultChecked /> <span className="source-dot dot-ideeri" /> Ideeri vendus</label>
-              <label className="source-cb-label"><input type="checkbox" defaultChecked /> <span className="source-dot dot-encours" /> En cours</label>
-              <label className="source-cb-label"><input type="checkbox" defaultChecked /> <span className="source-dot dot-portail" /> Portails</label>
+              <label className="source-cb-label"><input type="checkbox" checked={sourceDvf} onChange={() => setSourceDvf(!sourceDvf)} /> <span className="source-dot dot-dvf" /> DVF</label>
+              <label className="source-cb-label"><input type="checkbox" checked={sourceIdeeri} onChange={() => setSourceIdeeri(!sourceIdeeri)} /> <span className="source-dot dot-ideeri" /> Ideeri vendus</label>
+              <label className="source-cb-label"><input type="checkbox" checked={sourceEncours} onChange={() => setSourceEncours(!sourceEncours)} /> <span className="source-dot dot-encours" /> En cours</label>
+              <label className="source-cb-label"><input type="checkbox" checked={sourcePortail} onChange={() => setSourcePortail(!sourcePortail)} /> <span className="source-dot dot-portail" /> Portails</label>
             </div>
           </div>
           <div className="filter-item">
             <div className="filter-item-label">Type de bien <span className="chip-close">&times;</span></div>
-            <select className="filter-select">
+            <select className="filter-select" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
               <option value="appartement">Appartement</option>
               <option value="maison">Maison</option>
               <option value="tous">Tous types</option>
@@ -1441,32 +1687,32 @@ export default function Step3Comparables() {
           <div className="filter-item">
             <div className="filter-item-label">Surface <span className="chip-close">&times;</span></div>
             <div className="filter-range">
-              <input type="number" defaultValue="55" min="0" max="500" />
+              <input type="number" value={surfaceMin} min="0" max="500" onChange={(e) => setSurfaceMin(Number(e.target.value))} />
               <span className="sep">&agrave;</span>
-              <input type="number" defaultValue="90" min="0" max="500" />
+              <input type="number" value={surfaceMax} min="0" max="500" onChange={(e) => setSurfaceMax(Number(e.target.value))} />
               <span className="unit">m&sup2;</span>
             </div>
-            <div className="filter-hint">Bien cible : 72.5 m&sup2; &mdash; <strong style={{ color: '#46B962' }}>8 biens</strong></div>
+            <div className="filter-hint">Bien cible : 72.5 m&sup2; &mdash; <strong style={{ color: '#46B962' }}>{filteredCount} biens</strong></div>
           </div>
           <div className="filter-item">
             <div className="filter-item-label">Nombre de pi&egrave;ces <span className="chip-close">&times;</span></div>
             <div className="filter-range">
-              <input type="number" defaultValue="2" min="1" max="10" />
+              <input type="number" value={piecesMin} min="1" max="10" onChange={(e) => setPiecesMin(Number(e.target.value))} />
               <span className="sep">&agrave;</span>
-              <input type="number" defaultValue="4" min="1" max="10" />
+              <input type="number" value={piecesMax} min="1" max="10" onChange={(e) => setPiecesMax(Number(e.target.value))} />
               <span className="unit">pi&egrave;ces</span>
             </div>
-            <div className="filter-hint">Bien cible : T3 &mdash; <strong style={{ color: '#46B962' }}>8 biens</strong></div>
+            <div className="filter-hint">Bien cible : T3 &mdash; <strong style={{ color: '#46B962' }}>{filteredCount} biens</strong></div>
           </div>
           <div className="filter-item">
             <div className="filter-item-label">Fourchette de prix <span className="chip-close">&times;</span></div>
             <div className="filter-range">
-              <input type="number" defaultValue="200000" min="0" max="2000000" step="5000" />
+              <input type="number" value={prixMin} min="0" max="2000000" step="5000" onChange={(e) => setPrixMin(Number(e.target.value))} />
               <span className="sep">&agrave;</span>
-              <input type="number" defaultValue="400000" min="0" max="2000000" step="5000" />
+              <input type="number" value={prixMax} min="0" max="2000000" step="5000" onChange={(e) => setPrixMax(Number(e.target.value))} />
               <span className="unit">&euro;</span>
             </div>
-            <div className="filter-hint">Soit 2 759 &mdash; 5 517 &euro;/m&sup2; &mdash; <strong style={{ color: '#46B962' }}>8 biens</strong></div>
+            <div className="filter-hint">Soit {Math.round(prixMin / 72.5).toLocaleString('fr-FR')} &mdash; {Math.round(prixMax / 72.5).toLocaleString('fr-FR')} &euro;/m&sup2; &mdash; <strong style={{ color: '#46B962' }}>{filteredCount} biens</strong></div>
           </div>
           <div className="filter-item">
             <div className="filter-item-label">Anciennet&eacute; max <span className="chip-close">&times;</span></div>
@@ -1481,17 +1727,83 @@ export default function Step3Comparables() {
               />
               <span className="unit" style={{ minWidth: 55, textAlign: 'right', fontWeight: 600, color: '#46B962' }}>{dateSlider} mois</span>
             </div>
-            <div className="filter-hint">Transactions ou mises en vente depuis &mdash; <strong style={{ color: '#46B962' }}>8 biens</strong></div>
+            <div className="filter-hint">Transactions ou mises en vente depuis &mdash; <strong style={{ color: '#46B962' }}>{filteredCount} biens</strong></div>
           </div>
+          {/* Extra filters added dynamically */}
+          {extraFilters.includes('dpe') && (
+            <div className="filter-item">
+              <div className="filter-item-label">DPE <span className="chip-close" onClick={() => removeExtraFilter('dpe')}>&times;</span></div>
+              <select className="filter-select" defaultValue="all">
+                <option value="all">Tous DPE</option>
+                <option value="AB">A &ndash; B</option>
+                <option value="CD">C &ndash; D</option>
+                <option value="EFG">E &ndash; F &ndash; G</option>
+              </select>
+            </div>
+          )}
+          {extraFilters.includes('etage') && (
+            <div className="filter-item">
+              <div className="filter-item-label">&Eacute;tage <span className="chip-close" onClick={() => removeExtraFilter('etage')}>&times;</span></div>
+              <div className="filter-range">
+                <input type="number" defaultValue="0" min="0" max="30" />
+                <span className="sep">&agrave;</span>
+                <input type="number" defaultValue="10" min="0" max="30" />
+              </div>
+            </div>
+          )}
+          {extraFilters.includes('parking') && (
+            <div className="filter-item">
+              <div className="filter-item-label">Parking <span className="chip-close" onClick={() => removeExtraFilter('parking')}>&times;</span></div>
+              <select className="filter-select" defaultValue="all">
+                <option value="all">Indiff&eacute;rent</option>
+                <option value="oui">Avec parking</option>
+                <option value="non">Sans parking</option>
+              </select>
+            </div>
+          )}
+          {extraFilters.includes('exterieur') && (
+            <div className="filter-item">
+              <div className="filter-item-label">Ext&eacute;rieur <span className="chip-close" onClick={() => removeExtraFilter('exterieur')}>&times;</span></div>
+              <select className="filter-select" defaultValue="all">
+                <option value="all">Indiff&eacute;rent</option>
+                <option value="balcon">Balcon / Terrasse</option>
+                <option value="jardin">Jardin</option>
+                <option value="aucun">Aucun</option>
+              </select>
+            </div>
+          )}
+          {extraFilters.includes('annee') && (
+            <div className="filter-item">
+              <div className="filter-item-label">Ann&eacute;e construction <span className="chip-close" onClick={() => removeExtraFilter('annee')}>&times;</span></div>
+              <div className="filter-range">
+                <input type="number" defaultValue="1950" min="1800" max="2026" />
+                <span className="sep">&agrave;</span>
+                <input type="number" defaultValue="2026" min="1800" max="2026" />
+              </div>
+            </div>
+          )}
+          {extraFilters.includes('etat') && (
+            <div className="filter-item">
+              <div className="filter-item-label">&Eacute;tat g&eacute;n&eacute;ral <span className="chip-close" onClick={() => removeExtraFilter('etat')}>&times;</span></div>
+              <select className="filter-select" defaultValue="all">
+                <option value="all">Tous &eacute;tats</option>
+                <option value="neuf">Neuf / R&eacute;nov&eacute;</option>
+                <option value="bon">Bon &eacute;tat</option>
+                <option value="travaux">&Agrave; r&eacute;nover</option>
+              </select>
+            </div>
+          )}
         </div>
 
         {/* Add More Filters */}
-        <div className="filter-add-row">
-          <span style={{ fontSize: 11, color: '#949494', marginRight: 4 }}>Ajouter :</span>
-          {['DPE', '\u00c9tage', 'Parking', 'Ext\u00e9rieur', 'Ann\u00e9e construction', '\u00c9tat g\u00e9n\u00e9ral'].map((f) => (
-            <button key={f} className="filter-chip-add">+ {f}</button>
-          ))}
-        </div>
+        {availableExtraFilters.length > 0 && (
+          <div className="filter-add-row">
+            <span style={{ fontSize: 11, color: '#949494', marginRight: 4 }}>Ajouter :</span>
+            {availableExtraFilters.map((f) => (
+              <button key={f.key} className="filter-chip-add" onClick={() => addExtraFilter(f.key)}>+ {f.label}</button>
+            ))}
+          </div>
+        )}
 
         {/* Source Legend */}
         <div className="source-legend">
@@ -1499,6 +1811,16 @@ export default function Step3Comparables() {
           <div className="source-item"><span className="source-dot dot-ideeri" /> Ideeri vendus</div>
           <div className="source-item"><span className="source-dot dot-encours" /> Ideeri en cours</div>
           <div className="source-item"><span className="source-dot dot-portail" /> Portails immo</div>
+        </div>
+      </div>
+
+      {/* Results Banner */}
+      <div className="results-banner">
+        <div className="results-banner-count">{filteredCount}</div>
+        <div className="results-banner-text">biens comparables trouv&eacute;s</div>
+        <div className="results-banner-details">
+          <span className="results-tag">{selected.length} s&eacute;lectionn&eacute;s</span>
+          <span className="results-tag outline">{filteredCount - selected.length} disponibles</span>
         </div>
       </div>
 
@@ -1529,12 +1851,12 @@ export default function Step3Comparables() {
           <div className="map-info-bar">
             <div className="map-info-left">
               <div className="map-info-stat">
-                <div className="map-info-stat-val">47</div>
+                <div className="map-info-stat-val">{filteredCount}</div>
                 <div className="map-info-stat-label">dans le rayon</div>
               </div>
               <div className="map-info-divider" />
               <div className="map-info-stat">
-                <div className="map-info-stat-val">3</div>
+                <div className="map-info-stat-val">{selected.length}</div>
                 <div className="map-info-stat-label">s&eacute;lectionn&eacute;s</div>
               </div>
               <div className="map-info-divider" />
@@ -1554,13 +1876,13 @@ export default function Step3Comparables() {
 
         {/* List Panel */}
         <div className="list-panel">
-          <div className="section-label">S&eacute;lectionn&eacute;s (3)</div>
-          {selectedComps.map((c) => (
-            <SelectedCompCard key={c.id} comp={c} />
+          <div className="section-label">S&eacute;lectionn&eacute;s ({selected.length})</div>
+          {selected.map((c) => (
+            <SelectedCompCard key={c.id} comp={c} onRemove={removeFromSelected} />
           ))}
-          <div className="section-label others">Autres (5)</div>
-          {otherComps.map((c) => (
-            <CompactCompCard key={c.id} comp={c} />
+          {others.length > 0 && <div className="section-label others">Autres ({others.length})</div>}
+          {others.map((c) => (
+            <CompactCompCard key={c.id} comp={c} onAdd={addToSelected} />
           ))}
         </div>
       </div>
