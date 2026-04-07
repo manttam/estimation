@@ -13,7 +13,7 @@ const INITIAL_VERSIONS = [
     prix: '122 000 \u20ac',
     prixM2: '1 683 \u20ac/m\u00b2',
     statut: 'compte_rendu',
-    note: 'Premi\u00e8re estimation \u2014 acquisition initiale',
+    note: '',
   },
   {
     id: 2,
@@ -24,7 +24,7 @@ const INITIAL_VERSIONS = [
     prix: '295 000 \u20ac',
     prixM2: '4 069 \u20ac/m\u00b2',
     statut: 'avis_valeur',
-    note: 'R\u00e9\u00e9valuation janvier 2026 \u2014 march\u00e9 haussier',
+    note: '',
   },
   {
     id: 3,
@@ -35,7 +35,7 @@ const INITIAL_VERSIONS = [
     prix: '305 000 \u20ac',
     prixM2: '4 207 \u20ac/m\u00b2',
     statut: 'en_cours',
-    note: 'Estimation active \u2014 mise \u00e0 jour mars 2026',
+    note: '',
   },
 ];
 
@@ -338,7 +338,7 @@ export default function Dashboard() {
                       {st.icon} {st.label}
                     </span>
                   </div>
-                  <div className="tl-note">{v.note}</div>
+                  {v.note && <div className="tl-note">{v.note}</div>}
                   <div className="tl-actions">
                     {isActive ? (
                       <>
