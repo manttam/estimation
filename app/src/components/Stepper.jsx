@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 
 const steps = [
-  { num: 1, label: 'Bien cible' },
+  { num: 1, label: 'Relev\u00e9 d\u2019informations' },
   { num: 2, label: 'Contexte zone' },
   { num: 3, label: 'Comparables' },
   { num: 4, label: 'Tension marché' },

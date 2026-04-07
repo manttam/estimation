@@ -171,12 +171,38 @@ export default function PropertyCard() {
       <div style={styles.header}>
         {/* Title row */}
         <div style={styles.topRow}>
-          <button style={styles.backBtn} onClick={() => navigate(-1)} title="Retour">
+          <button style={styles.backBtn} onClick={() => navigate('/')} title="Historique des versions">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
               <path d="M12.5 15l-5-5 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
           <span style={styles.title}>{property.title}</span>
+          <button
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              padding: '4px 10px',
+              background: '#f0f4ff',
+              color: '#4a6cf7',
+              border: '1px solid #c8d6f7',
+              borderRadius: 6,
+              fontSize: 11,
+              fontWeight: 600,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              whiteSpace: 'nowrap',
+            }}
+            onClick={() => navigate('/')}
+            title="Voir l'historique des estimations"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M8 14A6 6 0 108 2a6 6 0 000 12z" stroke="currentColor" strokeWidth="1.3"/>
+              <path d="M8 5v3l2 1.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M2 8H1M3.5 3.5L2.8 2.8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+            </svg>
+            Historique
+          </button>
         </div>
 
         {/* Meta row */}

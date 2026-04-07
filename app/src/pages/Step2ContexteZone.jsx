@@ -709,7 +709,7 @@ export default function Step2ContexteZone() {
       {/* Footer */}
       <div className="footer-buttons">
         <button className="btn btn-ghost" onClick={() => navigate('/step/1')}>
-          &larr; Bien cible
+          &larr; Relev&eacute; d&rsquo;informations
         </button>
         <button className="btn btn-primary" onClick={() => navigate('/step/3')}>
           Comparables &rarr;
