@@ -119,13 +119,16 @@ const BUCKETS = [
 ];
 
 /* ─── Données figées : période < 1 an ─── */
+/* Ces valeurs s'alignent avec le dataset des 23 acquéreurs de l'étape 5
+   (Step5AvisValeur.jsx) pour garantir la cohérence Step4 ↔ Step5. */
 const PERIOD = {
-  total: 54,
-  pool: 612,
-  forts: 15,
-  budget: 304,
-  dist: [3, 8, 13, 15, 10, 5],
-  personas: { familles: 19, investisseurs: 12, primo: 10, retraites: 7, mono: 6 },
+  total: 23,
+  pool: 312,
+  forts: 7,
+  budget: 310,
+  // Distribution des plafonds de budget (6 tranches, sum = 23)
+  dist: [4, 5, 5, 3, 4, 2],
+  personas: { familles: 8, investisseurs: 5, primo: 4, retraites: 3, mono: 3 },
 };
 
 const ATOUTS = [
