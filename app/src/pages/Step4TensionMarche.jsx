@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import PropertyCard from '../components/PropertyCard';
 import Stepper from '../components/Stepper';
@@ -11,6 +11,7 @@ const PERSONAS = {
     budget: '295 k€',
     delai: '3 mois',
     compat: '0,74',
+    sub: 'couple + enfants',
     needs: [
       { txt: 'École primaire < 500 m', match: true, tag: 'Votre bien : École Lamartine à 320 m', tagMatch: true },
       { txt: 'Espace extérieur (balcon/terrasse)', match: true, tag: '6 m² de balcon', tagMatch: true },
@@ -32,6 +33,7 @@ const PERSONAS = {
     budget: '280 k€',
     delai: '1 mois',
     compat: '0,68',
+    sub: 'locatif / rendement',
     needs: [
       { txt: 'Rendement brut > 4,5%', match: true, tag: 'Estimé 4,7%', tagMatch: true },
       { txt: 'Quartier étudiant / cadre', match: true, tag: 'Lyon 3ème', tagMatch: true },
@@ -52,8 +54,9 @@ const PERSONAS = {
     budget: '268 k€',
     delai: '4 mois',
     compat: '0,65',
+    sub: '1ère acquisition',
     needs: [
-      { txt: 'Budget serré, prêt PTZ éligible', match: false, tag: 'Zone B1 éligible mais prix haut', tagMatch: false },
+      { txt: 'Budget serré, prêt PTZ éligible', match: true, tag: 'Zone B1 → PTZ possible', tagMatch: true },
       { txt: 'Proximité transports publics', match: true, tag: 'Métro Part-Dieu 450 m', tagMatch: true },
       { txt: 'Charges copropriété faibles', match: true, tag: '1 850 €/an', tagMatch: true },
       { txt: 'Pas de gros travaux', match: true, tag: 'État correct', tagMatch: true },
@@ -71,6 +74,7 @@ const PERSONAS = {
     budget: '340 k€',
     delai: '6 mois',
     compat: '0,61',
+    sub: 'logement plus petit / pied-à-terre',
     needs: [
       { txt: 'Ascenseur obligatoire', match: false, tag: '3ème sans ascenseur', tagMatch: false },
       { txt: 'Pied-à-terre / résidence secondaire', match: true, tag: 'T3 cohérent', tagMatch: true },
@@ -89,11 +93,11 @@ const PERSONAS = {
     budget: '278 k€',
     delai: '2 mois',
     compat: '0,69',
+    sub: 'parent + enfant(s)',
     needs: [
       { txt: 'École primaire proche', match: true, tag: 'Lamartine 320 m', tagMatch: true },
       { txt: '2 chambres séparées (parent + enfant)', match: true, tag: 'T3 adapté', tagMatch: true },
       { txt: 'Quartier sécurisé', match: true, tag: 'Lyon 3ème résidentiel', tagMatch: true },
-      { txt: 'Budget < 290 k€', match: true, tag: '305 k€ (limite)', tagMatch: true },
       { txt: 'Place de parking sécurisée', match: false, tag: 'Non disponible', tagMatch: false },
     ],
     buyers: [
@@ -104,94 +108,223 @@ const PERSONAS = {
   },
 };
 
-/* ─── Ancres période (interpolation) ─── */
-const ANCHORS = [
-  { d: 7,   total: 5,  pool: 67,  forts: 2,  budget: 295, personas: { familles: 2,  investisseurs: 1,  primo: 1,  retraites: 0, mono: 1 } },
-  { d: 30,  total: 12, pool: 158, forts: 4,  budget: 308, personas: { familles: 4,  investisseurs: 3,  primo: 2,  retraites: 1, mono: 2 } },
-  { d: 90,  total: 23, pool: 312, forts: 7,  budget: 312, personas: { familles: 8,  investisseurs: 5,  primo: 4,  retraites: 3, mono: 3 } },
-  { d: 180, total: 38, pool: 468, forts: 11, budget: 308, personas: { familles: 13, investisseurs: 8,  primo: 7,  retraites: 5, mono: 5 } },
-  { d: 365, total: 54, pool: 612, forts: 15, budget: 304, personas: { familles: 19, investisseurs: 12, primo: 10, retraites: 7, mono: 6 } },
+/* ─── Buckets de budget (tranches de plafond) ─── */
+const BUCKETS = [
+  { label: '< 280',   min: 0,   max: 280 },
+  { label: '280-300', min: 280, max: 300 },
+  { label: '300-320', min: 300, max: 320 },
+  { label: '320-340', min: 320, max: 340 },
+  { label: '340-360', min: 340, max: 360 },
+  { label: '> 360',   min: 360, max: 9999 },
 ];
 
-function interp(days) {
-  days = Math.max(7, Math.min(365, days));
-  let a = ANCHORS[0], b = ANCHORS[ANCHORS.length - 1], t = 0;
-  for (let i = 0; i < ANCHORS.length - 1; i++) {
-    if (days >= ANCHORS[i].d && days <= ANCHORS[i + 1].d) {
-      a = ANCHORS[i];
-      b = ANCHORS[i + 1];
-      t = b.d === a.d ? 0 : (days - a.d) / (b.d - a.d);
-      break;
-    }
-  }
-  const lerp = (x, y) => x + (y - x) * t;
-  return {
-    days,
-    total: Math.round(lerp(a.total, b.total)),
-    pool: Math.round(lerp(a.pool, b.pool)),
-    forts: Math.round(lerp(a.forts, b.forts)),
-    budget: Math.round(lerp(a.budget, b.budget)),
-    personas: {
-      familles: Math.round(lerp(a.personas.familles, b.personas.familles)),
-      investisseurs: Math.round(lerp(a.personas.investisseurs, b.personas.investisseurs)),
-      primo: Math.round(lerp(a.personas.primo, b.personas.primo)),
-      retraites: Math.round(lerp(a.personas.retraites, b.personas.retraites)),
-      mono: Math.round(lerp(a.personas.mono, b.personas.mono)),
-    },
-  };
-}
-
-function formatDays(d) {
-  if (d >= 360) return '1 an';
-  if (d >= 30) {
-    const m = d / 30;
-    if (Number.isInteger(m)) return m + ' mois';
-    return (Math.round(m * 10) / 10).toString().replace('.', ',') + ' mois';
-  }
-  return d + ' j';
-}
-
-const LOG_MIN = Math.log(7);
-const LOG_MAX = Math.log(365);
-const LOG_RANGE = LOG_MAX - LOG_MIN;
-const posToDays = (pos) => Math.round(Math.exp(LOG_MIN + (pos / 1000) * LOG_RANGE));
-const daysToPos = (days) => {
-  days = Math.max(7, Math.min(365, days));
-  return Math.round(((Math.log(days) - LOG_MIN) / LOG_RANGE) * 1000);
+/* ─── Données figées : période < 1 an ─── */
+const PERIOD = {
+  total: 54,
+  pool: 612,
+  forts: 15,
+  budget: 304,
+  dist: [3, 8, 13, 15, 10, 5],
+  personas: { familles: 19, investisseurs: 12, primo: 10, retraites: 7, mono: 6 },
 };
-
-const PERIOD_MARKS = [
-  { idx: 0, days: 7, label: '7 j' },
-  { idx: 1, days: 30, label: '30 j' },
-  { idx: 2, days: 90, label: '3 mois' },
-  { idx: 3, days: 180, label: '6 mois' },
-  { idx: 4, days: 365, label: 'Tous' },
-];
 
 const ATOUTS = [
   { label: 'Localisation Lyon 3ème', sub: 'Quartier recherché · transports, commerces', pct: 91 },
-  { label: 'Surface 72,5 m²',        sub: 'Dans la fourchette cible pour T3',          pct: 83 },
-  { label: 'Prix 305 k€',            sub: 'Dans le budget de la majorité',             pct: 78 },
-  { label: 'Balcon 6 m²',            sub: 'Critère différenciant post-Covid',          pct: 70 },
+  { label: 'Surface 72,5 m²',        sub: 'Dans la tranche cible pour T3',              pct: 83 },
+  { label: 'Balcon 6 m²',            sub: 'Critère différenciant post-Covid',           pct: 70 },
 ];
 const FREINS = [
-  { label: 'Sans parking',             sub: 'Critère attendu par la majorité de la demande', pct: 61 },
-  { label: 'DPE D',                    sub: 'Sensibilité énergie · recherche DPE ≤ C',       pct: 48 },
-  { label: '3ème étage sans ascenseur', sub: 'Retraités et familles avec poussette',         pct: 39 },
-  { label: 'Exposition ouest',         sub: 'Recherche sud/est majoritaire',                 pct: 39 },
+  { label: 'Sans parking',              sub: 'Critère attendu par la majorité de la demande', pct: 61 },
+  { label: 'DPE D',                     sub: 'Sensibilité énergie · recherche DPE ≤ C',       pct: 48 },
+  { label: '3ème étage sans ascenseur', sub: 'Retraités et familles avec poussette',          pct: 39 },
+  { label: 'Exposition ouest',          sub: 'Recherche sud/est majoritaire',                 pct: 39 },
 ];
+
+/* ─── Détails projets (anonymes, RGPD) ─── */
+const PROJECT_DETAILS = {
+  'Famille #F047': {
+    persona: 'Familles', etat: 'Recherche active', etatCls: 'active', lastSeen: 'actif il y a 2 jours',
+    budgetMin: 0, budgetMed: 305, budgetMax: 345, budgetScaleMin: 0, budgetScaleMax: 370,
+    durs: [
+      { label: 'Localisation', value: 'Lyon 3e (rayon 1 km)', match: true },
+      { label: 'Surface', value: '≥ 65 m²', match: true },
+      { label: 'Typologie', value: 'T3', match: true },
+      { label: 'DPE', value: 'D ou mieux', match: true },
+    ],
+    souhaits: [
+      { label: 'Balcon / terrasse', value: 'Oui', match: true },
+      { label: 'Parking', value: 'Oui', match: false },
+      { label: 'Quartier calme', value: 'Oui', match: true },
+      { label: 'École primaire < 500 m', value: 'Oui', match: true },
+    ],
+    stats: { vus: 12, fav: 3, vis: 2 },
+  },
+  'Famille #F112': {
+    persona: 'Familles', etat: 'Simulation prêt', etatCls: 'pending', lastSeen: 'actif il y a 5 jours',
+    budgetMin: 0, budgetMed: 290, budgetMax: 325, budgetScaleMin: 0, budgetScaleMax: 360,
+    durs: [
+      { label: 'Localisation', value: 'Lyon 3e / 6e', match: true },
+      { label: 'Surface', value: '≥ 65 m²', match: true },
+      { label: 'Typologie', value: 'T3', match: true },
+      { label: 'DPE', value: 'D ou mieux', match: true },
+    ],
+    souhaits: [
+      { label: 'Balcon / terrasse', value: 'Oui', match: true },
+      { label: 'Parking', value: 'Souhaité', match: false },
+      { label: 'Quartier calme', value: 'Oui', match: true },
+      { label: 'École primaire proche', value: 'Oui', match: true },
+    ],
+    stats: { vus: 8, fav: 2, vis: 1 },
+  },
+  'Famille #F203': {
+    persona: 'Familles', etat: 'Prêt validé', etatCls: 'ready', lastSeen: 'actif hier',
+    budgetValidated: true, budgetFixed: 310,
+    budgetMin: 280, budgetMed: 310, budgetMax: 340, budgetScaleMin: 240, budgetScaleMax: 370,
+    durs: [
+      { label: 'Localisation', value: 'Lyon 3e', match: true },
+      { label: 'Surface', value: '≥ 70 m²', match: true },
+      { label: 'Typologie', value: 'T3 / T4', match: true },
+      { label: 'DPE', value: 'C ou mieux', match: false },
+    ],
+    souhaits: [
+      { label: 'Balcon / terrasse', value: 'Oui', match: true },
+      { label: 'Parking', value: 'Obligatoire', match: false },
+      { label: '2 chambres séparées', value: 'Oui', match: true },
+      { label: 'Extérieur', value: 'Oui', match: true },
+    ],
+    stats: { vus: 15, fav: 4, vis: 3 },
+  },
+  'Invest. #I021': {
+    persona: 'Investisseurs', etat: 'Prêt validé', etatCls: 'ready', lastSeen: 'actif hier',
+    budgetValidated: true, budgetFixed: 285,
+    budgetMin: 255, budgetMed: 285, budgetMax: 315, budgetScaleMin: 220, budgetScaleMax: 340,
+    durs: [
+      { label: 'Localisation', value: 'Lyon 3e / 7e', match: true },
+      { label: 'Surface', value: '≥ 60 m²', match: true },
+      { label: 'Typologie', value: 'T2 / T3', match: true },
+      { label: 'DPE', value: 'E ou mieux', match: true },
+    ],
+    souhaits: [
+      { label: 'Rendement brut > 4,5 %', value: 'Estimé 4,7 %', match: true },
+      { label: 'Charges < 2 000 €/an', value: '1 850 €/an', match: true },
+      { label: 'Déjà loué', value: 'Oui', match: false },
+      { label: 'Aucun travaux', value: 'Oui', match: false },
+    ],
+    stats: { vus: 20, fav: 5, vis: 2 },
+  },
+  'Invest. #I044': {
+    persona: 'Investisseurs', etat: 'Recherche active', etatCls: 'active', lastSeen: 'actif il y a 3 jours',
+    budgetMin: 0, budgetMed: 270, budgetMax: 305, budgetScaleMin: 0, budgetScaleMax: 340,
+    durs: [
+      { label: 'Localisation', value: 'Lyon 3e', match: true },
+      { label: 'Surface', value: '≥ 55 m²', match: true },
+      { label: 'Typologie', value: 'T2 / T3', match: true },
+      { label: 'DPE', value: 'E ou mieux', match: true },
+    ],
+    souhaits: [
+      { label: 'Rendement brut > 5 %', value: 'Estimé 4,7 %', match: false },
+      { label: 'Charges basses', value: '1 850 €/an', match: true },
+      { label: 'Déjà loué', value: 'Oui', match: false },
+      { label: 'Aucun travaux', value: 'Oui', match: false },
+    ],
+    stats: { vus: 14, fav: 2, vis: 1 },
+  },
+  'Primo #P008': {
+    persona: 'Primo-accédants', etat: 'PTZ en cours', etatCls: 'pending', lastSeen: 'actif il y a 2 jours',
+    budgetMin: 0, budgetMed: 275, budgetMax: 295, budgetScaleMin: 0, budgetScaleMax: 320,
+    durs: [
+      { label: 'Localisation', value: 'Lyon 3e (Zone B1)', match: true },
+      { label: 'Surface', value: '≥ 60 m²', match: true },
+      { label: 'Typologie', value: 'T3', match: true },
+      { label: 'DPE', value: 'C ou mieux', match: false },
+    ],
+    souhaits: [
+      { label: 'Transports proches', value: 'Oui', match: true },
+      { label: 'Charges basses', value: 'Oui', match: true },
+      { label: 'Sans gros travaux', value: 'Oui', match: true },
+      { label: 'DPE C+ (éviter passoire)', value: 'Oui', match: false },
+    ],
+    stats: { vus: 22, fav: 6, vis: 4 },
+  },
+  'Primo #P031': {
+    persona: 'Primo-accédants', etat: 'Recherche active', etatCls: 'active', lastSeen: 'actif il y a 4 jours',
+    budgetMin: 0, budgetMed: 265, budgetMax: 290, budgetScaleMin: 0, budgetScaleMax: 320,
+    durs: [
+      { label: 'Localisation', value: 'Lyon 3e / 8e', match: true },
+      { label: 'Surface', value: '≥ 55 m²', match: true },
+      { label: 'Typologie', value: 'T2 / T3', match: true },
+      { label: 'DPE', value: 'D ou mieux', match: true },
+    ],
+    souhaits: [
+      { label: 'Transports proches', value: 'Oui', match: true },
+      { label: 'Charges basses', value: 'Oui', match: true },
+      { label: 'Sans gros travaux', value: 'Oui', match: true },
+      { label: 'DPE C+ idéalement', value: 'Oui', match: false },
+    ],
+    stats: { vus: 18, fav: 3, vis: 2 },
+  },
+  'Retraité #R014': {
+    persona: 'Retraités', etat: 'Prêt validé', etatCls: 'ready', lastSeen: 'actif il y a 6 jours',
+    budgetValidated: true, budgetFixed: 350,
+    budgetMin: 295, budgetMed: 350, budgetMax: 400, budgetScaleMin: 260, budgetScaleMax: 420,
+    durs: [
+      { label: 'Localisation', value: 'Lyon 3e', match: true },
+      { label: 'Surface', value: '≥ 60 m²', match: true },
+      { label: 'Ascenseur', value: 'Obligatoire', match: false },
+      { label: 'DPE', value: 'D ou mieux', match: true },
+    ],
+    souhaits: [
+      { label: 'Balcon / terrasse', value: 'Oui', match: true },
+      { label: 'Commerces proches', value: 'Oui', match: true },
+      { label: 'Quartier calme', value: 'Oui', match: true },
+    ],
+    stats: { vus: 9, fav: 2, vis: 1 },
+  },
+  'Mono #M019': {
+    persona: 'Mono-parentaux', etat: 'Recherche active', etatCls: 'active', lastSeen: 'actif hier',
+    budgetMin: 0, budgetMed: 285, budgetMax: 320, budgetScaleMin: 0, budgetScaleMax: 340,
+    durs: [
+      { label: 'Localisation', value: 'Lyon 3e', match: true },
+      { label: 'Surface', value: '≥ 65 m²', match: true },
+      { label: 'Typologie', value: 'T3', match: true },
+      { label: 'DPE', value: 'D ou mieux', match: true },
+    ],
+    souhaits: [
+      { label: 'École proche', value: 'Oui', match: true },
+      { label: '2 chambres séparées', value: 'Oui', match: true },
+      { label: 'Quartier sécurisé', value: 'Oui', match: true },
+      { label: 'Parking', value: 'Souhaité', match: false },
+    ],
+    stats: { vus: 16, fav: 4, vis: 2 },
+  },
+  'Mono #M027': {
+    persona: 'Mono-parentaux', etat: 'Simulation prêt', etatCls: 'pending', lastSeen: 'actif il y a 3 jours',
+    budgetMin: 0, budgetMed: 270, budgetMax: 305, budgetScaleMin: 0, budgetScaleMax: 340,
+    durs: [
+      { label: 'Localisation', value: 'Lyon 3e / 7e', match: true },
+      { label: 'Surface', value: '≥ 60 m²', match: true },
+      { label: 'Typologie', value: 'T3', match: true },
+      { label: 'DPE', value: 'D ou mieux', match: true },
+    ],
+    souhaits: [
+      { label: 'École proche', value: 'Oui', match: true },
+      { label: '2 chambres', value: 'Oui', match: true },
+      { label: 'Quartier sécurisé', value: 'Oui', match: true },
+      { label: 'Parking', value: 'Souhaité', match: false },
+    ],
+    stats: { vus: 11, fav: 3, vis: 1 },
+  },
+};
 
 const cssStyles = `
   .step4-page { font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif; --green:#46B962; --green-dark:#1aa564; --green-soft:#e8f6ec; --blue:#4a6cf7; --orange:#f5a623; --orange-soft:#fef5e6; --red:#e74c3c; --red-soft:#fdecec; --grey:#949494; --border:#eee; --text:#393939; --muted:#949494; --bg:#fafafa; --white:#ffffff; color: var(--text); font-size: 13px; line-height: 1.4; }
 
-  /* ACT — Structure commune */
   .act { background: var(--white); border: 1px solid #eee; border-radius: 12px; padding: 32px 28px; margin-bottom: 18px; position: relative; }
   .act-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
   .act-num { font-size: 10px; font-weight: 800; color: var(--green); letter-spacing: 2px; background: var(--green-soft); padding: 3px 8px; border-radius: 4px; }
   .act-title { font-size: 17px; font-weight: 700; color: var(--text); }
   .act-subtitle { font-size: 13px; color: var(--muted); margin-bottom: 28px; line-height: 1.55; }
 
-  /* PDF TOGGLE */
   .pdf-toggle { position: absolute; top: 10px; right: 12px; display: flex; align-items: center; gap: 5px; z-index: 5; }
   .pdf-toggle input[type="checkbox"] { display: none; }
   .pdf-toggle label { display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 10px; color: #bbb; padding: 3px 8px; border-radius: 5px; border: 1px solid transparent; user-select: none; background: rgba(255,255,255,0.9); }
@@ -201,20 +334,8 @@ const cssStyles = `
   /* ACTE 1 */
   .act-1 { text-align: center; padding: 32px 28px 28px; }
   .act-1 .act-header { justify-content: center; }
-  .period-filter { display: flex; align-items: center; gap: 20px; margin: 18px auto 26px; padding: 12px 22px 14px; background: #fafbfc; border: 1px solid #eee; border-radius: 8px; max-width: 640px; }
-  .period-filter-label { font-size: 10px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; flex-shrink: 0; white-space: nowrap; }
-  .period-current-inline { color: var(--green); font-weight: 800; font-size: 12px; text-transform: none; letter-spacing: 0; margin-left: 6px; display: inline-block; min-width: 62px; }
-  .period-slider-wrap { flex: 1; display: flex; flex-direction: column; gap: 10px; }
-  .period-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; background: #e5e7e9; border-radius: 2px; outline: none; cursor: pointer; margin: 0; padding: 0; }
-  .period-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--green); border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.18); cursor: pointer; }
-  .period-slider::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: var(--green); border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.18); cursor: pointer; border-style: solid; }
-  .period-marks { position: relative; height: 22px; font-size: 10.5px; color: var(--muted); font-weight: 600; margin-top: -2px; }
-  .period-marks span { position: absolute; cursor: pointer; white-space: nowrap; transition: color 0.15s; text-align: center; }
-  .period-marks span.active { color: var(--green); font-weight: 700; }
-  .period-marks span::before { content: ''; display: block; width: 1px; height: 5px; background: #ccc; margin: -6px auto 3px; }
-
   .hero-zone { display: flex; flex-direction: column; align-items: center; margin: 4px 0 22px; }
-  .hero-number { font-size: 72px; font-weight: 700; color: var(--green); line-height: 1; letter-spacing: -2px; font-family: 'Open Sans', sans-serif; }
+  .hero-number { font-size: 72px; font-weight: 700; color: var(--green); line-height: 1; letter-spacing: -2px; }
   .hero-label { font-size: 14px; color: var(--text); font-weight: 600; margin-top: 4px; letter-spacing: 0.2px; }
   .hero-sub { font-size: 11.5px; color: var(--muted); margin-top: 5px; max-width: 520px; line-height: 1.5; }
 
@@ -224,6 +345,25 @@ const cssStyles = `
   .secondary-number.accent { color: var(--orange); }
   .secondary-label { font-size: 11.5px; color: var(--muted); margin-top: 5px; text-align: center; max-width: 140px; line-height: 1.4; }
   .secondary-sep { width: 1px; background: #eee; align-self: stretch; }
+
+  /* Distribution des budgets */
+  .budget-dist { max-width: 720px; margin: 28px auto 0; padding: 20px 24px; background: #fafafa; border-radius: 10px; }
+  .budget-dist-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; gap: 16px; flex-wrap: wrap; }
+  .budget-dist-title { font-size: 12px; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: 1px; }
+  .budget-dist-hint { font-size: 11px; color: var(--muted); font-style: italic; text-align: left; }
+  .budget-dist-bars { display: flex; flex-direction: column; gap: 6px; }
+  .budget-bar-row { display: grid; grid-template-columns: 100px 1fr 32px; align-items: center; gap: 10px; font-size: 11.5px; }
+  .budget-bar-label { color: var(--text); font-weight: 600; text-align: left; }
+  .budget-bar-track { height: 14px; background: #fff; border: 1px solid #eee; border-radius: 3px; overflow: hidden; }
+  .budget-bar-fill { height: 100%; background: #cfe8d5; border-radius: 2px; transition: width 0.3s ease; }
+  .budget-bar-fill.mode { background: var(--green); }
+  .budget-bar-row.mode .budget-bar-label { color: var(--green-dark); font-weight: 700; }
+  .budget-bar-row.mode .budget-bar-count { color: var(--text); font-weight: 700; }
+  .budget-bar-count { font-size: 11px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+  .budget-dist-highlight { margin: 4px 0 14px; padding: 10px 14px; background: #fff; border: 1px solid var(--green-soft); border-left: 3px solid var(--green); border-radius: 6px; font-size: 12px; color: var(--text); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .budget-dist-highlight-label { color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+  .budget-dist-highlight-value { font-weight: 700; color: var(--green-dark); }
+  .budget-dist-highlight-count { color: var(--muted); font-size: 11px; margin-left: auto; }
 
   .hero-divider { border: none; border-top: 1px solid #eee; margin: 26px auto 22px; max-width: 720px; }
 
@@ -239,7 +379,7 @@ const cssStyles = `
   .personas-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 22px; }
   .persona-card { border: 1px solid #eee; border-radius: 8px; padding: 20px 14px 18px; background: #fff; cursor: pointer; transition: all 0.18s; display: flex; flex-direction: column; align-items: center; text-align: center; position: relative; }
   .persona-card:hover { border-color: #bde5c7; background: #fafffb; }
-  .persona-card.active { border: 1px solid var(--green); padding: 20px 14px 18px; background: var(--green-soft); }
+  .persona-card.active { border: 1px solid var(--green); background: var(--green-soft); }
   .persona-card.active::after { content: ''; position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; border-top: 10px solid var(--green); z-index: 2; }
   .persona-count { font-size: 34px; font-weight: 700; color: var(--text); line-height: 1; letter-spacing: -0.5px; }
   .persona-card.active .persona-count { color: var(--green); }
@@ -265,7 +405,9 @@ const cssStyles = `
 
   .focus-buyers h4 { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
   .buyer-list { display: flex; flex-direction: column; gap: 6px; }
-  .buyer-row { display: grid; grid-template-columns: auto 1fr auto auto; gap: 10px; align-items: center; padding: 8px 10px; background: #fff; border: 1px solid #eaf0e5; border-radius: 6px; font-size: 11.5px; }
+  .buyer-row { display: grid; grid-template-columns: auto 1fr auto auto; gap: 10px; align-items: center; padding: 8px 10px; background: #fff; border: 1px solid #eaf0e5; border-radius: 6px; font-size: 11.5px; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+  .buyer-row:hover { border-color: var(--green); background: #fafffb; }
+  .buyer-row:focus { outline: 2px solid var(--green); outline-offset: 2px; }
   .buyer-rank { font-weight: 700; color: var(--muted); font-size: 10px; min-width: 16px; }
   .buyer-name { color: var(--text); font-weight: 600; }
   .buyer-budget { color: var(--muted); font-size: 10px; }
@@ -303,10 +445,13 @@ const cssStyles = `
   .leviers-sub { font-size: 12px; color: var(--muted); margin-bottom: 14px; line-height: 1.5; }
   .leviers-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; max-width: 760px; }
   .levier-card { border: 1px solid #eee; border-radius: 10px; padding: 16px 16px 14px; background: #fff; display: flex; flex-direction: column; position: relative; overflow: hidden; border-left: 3px solid var(--green); }
+  .levier-card.teaser { border-left: 3px dashed #bbb; background: #fafafa; }
   .levier-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
   .levier-title { font-size: 12.5px; font-weight: 700; color: var(--text); }
   .levier-badge { font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 4px; letter-spacing: 0.5px; text-transform: uppercase; color: var(--green); background: var(--green-soft); }
+  .levier-badge.teaser-badge { color: #777; background: #eee; }
   .levier-impact { font-size: 20px; font-weight: 700; color: var(--green); line-height: 1; margin: 4px 0 4px; }
+  .levier-impact.teaser-arrow { color: #bbb; font-size: 28px; font-weight: 400; }
   .levier-impact .plus { color: var(--green); }
   .levier-cost { font-size: 11px; color: var(--muted); margin-bottom: 10px; }
   .levier-cost strong { color: var(--text); font-weight: 700; }
@@ -320,6 +465,51 @@ const cssStyles = `
   .btn-ghost { background: transparent; color: var(--text); border: 1px solid #eee; }
   .btn-ghost:hover { background: var(--bg); }
 
+  /* MODALE PROJET */
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(57, 57, 57, 0.32); opacity: 0; pointer-events: none; transition: opacity 0.22s ease; z-index: 1000; }
+  .modal-backdrop.open { opacity: 1; pointer-events: auto; }
+  .project-modal { position: fixed; top: 0; right: 0; bottom: 0; width: 440px; max-width: 94vw; background: #fff; box-shadow: -10px 0 32px rgba(0, 0, 0, 0.10); transform: translateX(100%); transition: transform 0.28s cubic-bezier(.2, .8, .2, 1); z-index: 1001; display: flex; flex-direction: column; font-family: 'Open Sans', sans-serif; }
+  .project-modal.open { transform: translateX(0); }
+  .modal-close { position: absolute; top: 14px; right: 16px; width: 32px; height: 32px; border-radius: 50%; background: #f5f4f4; border: none; cursor: pointer; font-size: 18px; color: var(--muted); line-height: 1; display: flex; align-items: center; justify-content: center; transition: background 0.15s, color 0.15s; }
+  .modal-close:hover { background: #eaeaea; color: var(--text); }
+  .modal-head { padding: 22px 60px 16px 24px; border-bottom: 1px solid #eee; background: linear-gradient(180deg, #fafafa 0%, #fff 100%); }
+  .modal-head-persona { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--green); background: var(--green-soft); padding: 3px 9px; border-radius: 4px; margin-bottom: 8px; }
+  .modal-title { font-size: 18px; font-weight: 700; color: var(--text); line-height: 1.3; margin-bottom: 4px; }
+  .modal-sub { font-size: 12px; color: var(--muted); }
+  .modal-etat-badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 3px; letter-spacing: 0.3px; text-transform: uppercase; margin-right: 8px; }
+  .modal-etat-badge.active { color: var(--green); background: var(--green-soft); }
+  .modal-etat-badge.ready { color: #ffffff; background: var(--green); }
+  .modal-etat-badge.pending { color: #8a6200; background: var(--orange-soft); }
+  .modal-body { flex: 1; overflow-y: auto; padding: 20px 24px 28px; }
+  .modal-section { margin-bottom: 22px; }
+  .modal-section-title { display: flex; justify-content: space-between; align-items: baseline; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+  .modal-section-meta { font-size: 11px; color: var(--text); font-weight: 700; text-transform: none; letter-spacing: normal; }
+  .modal-section-meta.ok { color: var(--green); }
+  .modal-section-meta.partial { color: var(--orange); }
+  .modal-budget-range { display: flex; justify-content: space-between; align-items: baseline; font-size: 11.5px; color: var(--muted); margin-bottom: 8px; }
+  .modal-budget-range strong { color: var(--text); font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .modal-budget-med { color: var(--text); font-weight: 600; }
+  .modal-budget-bar { position: relative; height: 8px; background: #f0f0f0; border-radius: 4px; overflow: hidden; }
+  .modal-budget-bar-fill { position: absolute; height: 100%; background: #cfe8d5; }
+  .modal-budget-bar-tick { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--green-dark); }
+  .modal-budget-fixed { padding: 14px 16px; background: var(--green-soft); border-left: 3px solid var(--green); border-radius: 6px; font-size: 13px; color: var(--text); line-height: 1.6; }
+  .modal-budget-fixed-check { display: inline-flex; width: 18px; height: 18px; border-radius: 50%; background: var(--green); color: #fff; font-size: 11px; font-weight: 700; align-items: center; justify-content: center; margin-right: 8px; vertical-align: middle; }
+  .modal-budget-fixed-amount { font-size: 20px; font-weight: 700; color: var(--green-dark); font-variant-numeric: tabular-nums; }
+  .modal-budget-fixed-amount .unit { font-size: 13px; font-weight: 600; margin-left: 2px; }
+  .modal-crit { display: grid; grid-template-columns: 20px 1fr auto; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px dashed #eee; font-size: 12px; }
+  .modal-crit:last-child { border-bottom: none; }
+  .modal-crit-bullet { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; line-height: 1; }
+  .modal-crit-bullet.ok { background: var(--green-soft); color: var(--green); }
+  .modal-crit-bullet.miss { background: var(--red-soft); color: var(--red); }
+  .modal-crit-label { color: var(--text); font-weight: 600; }
+  .modal-crit-value { color: var(--muted); font-size: 11px; text-align: right; }
+  .modal-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .modal-stat { background: #fafafa; border-radius: 8px; padding: 12px 10px; text-align: center; }
+  .modal-stat-val { font-size: 22px; font-weight: 700; color: var(--text); line-height: 1; font-variant-numeric: tabular-nums; }
+  .modal-stat-lab { font-size: 10.5px; color: var(--muted); margin-top: 5px; line-height: 1.3; }
+  .modal-privacy { display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; background: #f9fafc; border: 1px solid #eef0f5; border-radius: 6px; font-size: 10.5px; color: var(--muted); line-height: 1.4; }
+  .modal-privacy-icon { font-size: 12px; line-height: 1.3; }
+
   @media (max-width: 1100px) {
     .personas-row { grid-template-columns: repeat(3, 1fr); }
     .focus-body { grid-template-columns: 1fr; }
@@ -328,25 +518,161 @@ const cssStyles = `
     .mini-kpis { grid-template-columns: repeat(3, 1fr); gap: 16px; }
     .secondary-row { gap: 32px; }
   }
+  @media (max-width: 600px) {
+    .project-modal { width: 100%; }
+  }
 `;
 
-/* Positions des marqueurs (échelle log) */
-const MARK_STYLES = PERIOD_MARKS.map((m, i) => {
-  const pos = daysToPos(m.days);
-  const pct = (pos / 1000) * 100;
-  if (i === 0) return { left: '0', transform: 'none' };
-  if (i === PERIOD_MARKS.length - 1) return { right: '0', transform: 'none', left: 'auto' };
-  return { left: `${pct}%`, transform: 'translateX(-50%)' };
-});
+/* ─── Composant modale projet ─── */
+function ProjectModal({ name, onClose }) {
+  const d = name ? PROJECT_DETAILS[name] : null;
+  const isOpen = Boolean(d);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [isOpen, onClose]);
+
+  if (!d) {
+    return (
+      <>
+        <div className="modal-backdrop" onClick={onClose} />
+        <aside className="project-modal" aria-hidden="true" />
+      </>
+    );
+  }
+
+  const dursMatch = d.durs.filter((c) => c.match).length;
+  const souhMatch = d.souhaits.filter((c) => c.match).length;
+
+  const range = d.budgetScaleMax - d.budgetScaleMin;
+  const left = ((d.budgetMin - d.budgetScaleMin) / range) * 100;
+  const width = ((d.budgetMax - d.budgetMin) / range) * 100;
+  const medPos = ((d.budgetMed - d.budgetScaleMin) / range) * 100;
+
+  return (
+    <>
+      <div className="modal-backdrop open" onClick={onClose} />
+      <aside className="project-modal open" role="dialog" aria-hidden="false">
+        <button className="modal-close" onClick={onClose} aria-label="Fermer">×</button>
+        <div className="modal-head">
+          <div className="modal-head-persona">{d.persona}</div>
+          <div className="modal-title">{name}</div>
+          <div className="modal-sub">
+            <span className={`modal-etat-badge ${d.etatCls || 'active'}`}>{d.etat}</span>
+            <span>{d.lastSeen}</span>
+          </div>
+        </div>
+        <div className="modal-body">
+          <div className="modal-section">
+            <div className="modal-section-title">
+              {d.budgetValidated ? 'Financement validé' : (
+                <>Budget recherché <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: 11 }}>(saisi à la découverte)</span></>
+              )}
+            </div>
+            {d.budgetValidated ? (
+              <div className="modal-budget-fixed">
+                <span className="modal-budget-fixed-check">✓</span>
+                Financement à hauteur de{' '}
+                <span className="modal-budget-fixed-amount">
+                  {d.budgetFixed}<span className="unit">k€</span>
+                </span>{' '}
+                accordé
+              </div>
+            ) : (
+              <>
+                <div className="modal-budget-range">
+                  <span>
+                    {d.budgetMin === 0 ? (
+                      <em style={{ color: 'var(--muted)', fontWeight: 400, fontSize: 11.5, fontStyle: 'italic' }}>aucun plancher</em>
+                    ) : (
+                      <><strong>{d.budgetMin}</strong> k€</>
+                    )}
+                  </span>
+                  <span className="modal-budget-med">médian <strong>{d.budgetMed}</strong> k€</span>
+                  <span><strong>{d.budgetMax}</strong> k€</span>
+                </div>
+                <div className="modal-budget-bar">
+                  <div className="modal-budget-bar-fill" style={{ left: `${left}%`, width: `${width}%` }} />
+                  <div className="modal-budget-bar-tick" style={{ left: `${medPos}%` }} />
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="modal-section">
+            <div className="modal-section-title">
+              Critères durs{' '}
+              <span className={`modal-section-meta ${dursMatch === d.durs.length ? 'ok' : 'partial'}`}>
+                {dursMatch} / {d.durs.length}
+              </span>
+            </div>
+            {d.durs.map((c, i) => (
+              <div key={i} className="modal-crit">
+                <span className={`modal-crit-bullet ${c.match ? 'ok' : 'miss'}`}>{c.match ? '✓' : '✗'}</span>
+                <span className="modal-crit-label">{c.label}</span>
+                <span className="modal-crit-value">{c.value}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="modal-section">
+            <div className="modal-section-title">
+              Critères souhaités{' '}
+              <span className={`modal-section-meta ${souhMatch === d.souhaits.length ? 'ok' : 'partial'}`}>
+                {souhMatch} / {d.souhaits.length}
+              </span>
+            </div>
+            {d.souhaits.map((c, i) => (
+              <div key={i} className="modal-crit">
+                <span className={`modal-crit-bullet ${c.match ? 'ok' : 'miss'}`}>{c.match ? '✓' : '✗'}</span>
+                <span className="modal-crit-label">{c.label}</span>
+                <span className="modal-crit-value">{c.value}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="modal-section">
+            <div className="modal-section-title">Parcours de recherche</div>
+            <div className="modal-stats">
+              <div className="modal-stat">
+                <div className="modal-stat-val">{d.stats.vus}</div>
+                <div className="modal-stat-lab">biens consultés</div>
+              </div>
+              <div className="modal-stat">
+                <div className="modal-stat-val">{d.stats.fav}</div>
+                <div className="modal-stat-lab">favoris</div>
+              </div>
+              <div className="modal-stat">
+                <div className="modal-stat-val">{d.stats.vis}</div>
+                <div className="modal-stat-lab">visites programmées</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="modal-privacy">
+            <span className="modal-privacy-icon">🔒</span>
+            <span>Projet anonymisé — seul l'agent mandataire peut révéler le contact acquéreur via la fiche projet dédiée.</span>
+          </div>
+        </div>
+      </aside>
+    </>
+  );
+}
 
 export default function Step4TensionMarche() {
-  const [sliderPos, setSliderPos] = useState(() => daysToPos(90));
   const [activePersona, setActivePersona] = useState('familles');
+  const [openedProject, setOpenedProject] = useState(null);
   const [pdfSel, setPdfSel] = useState({ act1: true, act2: true, act3: true });
 
-  const days = posToDays(sliderPos);
-  const P = useMemo(() => interp(days), [days]);
-
+  const P = PERIOD;
   const OFFRE_SNAPSHOT = 7;
   const tension = (P.total / OFFRE_SNAPSHOT).toFixed(1).replace('.', ',');
 
@@ -365,7 +691,10 @@ export default function Step4TensionMarche() {
     setPdfSel({ act1: next, act2: next, act3: next });
   };
 
-  // Scroll le bien pour que la pdf-bar ne cache rien
+  // Histogramme budgets — mode = indice de la tranche la plus représentée
+  const maxDist = Math.max(...P.dist);
+  const modeIdx = P.dist.indexOf(maxDist);
+
   useEffect(() => {
     document.body.style.paddingBottom = '70px';
     return () => { document.body.style.paddingBottom = ''; };
@@ -391,42 +720,11 @@ export default function Step4TensionMarche() {
           Projets d'achat actifs dans votre périmètre dont les critères matchent votre bien LYN-2026-00847.
         </div>
 
-        <div className="period-filter">
-          <div className="period-filter-label">
-            Entrés en recherche depuis
-            <span className="period-current-inline">{formatDays(P.days)}</span>
-          </div>
-          <div className="period-slider-wrap">
-            <input
-              type="range"
-              min="0"
-              max="1000"
-              step="1"
-              value={sliderPos}
-              className="period-slider"
-              aria-label="Filtre fraîcheur des projets d'achat, de 7 à 365 jours"
-              onChange={(e) => setSliderPos(parseInt(e.target.value, 10))}
-            />
-            <div className="period-marks">
-              {PERIOD_MARKS.map((m, i) => (
-                <span
-                  key={m.idx}
-                  style={MARK_STYLES[i]}
-                  className={P.days === m.days ? 'active' : ''}
-                  onClick={() => setSliderPos(daysToPos(m.days))}
-                >
-                  {m.label}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-
         <div className="hero-zone">
           <div className="hero-number">{P.total}</div>
-          <div className="hero-label">projets d'achat qualifiés sur votre bien</div>
+          <div className="hero-label">projets d'achat qui recherchent un bien comme le vôtre</div>
           <div className="hero-sub">
-            Sur <span>{P.pool}</span> profils actifs dans le périmètre Lyon 3ème (rayon 1,5 km) · Score de compatibilité &gt; 0,50 après filtres durs.
+            Sur <span>{P.pool}</span> profils actifs dans le périmètre Lyon 3ème (rayon 1,5 km), entrés en recherche il y a moins d'1 an · Critères durs matchés : localisation, surface, typologie, DPE.
           </div>
         </div>
 
@@ -434,8 +732,8 @@ export default function Step4TensionMarche() {
           <div className="secondary-kpi">
             <div className="secondary-number accent">{P.forts}</div>
             <div className="secondary-label">
-              en forte compatibilité<br />
-              <span style={{ opacity: 0.7 }}>(score &gt; 0,75)</span>
+              avec critères parfaits<br />
+              <span style={{ opacity: 0.7 }}>(tous crit. durs + souhaits)</span>
             </div>
           </div>
           <div className="secondary-sep"></div>
@@ -445,9 +743,40 @@ export default function Step4TensionMarche() {
               <span style={{ fontSize: 20 }}>&nbsp;k€</span>
             </div>
             <div className="secondary-label">
-              budget médian<br />
+              budget médian recherché<br />
               <span style={{ opacity: 0.7 }}>sur ces <span>{P.total}</span> projets</span>
             </div>
+          </div>
+        </div>
+
+        {/* Distribution par tranche de plafond */}
+        <div className="budget-dist">
+          <div className="budget-dist-header">
+            <div className="budget-dist-title">Distribution par tranche de plafond</div>
+            <div className="budget-dist-hint">Classement par plafond de budget (tranche haute). Ces tranches alimenteront la fixation du prix à l'étape suivante.</div>
+          </div>
+          <div className="budget-dist-highlight">
+            <span className="budget-dist-highlight-label">Plafond de budget le plus fréquent</span>
+            <span className="budget-dist-highlight-value">{BUCKETS[modeIdx].label} k€</span>
+            <span className="budget-dist-highlight-count">
+              <strong>{maxDist}</strong> projets plafonnent ici, sur <span>{P.total}</span>
+            </span>
+          </div>
+          <div className="budget-dist-bars">
+            {BUCKETS.map((b, i) => {
+              const count = P.dist[i];
+              const pct = maxDist > 0 ? (count / maxDist) * 100 : 0;
+              const isMode = i === modeIdx;
+              return (
+                <div key={b.label} className={`budget-bar-row${isMode ? ' mode' : ''}`}>
+                  <div className="budget-bar-label">{b.label} k€</div>
+                  <div className="budget-bar-track">
+                    <div className={`budget-bar-fill${isMode ? ' mode' : ''}`} style={{ width: `${pct}%` }} />
+                  </div>
+                  <div className="budget-bar-count">{count}</div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -501,13 +830,7 @@ export default function Step4TensionMarche() {
             >
               <div className="persona-count">{P.personas[key]}</div>
               <div className="persona-name">{p.name}</div>
-              <div className="persona-sub">
-                {key === 'familles' && 'couple + enfants'}
-                {key === 'investisseurs' && 'locatif / rendement'}
-                {key === 'primo' && '1ère acquisition'}
-                {key === 'retraites' && 'logement plus petit / pied-à-terre'}
-                {key === 'mono' && 'parent + enfant(s)'}
-              </div>
+              <div className="persona-sub">{p.sub}</div>
             </div>
           ))}
         </div>
@@ -534,8 +857,10 @@ export default function Step4TensionMarche() {
                     <span className="need-bullet" style={{ color: n.match ? 'var(--green)' : 'var(--red)' }}>
                       {n.match ? '✓' : '✗'}
                     </span>
-                    <span dangerouslySetInnerHTML={{ __html: n.txt }} />
-                    <span className={`need-tag${n.tagMatch ? '' : ' miss'}`}>{n.tag}</span>
+                    <span>
+                      {n.txt}
+                      <span className={`need-tag${n.tagMatch ? '' : ' miss'}`}>{n.tag}</span>
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -544,7 +869,15 @@ export default function Step4TensionMarche() {
               <h4>Top projets d'achat de ce profil</h4>
               <div className="buyer-list">
                 {shownBuyers.map((b) => (
-                  <div key={b.rank} className="buyer-row">
+                  <div
+                    key={b.rank}
+                    className="buyer-row"
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`Ouvrir le détail du projet ${b.name}`}
+                    onClick={() => setOpenedProject(b.name)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpenedProject(b.name); } }}
+                  >
                     <span className="buyer-rank">#{b.rank}</span>
                     <span className="buyer-name">{b.name}</span>
                     <span className="buyer-budget">{b.budget}</span>
@@ -631,7 +964,7 @@ export default function Step4TensionMarche() {
         </div>
 
         <div className="leviers-title">Leviers chiffrés pour capter davantage de demande</div>
-        <div className="leviers-sub">Actions concrètes — chaque levier est estimé en gain de projets forts et en coût.</div>
+        <div className="leviers-sub">Actions concrètes sur le bien — le levier prix sera simulé à l'étape suivante.</div>
 
         <div className="leviers-grid">
           <div className="levier-card">
@@ -639,18 +972,18 @@ export default function Step4TensionMarche() {
               <div className="levier-title">Passer DPE D → C</div>
               <span className="levier-badge">Actionnable</span>
             </div>
-            <div className="levier-impact"><span className="plus">+4</span> forts</div>
+            <div className="levier-impact"><span className="plus">+4</span> projets</div>
             <div className="levier-cost">Coût estimé : <strong>~8 000 €</strong> (travaux isolation + fenêtres)</div>
-            <div className="levier-desc">Débloque 4 projets avec critère énergie dur · ROI estimé sur prix de vente +2 à +3%.</div>
+            <div className="levier-desc">Débloque 4 projets avec critère énergie dur.</div>
           </div>
-          <div className="levier-card">
+          <div className="levier-card teaser">
             <div className="levier-header">
-              <div className="levier-title">Négocier prix -3% (295 k€)</div>
-              <span className="levier-badge">Actionnable</span>
+              <div className="levier-title">Levier prix</div>
+              <span className="levier-badge teaser-badge">Étape suivante</span>
             </div>
-            <div className="levier-impact"><span className="plus">+3</span> forts</div>
-            <div className="levier-cost">Impact : <strong>-10 000 €</strong> sur prix de vente</div>
-            <div className="levier-desc">Fait entrer 3 projets investisseurs et 1 primo-accédant dans la fourchette «forte compatibilité».</div>
+            <div className="levier-impact teaser-arrow">→</div>
+            <div className="levier-cost"><strong>Simulateur de prix</strong> basé sur la distribution des budgets ci-dessus.</div>
+            <div className="levier-desc">À l'étape Avis de valeur, vous verrez combien de projets vous captez selon le prix fixé.</div>
           </div>
         </div>
       </section>
@@ -678,6 +1011,8 @@ export default function Step4TensionMarche() {
           </button>
         </div>
       </div>
+
+      <ProjectModal name={openedProject} onClose={() => setOpenedProject(null)} />
     </div>
   );
 }
