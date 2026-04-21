@@ -276,6 +276,102 @@ const cssStyles = `
     cursor: pointer;
   }
 
+  /* ── Double-range slider (prix) ──────────────────────── */
+  .price-dual {
+    position: relative;
+    height: 46px;
+    padding: 0 4px;
+    margin-top: 4px;
+  }
+  .price-dual-track {
+    position: absolute;
+    top: 18px;
+    left: 4px;
+    right: 4px;
+    height: 10px;
+    border-radius: 5px;
+    /* dégradé = densité de biens par tranche de prix */
+    background: linear-gradient(
+      to right,
+      #fdecec 0%,
+      #fef5e6 10%,
+      #e8f6ec 25%,
+      #46B962 40%,
+      #46B962 55%,
+      #e8f6ec 70%,
+      #fef5e6 85%,
+      #fdecec 100%
+    );
+    border: 1px solid #e5e5e5;
+    overflow: hidden;
+  }
+  .price-dual-selected {
+    position: absolute;
+    top: 18px;
+    height: 10px;
+    border-radius: 5px;
+    border: 2px solid #46B962;
+    background: transparent;
+    pointer-events: none;
+    box-sizing: border-box;
+  }
+  .price-dual input[type="range"] {
+    position: absolute;
+    top: 18px;
+    left: 0;
+    width: 100%;
+    height: 10px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    pointer-events: none;
+    margin: 0;
+    padding: 0;
+  }
+  .price-dual input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid #46B962;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+    cursor: pointer;
+    pointer-events: auto;
+    position: relative;
+    z-index: 2;
+  }
+  .price-dual input[type="range"]::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid #46B962;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+    cursor: pointer;
+    pointer-events: auto;
+  }
+  .price-dual-labels {
+    position: absolute;
+    top: 34px;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: #666;
+    padding: 0 4px;
+  }
+  .price-dual-labels strong {
+    color: #393939;
+    font-weight: 700;
+  }
+  .price-dual-labels .count {
+    color: #46B962;
+    font-weight: 600;
+  }
+
   /* ADD FILTER CHIPS */
   .filter-add-row {
     display: flex;
@@ -1706,13 +1802,77 @@ export default function Step3Comparables() {
           </div>
           <div className="filter-item">
             <div className="filter-item-label">Fourchette de prix <span className="chip-close">&times;</span></div>
-            <div className="filter-range">
-              <input type="number" value={prixMin} min="0" max="2000000" step="5000" onChange={(e) => setPrixMin(Number(e.target.value))} />
-              <span className="sep">&agrave;</span>
-              <input type="number" value={prixMax} min="0" max="2000000" step="5000" onChange={(e) => setPrixMax(Number(e.target.value))} />
-              <span className="unit">&euro;</span>
-            </div>
-            <div className="filter-hint">Soit {Math.round(prixMin / 72.5).toLocaleString('fr-FR')} &mdash; {Math.round(prixMax / 72.5).toLocaleString('fr-FR')} &euro;/m&sup2; &mdash; <strong style={{ color: '#46B962' }}>{filteredCount} biens</strong></div>
+            {(() => {
+              // Distribution des biens par tranche de 10k€ (gaussienne ~ centrée 300k)
+              // Total ≈ ALL_COMPS_COUNT sur la zone. Sert uniquement à afficher
+              // les compteurs aux extrémités du slider.
+              const PRICE_MIN_SCALE = 100000;
+              const PRICE_MAX_SCALE = 600000;
+              const biensAtPrice = (p) => {
+                // Cloche centrée 300k€, σ ≈ 70k. Max ≈ 43 biens, min 2.
+                const center = 300000;
+                const sigma = 70000;
+                const peak = 43;
+                const val = peak * Math.exp(-Math.pow(p - center, 2) / (2 * sigma * sigma));
+                return Math.max(2, Math.round(val));
+              };
+              const leftPct  = ((prixMin - PRICE_MIN_SCALE) / (PRICE_MAX_SCALE - PRICE_MIN_SCALE)) * 100;
+              const rightPct = ((prixMax - PRICE_MIN_SCALE) / (PRICE_MAX_SCALE - PRICE_MIN_SCALE)) * 100;
+              const nMin = biensAtPrice(prixMin);
+              const nMax = biensAtPrice(prixMax);
+              return (
+                <>
+                  <div className="price-dual">
+                    <div className="price-dual-track" />
+                    <div
+                      className="price-dual-selected"
+                      style={{
+                        left: `calc(${Math.max(0, Math.min(100, leftPct))}% + 4px)`,
+                        width: `calc(${Math.max(0, rightPct - leftPct)}% - 0px)`,
+                      }}
+                    />
+                    <input
+                      type="range"
+                      min={PRICE_MIN_SCALE}
+                      max={PRICE_MAX_SCALE}
+                      step={5000}
+                      value={prixMin}
+                      onChange={(e) => {
+                        const v = Number(e.target.value);
+                        setPrixMin(Math.min(v, prixMax - 5000));
+                      }}
+                      aria-label="Prix minimum"
+                    />
+                    <input
+                      type="range"
+                      min={PRICE_MIN_SCALE}
+                      max={PRICE_MAX_SCALE}
+                      step={5000}
+                      value={prixMax}
+                      onChange={(e) => {
+                        const v = Number(e.target.value);
+                        setPrixMax(Math.max(v, prixMin + 5000));
+                      }}
+                      aria-label="Prix maximum"
+                    />
+                    <div className="price-dual-labels">
+                      <span>
+                        <strong>{(prixMin / 1000).toFixed(0)} k&euro;</strong> &middot;{' '}
+                        <span className="count">{nMin} biens</span>
+                      </span>
+                      <span>
+                        <strong>{(prixMax / 1000).toFixed(0)} k&euro;</strong> &middot;{' '}
+                        <span className="count">{nMax} biens</span>
+                      </span>
+                    </div>
+                  </div>
+                  <div className="filter-hint" style={{ marginTop: 14 }}>
+                    Soit {Math.round(prixMin / 72.5).toLocaleString('fr-FR')} &mdash; {Math.round(prixMax / 72.5).toLocaleString('fr-FR')} &euro;/m&sup2; &mdash;{' '}
+                    <strong style={{ color: '#46B962' }}>{filteredCount} biens</strong> dans la fourchette
+                  </div>
+                </>
+              );
+            })()}
           </div>
           <div className="filter-item">
             <div className="filter-item-label">Anciennet&eacute; max <span className="chip-close">&times;</span></div>
