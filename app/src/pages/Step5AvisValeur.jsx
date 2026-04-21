@@ -917,7 +917,7 @@ export default function Step5AvisValeur() {
           <div className="demand-hero-row">
             <div className="demand-big-wrap">
               <div className="demand-big-number" style={{ color: demandColor }}>{budgetMatch}</div>
-              <div className="demand-big-label">acqu&eacute;reurs<br/>potentiels</div>
+              <div className="demand-big-label">projets<br/>d&apos;achat</div>
             </div>
             <div className="demand-gauge-wrap">
               <div className="demand-price-display">
