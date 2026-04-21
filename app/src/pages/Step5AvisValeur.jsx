@@ -758,7 +758,9 @@ export default function Step5AvisValeur() {
   });
 
   const ppm = Math.round(sliderValue / surface);
-  const ratio = allMatch / totalAcquereurs;
+  // Le hero affiche les acquéreurs budget-compatibles (seul critère impacté par le prix).
+  // À prix minimum, tous les acquéreurs de la zone sont potentiellement intéressés.
+  const ratio = budgetMatch / totalAcquereurs;
   const budgetPct = Math.round((budgetMatch / totalAcquereurs) * 100);
 
   const demandColor = ratio >= 0.5 ? '#46B962' : ratio >= 0.25 ? '#f5a623' : '#e74c3c';
@@ -808,28 +810,28 @@ export default function Step5AvisValeur() {
 
   const getCriteriaClass = (pct) => pct >= 60 ? 'match' : pct >= 35 ? 'partial' : 'low';
 
-  // Verdict
+  // Verdict — basé sur le nombre d'acquéreurs budget-compatibles
   let verdictClass, verdictIcon, verdictTitle, verdictDesc;
-  if (ratio >= 0.45) {
+  if (ratio >= 0.6) {
     verdictClass = 'good';
     verdictIcon = '\uD83D\uDFE2';
     verdictTitle = 'Forte ad\u00E9quation prix / demande';
-    verdictDesc = `\u00C0 ${formatPrice(sliderValue)}, ${allMatch} acqu\u00E9reurs sur ${totalAcquereurs} matchent tous les crit\u00E8res \u2014 ratio ${budgetPct}% budget compatible. Potentiel de mise en concurrence.`;
-  } else if (ratio >= 0.25) {
+    verdictDesc = `\u00C0 ${formatPrice(sliderValue)}, ${budgetMatch} acqu\u00E9reurs sur ${totalAcquereurs} ont le budget compatible (${budgetPct}%). Potentiel de mise en concurrence.`;
+  } else if (ratio >= 0.35) {
     verdictClass = 'medium';
     verdictIcon = '\uD83D\uDFE0';
     verdictTitle = 'Ad\u00E9quation mod\u00E9r\u00E9e';
-    verdictDesc = `\u00C0 ${formatPrice(sliderValue)}, ${allMatch} acqu\u00E9reurs matchent \u2014 ${budgetPct}% ont le budget. Le nombre d'acqu\u00E9reurs compatibles diminue, ce qui allonge le d\u00E9lai de vente estim\u00E9.`;
+    verdictDesc = `\u00C0 ${formatPrice(sliderValue)}, ${budgetMatch} acqu\u00E9reurs sur ${totalAcquereurs} ont le budget compatible (${budgetPct}%). Le nombre d'acqu\u00E9reurs diminue, ce qui allonge le d\u00E9lai de vente estim\u00E9.`;
   } else if (ratio >= 0.1) {
     verdictClass = 'bad';
     verdictIcon = '\uD83D\uDD34';
     verdictTitle = 'Faible demande \u00E0 ce prix';
-    verdictDesc = `\u00C0 ${formatPrice(sliderValue)}, seulement ${allMatch} acqu\u00E9reur${allMatch > 1 ? 's' : ''} sur ${totalAcquereurs} \u2014 risque de stagnation et n\u00E9gociation forte. Envisager un repositionnement prix.`;
+    verdictDesc = `\u00C0 ${formatPrice(sliderValue)}, seulement ${budgetMatch} acqu\u00E9reur${budgetMatch > 1 ? 's' : ''} sur ${totalAcquereurs} a${budgetMatch > 1 ? 'ient' : ''} le budget \u2014 risque de stagnation et n\u00E9gociation forte. Envisager un repositionnement prix.`;
   } else {
     verdictClass = 'bad';
     verdictIcon = '\uD83D\uDD34';
     verdictTitle = 'Aucun acqu\u00E9reur compatible';
-    verdictDesc = `\u00C0 ${formatPrice(sliderValue)}, aucun acqu\u00E9reur ne matche l'ensemble des crit\u00E8res. Ce prix est d\u00E9connect\u00E9 du march\u00E9 acqu\u00E9reur actuel.`;
+    verdictDesc = `\u00C0 ${formatPrice(sliderValue)}, aucun acqu\u00E9reur n'a le budget. Ce prix est d\u00E9connect\u00E9 du march\u00E9 acqu\u00E9reur actuel.`;
   }
 
   /* ---- Strategy pricing ---- */
@@ -914,7 +916,7 @@ export default function Step5AvisValeur() {
 
           <div className="demand-hero-row">
             <div className="demand-big-wrap">
-              <div className="demand-big-number" style={{ color: demandColor }}>{allMatch}</div>
+              <div className="demand-big-number" style={{ color: demandColor }}>{budgetMatch}</div>
               <div className="demand-big-label">acqu&eacute;reurs<br/>potentiels</div>
             </div>
             <div className="demand-gauge-wrap">
