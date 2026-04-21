@@ -713,8 +713,8 @@ export default function Step4TensionMarche() {
           <label htmlFor="pdf-act1"><span role="img" aria-label="pdf">📄</span> PDF</label>
         </div>
         <div className="act-header">
-          <span className="act-num">ACTE 1</span>
-          <span className="act-title">Il y a une demande réelle sur votre bien</span>
+          <span className="act-num">1</span>
+          <span className="act-title">Demande réelle correspondant à votre bien</span>
         </div>
         <div className="act-subtitle">
           Projets d'achat actifs dans votre périmètre dont les critères matchent votre bien LYN-2026-00847.
@@ -814,8 +814,8 @@ export default function Step4TensionMarche() {
           <label htmlFor="pdf-act2"><span role="img" aria-label="pdf">📄</span> PDF</label>
         </div>
         <div className="act-header">
-          <span className="act-num">ACTE 2</span>
-          <span className="act-title">Qui se cache derrière ces projets d'achat ?</span>
+          <span className="act-num">2</span>
+          <span className="act-title">Profils des acquéreurs potentiels</span>
         </div>
         <div className="act-subtitle">
           5 profils-types se dégagent. Cliquez sur un profil pour voir ses besoins spécifiques et les projets concernés.
@@ -900,8 +900,8 @@ export default function Step4TensionMarche() {
           <label htmlFor="pdf-act3"><span role="img" aria-label="pdf">📄</span> PDF</label>
         </div>
         <div className="act-header">
-          <span className="act-num">ACTE 3</span>
-          <span className="act-title">Ce qui plaît, ce qui freine — et ce que vous pouvez faire</span>
+          <span className="act-num">3</span>
+          <span className="act-title">Atouts et freins du bien face à la demande</span>
         </div>
         <div className="act-subtitle">
           Chaque caractéristique de votre bien notée par la demande réelle (<span>{P.total}</span> projets d'achat). Les leviers sont les actions chiffrées pour mieux correspondre à ce marché.
