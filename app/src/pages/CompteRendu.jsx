@@ -360,7 +360,7 @@ export default function CompteRendu() {
           <h2 style={styles.sectionTitle}>Avis de valeur</h2>
           <div style={styles.card}>
             <div style={{ textAlign: 'center', fontSize: 13, color: '#949494' }}>Prix médian estimé</div>
-            <div style={styles.bigPrice}>305 000 &euro;</div>
+            <div style={styles.bigPrice}>300 000 &euro;</div>
             <div style={styles.priceRange}>
               Fourchette : {avisValeur.prixBas.toLocaleString('fr-FR')} &euro; &mdash; {avisValeur.prixHaut.toLocaleString('fr-FR')} &euro;
             </div>
@@ -540,7 +540,7 @@ export default function CompteRendu() {
             <span style={styles.decompArrow}>&rarr;</span>
             <div style={styles.decompFinal}>
               <div style={{ fontSize: 12 }}>Prix final</div>
-              <div style={{ fontSize: 18 }}>305 000 &euro;</div>
+              <div style={{ fontSize: 18 }}>300 000 &euro;</div>
             </div>
           </div>
         </section>

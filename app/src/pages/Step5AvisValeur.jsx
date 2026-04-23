@@ -713,7 +713,7 @@ export default function Step5AvisValeur() {
   const [selectedStrategy, setSelectedStrategy] = useState(1);
   const [pointsForts, setPointsForts] = useState([...avisValeur.pointsForts]);
   const [pointsVigilance, setPointsVigilance] = useState([...avisValeur.pointsVigilance]);
-  const [customPrice, setCustomPrice] = useState('305000');
+  const [customPrice, setCustomPrice] = useState('300000');
 
   const surface = 72.5;
   const totalAcquereurs = 23;
@@ -836,12 +836,12 @@ export default function Step5AvisValeur() {
 
   /* ---- Strategy pricing ---- */
   const strategies = [
-    { label: 'Agressif', prix: 315000, description: 'Haut de fourchette. Capitalise sur la tension forte.', duration: 'Dur\u00E9e estim\u00E9e: 35-50 jours' },
-    { label: 'March\u00E9', prix: 305000, description: '\u00C9quilibre valorisation et liquidit\u00E9.', duration: 'Dur\u00E9e estim\u00E9e: 40-55 jours', recommended: true },
-    { label: 'Prudent', prix: 290000, description: 'Bas de fourchette. Maximise la rapidit\u00E9.', duration: 'Dur\u00E9e estim\u00E9e: 25-35 jours' },
+    { label: 'Agressif', prix: 310000, description: 'Haut de fourchette. Capitalise sur la tension forte.', duration: 'Dur\u00E9e estim\u00E9e: 35-50 jours' },
+    { label: 'March\u00E9', prix: 300000, description: '\u00C9quilibre valorisation et liquidit\u00E9.', duration: 'Dur\u00E9e estim\u00E9e: 40-55 jours', recommended: true },
+    { label: 'Prudent', prix: 285000, description: 'Bas de fourchette. Maximise la rapidit\u00E9.', duration: 'Dur\u00E9e estim\u00E9e: 25-35 jours' },
   ];
 
-  const estimation = 305000;
+  const estimation = 300000;
   const customVal = parseInt((customPrice || '').replace(/\s/g, ''), 10);
   const deltaValid = !isNaN(customVal) && customVal > 0;
   const deltaPct = deltaValid ? (((customVal - estimation) / estimation) * 100).toFixed(1) : null;
@@ -936,7 +936,7 @@ export default function Step5AvisValeur() {
                 />
                 <div className="demand-slider-labels">
                   <span>250 000 &euro;</span>
-                  <span className="estimation-marker">&#9660; Estimation 305k</span>
+                  <span className="estimation-marker">&#9660; Estimation 300k</span>
                   <span>380 000 &euro;</span>
                 </div>
               </div>
@@ -981,23 +981,14 @@ export default function Step5AvisValeur() {
               </div>
               <div className="decomp-detail">&times; 72.5m&sup2; = 302 470 &euro;</div>
               <div className="decomp-step">
-                <span className="decomp-label">2. Ajustement zone</span>
-                <span className="decomp-value pos">+1.2%</span>
-              </div>
-              <div className="decomp-detail">Accessibilit&eacute; transports +0.8%</div>
-              <div className="decomp-detail">Risque inondation PPRI &minus;0.5%</div>
-              <div className="decomp-detail">Score socio-&eacute;co +0.4%</div>
-              <div className="decomp-detail">March&eacute; en hausse +0.5%</div>
-              <div className="decomp-detail">&rarr; <strong style={{ color: '#46B962' }}>+3 630 &euro;</strong></div>
-              <div className="decomp-step">
-                <span className="decomp-label">3. Impact tension march&eacute;</span>
+                <span className="decomp-label">2. Impact tension march&eacute;</span>
                 <span className="decomp-value pos">+0.7%</span>
               </div>
               <div className="decomp-detail">Ratio demande/offre 3.2x +0.5%</div>
               <div className="decomp-detail">7 acqu&eacute;reurs forte compatibilit&eacute; +0.2%</div>
               <div className="decomp-detail">&rarr; <strong style={{ color: '#46B962' }}>+2 117 &euro;</strong></div>
               <div className="decomp-step">
-                <span className="decomp-label">4. Corrections sp&eacute;cifiques</span>
+                <span className="decomp-label">3. Corrections sp&eacute;cifiques</span>
                 <span className="decomp-value neg">&minus;1.5%</span>
               </div>
               <div className="decomp-detail">DPE D (passoire thermique 2028) &minus;2.0%</div>
@@ -1007,9 +998,9 @@ export default function Step5AvisValeur() {
               <div className="decomp-divider" />
               <div className="decomp-step">
                 <span className="decomp-label decomp-final">AVIS DE VALEUR</span>
-                <span className="decomp-value decomp-final-value">305 000 &euro;</span>
+                <span className="decomp-value decomp-final-value">300 000 &euro;</span>
               </div>
-              <div className="decomp-range">Fourchette: 285 000 &euro; &mdash; 320 000 &euro;</div>
+              <div className="decomp-range">Fourchette: 280 000 &euro; &mdash; 315 000 &euro;</div>
             </div>
 
             <div className="card">
@@ -1150,7 +1141,7 @@ export default function Step5AvisValeur() {
                       date: new Date().toLocaleDateString('fr-FR'),
                       heure: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
                       statut: 'sauvegarde',
-                      prix: '305 000 \u20ac',
+                      prix: '300 000 \u20ac',
                     });
                   } else {
                     exists.date = new Date().toLocaleDateString('fr-FR');

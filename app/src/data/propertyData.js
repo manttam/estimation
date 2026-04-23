@@ -16,17 +16,10 @@ export const property = {
   etage: 4,
   dpe: "D",
   annee: 1972,
-  prix_m2_estime: 4207,
+  prix_m2_estime: 4138,
 };
 
 export const contexteZone = {
-  scores: [
-    { label: "Accessibilité", value: 82, color: "green" },
-    { label: "Services", value: 71, color: "green" },
-    { label: "Environnement", value: 58, color: "orange" },
-    { label: "Risques", value: 34, color: "red" },
-    { label: "Socio-éco", value: 76, color: "green" },
-  ],
   market: {
     prixM2: "4 280",
     evolution: "+2.3%",
@@ -37,37 +30,30 @@ export const contexteZone = {
   sections: [
     {
       title: "Transports & Accessibilité",
-      summary: "Métro 350m · Walkscore 87/100",
-      score: "82/100",
-      color: "green",
+      summary: "Métro Garibaldi 350m · Bus 120m",
       rows: [
+        { lbl: "Bus C3, C9", val: "120m", type: "dist" },
         { lbl: "Métro D — Garibaldi", val: "350m", type: "dist" },
         { lbl: "Tram T3 — Part-Dieu", val: "600m", type: "dist" },
-        { lbl: "Bus C3, C9", val: "120m", type: "dist" },
         { lbl: "Gare Part-Dieu", val: "1.2km", type: "dist" },
-        { lbl: "Centre Bellecour (TC)", val: "12 min", type: "dist" },
-        { lbl: "Walkscore", val: "87/100", type: "green" },
+        { lbl: "Centre Bellecour (TC)", val: "12 min" },
       ],
     },
     {
       title: "Commerces & Services",
-      summary: "Monoprix 200m · 8 restaurants",
-      score: "71/100",
-      color: "green",
+      summary: "Boulangerie 50m · Monoprix 200m",
       rows: [
-        { lbl: "Supermarché (Monoprix)", val: "200m", type: "dist" },
         { lbl: "Boulangerie", val: "50m", type: "dist" },
         { lbl: "Pharmacie", val: "180m", type: "dist" },
+        { lbl: "Supermarché (Monoprix)", val: "200m", type: "dist" },
+        { lbl: "Marché Place Guichard", val: "400m", type: "dist" },
         { lbl: "Bureau de poste", val: "450m", type: "dist" },
         { lbl: "Restaurants < 300m", val: "8 étab." },
-        { lbl: "Marché Place Guichard", val: "400m", type: "dist" },
       ],
     },
     {
       title: "Éducation",
       summary: "Maternelle 250m · Lycée 1.2km",
-      score: "Complet",
-      color: "green",
       rows: [
         { lbl: "Maternelle Voltaire", val: "250m", type: "dist" },
         { lbl: "Primaire Lacassagne", val: "350m", type: "dist" },
@@ -78,36 +64,30 @@ export const contexteZone = {
     },
     {
       title: "Santé",
-      summary: "3 médecins dans 500m · Hôpital 1.5km",
-      score: "Bon",
-      color: "green",
+      summary: "Pharmacie 180m · Hôpital 1.5km",
       rows: [
-        { lbl: "Médecins généralistes", val: "3 dans 500m" },
         { lbl: "Pharmacie de garde", val: "180m", type: "dist" },
-        { lbl: "Hôpital Ed. Herriot", val: "1.5km", type: "dist" },
-        { lbl: "Dentiste", val: "300m", type: "dist" },
         { lbl: "Kinésithérapeute", val: "200m", type: "dist" },
+        { lbl: "Dentiste", val: "300m", type: "dist" },
+        { lbl: "Hôpital Ed. Herriot", val: "1.5km", type: "dist" },
+        { lbl: "Médecins généralistes", val: "3 dans 500m" },
       ],
     },
     {
       title: "Environnement & Cadre de vie",
-      summary: "Air moyenne · Bruit 65dB",
-      score: "58/100",
-      color: "orange",
+      summary: "Jardin 350m · Bruit 65dB",
       rows: [
+        { lbl: "Jardin Place Guichard", val: "350m", type: "dist" },
+        { lbl: "Parc Bazin", val: "400m", type: "dist" },
         { lbl: "Qualité air", val: "Moyenne" },
         { lbl: "Indice ATMO", val: "3/6" },
         { lbl: "Bruit routier", val: "65 dB (cl. 3)" },
-        { lbl: "Parc Bazin", val: "400m", type: "dist" },
-        { lbl: "Jardin Place Guichard", val: "350m", type: "dist" },
-        { lbl: "Sols pollués (BASIAS)", val: "Aucun < 500m", type: "risk-ok" },
+        { lbl: "Sols pollués (BASIAS)", val: "Aucun < 500m" },
       ],
     },
     {
       title: "Risques & Aléas",
       summary: "Inondation modérée · Décote -3 à -5%",
-      score: "34/100",
-      color: "red",
       rows: [
         { lbl: "PPRI — Inondation", val: "Risque modéré", type: "risk-warn" },
         { lbl: "Sismicité", val: "Zone 2 (faible)", type: "risk-ok" },
@@ -120,8 +100,6 @@ export const contexteZone = {
     {
       title: "Données socio-économiques (INSEE)",
       summary: "Revenu médian 28 400€ · Chômage 9.2%",
-      score: "76/100",
-      color: "green",
       rows: [
         { lbl: "Revenu médian ménages/an", val: "28 400 €" },
         { lbl: "Taux de chômage", val: "9.2%" },
@@ -249,19 +227,18 @@ export const tensionMarche = {
 };
 
 export const avisValeur = {
-  prixBas: 285000,
-  prixMedian: 305000,
-  prixHaut: 320000,
-  prixM2: 4207,
+  prixBas: 280000,
+  prixMedian: 300000,
+  prixHaut: 315000,
+  prixM2: 4138,
   amplitude: 5.7,
   confiance: 78,
   decomposition: [
     { step: "Médiane comparables", value: "4 172 €/m²", detail: "Moyenne pondérée 5 comparables" },
-    { step: "Ajustement zone", value: "+1.2%", detail: "Score zone 81/100 vs référence 75" },
     { step: "Impact tension", value: "+0.7%", detail: "Ratio demande/offre 3.2x" },
     { step: "Corrections spécifiques", value: "-1.5%", detail: "Travaux copro 15k€ · DPE D" },
   ],
-  prixFinal: "305 000 €",
+  prixFinal: "300 000 €",
   comparablesTable: [
     { source: "DVF", adresse: "Villeroy", surface: "68m²", prixM2: "3 206 €", ajust: "-4.1%", poids: "30%" },
     { source: "Ideeri", adresse: "Lacassagne", surface: "75m²", prixM2: "3 360 €", ajust: "+4.7%", poids: "25%" },
@@ -271,7 +248,7 @@ export const avisValeur = {
   ],
   pointsForts: [
     "5 acquéreurs actifs à forte compatibilité (score > 0.80)",
-    "Localisation premium : métro à 350m, commerces excellents",
+    "Localisation premium : métro Garibaldi à 350m, bus à 120m, commerces de proximité (boulangerie 50m, pharmacie 180m, Monoprix 200m)",
     "Ascenseur + balcon 5.2m² — critères très recherchés",
     "DPE D avec potentiel C post-travaux",
     "Quartier en hausse : +2.3% sur 12 mois",
@@ -286,9 +263,9 @@ export const avisValeur = {
     "Bruit routier 65dB — classement 3",
   ],
   strategies: [
-    { label: "Agressif", prix: 315000, description: "Haut de marché · Délai vente ~65j" },
-    { label: "Marché", prix: 305000, description: "Prix cohérent · Délai ~42j", recommended: true },
-    { label: "Prudent", prix: 290000, description: "Vente rapide · Délai ~25j" },
+    { label: "Agressif", prix: 310000, description: "Haut de marché · Délai vente ~65j" },
+    { label: "Marché", prix: 300000, description: "Prix cohérent · Délai ~42j", recommended: true },
+    { label: "Prudent", prix: 285000, description: "Vente rapide · Délai ~25j" },
   ],
   acquereurs: [
     { id: 1, budget: 260000, type: "T3", surface: 65, localisation: "Lyon 3", dpe: "D", score: 0.89 },
