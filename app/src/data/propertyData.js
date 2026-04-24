@@ -1,3 +1,142 @@
+// ---------------------------------------------------------------------------
+// Personnalisation agence (V2) — données fictives, remplaçables via back-office
+// ---------------------------------------------------------------------------
+export const agence = {
+  nom: "Agence Immobilière de Lyon",
+  logo: "https://placehold.co/240x80/46B962/ffffff?text=AGENCE+LYON",
+  adresse: "45 rue de la République, 69002 Lyon",
+  tel: "04 78 00 00 00",
+  email: "contact@agence-lyon.fr",
+  siteWeb: "www.agence-lyon.fr",
+  carteT: "CPI 6901 2020 000 000 001",
+  rcs: "RCS Lyon 123 456 789",
+  couleurPrimaire: "#46B962",
+  couleurSecondaire: "#393939",
+  mentionsComplementaires: "Activité non soumise à garantie financière",
+};
+
+export const agent = {
+  nom: "Marie Dupont",
+  fonction: "Conseillère en immobilier",
+  photo: "https://placehold.co/160x160/393939/ffffff?text=MD",
+  telDirect: "06 00 00 00 00",
+  email: "marie.dupont@agence-lyon.fr",
+  signature: null,
+};
+
+export const mandant = {
+  civilite: "Madame",
+  nom: "Bertrand",
+  prenom: "Sophie",
+  adresseCorrespondance: "12 rue des Lilas, 69003 Lyon",
+};
+
+// ---------------------------------------------------------------------------
+// Personas d'acquéreurs (utilisés dans Step4 ET dans la section détaillée
+// du rapport mandant V2). Dataset partagé pour cohérence.
+// ---------------------------------------------------------------------------
+export const personasAcquereurs = {
+  familles: {
+    key: "familles",
+    name: "Familles",
+    sub: "couple + enfants",
+    count: 8,
+    budget: "295 k€",
+    delai: "3 mois",
+    compat: "0,74",
+    needs: [
+      { txt: "École primaire < 500 m", match: true, tag: "École Lamartine 320 m" },
+      { txt: "Espace extérieur (balcon/terrasse)", match: true, tag: "6 m² de balcon" },
+      { txt: "T3 minimum, 2 chambres séparées", match: true, tag: "T3 / 2 ch." },
+      { txt: "Quartier calme le soir", match: true, tag: "Rue peu passante" },
+      { txt: "Parking ou place de stationnement", match: false, tag: "Non disponible" },
+      { txt: "Ascenseur (poussette)", match: false, tag: "3ème sans ascenseur" },
+    ],
+    buyers: [
+      { rank: 1, name: "Famille #F047", budget: "305 k€", score: "0,88" },
+      { rank: 2, name: "Famille #F112", budget: "290 k€", score: "0,81" },
+      { rank: 3, name: "Famille #F203", budget: "310 k€", score: "0,76" },
+    ],
+  },
+  investisseurs: {
+    key: "investisseurs",
+    name: "Investisseurs",
+    sub: "locatif / rendement",
+    count: 5,
+    budget: "280 k€",
+    delai: "1 mois",
+    compat: "0,68",
+    needs: [
+      { txt: "Rendement brut > 4,5%", match: true, tag: "Estimé 4,7%" },
+      { txt: "Quartier étudiant / cadre", match: true, tag: "Lyon 3ème" },
+      { txt: "Bien déjà loué ou meublé possible", match: false, tag: "Vide" },
+      { txt: "DPE E ou mieux (loi climat)", match: true, tag: "DPE D" },
+      { txt: "Charges copropriété < 2 000 €/an", match: true, tag: "1 850 €/an" },
+      { txt: "Travaux récents ou aucun à prévoir", match: false, tag: "Rafraîchissement à prévoir" },
+    ],
+    buyers: [
+      { rank: 1, name: "Invest. #I021", budget: "285 k€", score: "0,79" },
+      { rank: 2, name: "Invest. #I044", budget: "270 k€", score: "0,72" },
+    ],
+  },
+  primo: {
+    key: "primo",
+    name: "Primo-accédants",
+    sub: "1ère acquisition",
+    count: 4,
+    budget: "268 k€",
+    delai: "4 mois",
+    compat: "0,65",
+    needs: [
+      { txt: "Budget serré, prêt PTZ éligible", match: true, tag: "Zone B1 → PTZ possible" },
+      { txt: "Proximité transports publics", match: true, tag: "Métro Part-Dieu 450 m" },
+      { txt: "Charges copropriété faibles", match: true, tag: "1 850 €/an" },
+      { txt: "Pas de gros travaux", match: true, tag: "État correct" },
+      { txt: "DPE C ou mieux (éviter passoire)", match: false, tag: "DPE D" },
+    ],
+    buyers: [
+      { rank: 1, name: "Primo #P008", budget: "275 k€", score: "0,71" },
+      { rank: 2, name: "Primo #P031", budget: "265 k€", score: "0,63" },
+    ],
+  },
+  retraites: {
+    key: "retraites",
+    name: "Retraités",
+    sub: "pied-à-terre / downsizing",
+    count: 3,
+    budget: "340 k€",
+    delai: "6 mois",
+    compat: "0,61",
+    needs: [
+      { txt: "Ascenseur obligatoire", match: false, tag: "3ème sans ascenseur" },
+      { txt: "Pied-à-terre / résidence secondaire", match: true, tag: "T3 cohérent" },
+      { txt: "Commerces de proximité", match: true, tag: "Rue commerçante" },
+      { txt: "Quartier calme et sécurisé", match: true, tag: "Quartier résidentiel" },
+      { txt: "Terrasse ou balcon spacieux", match: true, tag: "6 m² balcon" },
+    ],
+    buyers: [{ rank: 1, name: "Retraité #R014", budget: "350 k€", score: "0,67" }],
+  },
+  mono: {
+    key: "mono",
+    name: "Mono-parentaux",
+    sub: "parent + enfant(s)",
+    count: 3,
+    budget: "278 k€",
+    delai: "2 mois",
+    compat: "0,69",
+    needs: [
+      { txt: "École primaire proche", match: true, tag: "Lamartine 320 m" },
+      { txt: "2 chambres séparées", match: true, tag: "T3 adapté" },
+      { txt: "Quartier sécurisé", match: true, tag: "Lyon 3ème résidentiel" },
+      { txt: "Place de parking sécurisée", match: false, tag: "Non disponible" },
+    ],
+    buyers: [
+      { rank: 1, name: "Mono #M019", budget: "285 k€", score: "0,74" },
+      { rank: 2, name: "Mono #M027", budget: "270 k€", score: "0,68" },
+    ],
+  },
+};
+
 export const property = {
   title: "Vente Appartement T3 à Lyon 3ème",
   reference: "LYN-2026-00847",
@@ -117,19 +256,34 @@ export const comparables = [
   {
     id: 1,
     source: "DVF",
+    sourceLabel: "Transaction DVF vérifiée",
     type: "Appartement T3",
     surface: 68,
+    pieces: 3,
+    chambres: 2,
     adresse: "rue Villeroy, Lyon 3",
     prix: 218000,
     prixM2: 3206,
     date: "Avr. 2025",
+    dateISO: "2025-04-15",
     distance: 420,
     etage: 2,
+    etageMax: 5,
     selected: true,
     poids: 0.30,
     similarite: 72,
     donnees: 15,
     fiabilite: "Transaction réelle",
+    dpe: "E",
+    ges: "E",
+    etat: "À rafraîchir",
+    atouts: ["Cave"],
+    defauts: ["Pas d'ascenseur", "Sans balcon"],
+    exposition: "Nord",
+    anneeConstruction: 1968,
+    photoUrl: null,
+    completudePct: 72,
+    commentairePertinence: "Même secteur, typologie identique. Plus petite surface et étage plus bas justifient l'écart de prix/m².",
     ajustements: [
       { lbl: "Surface (-4.5m²)", val: "-2.1%", type: "neg" },
       { lbl: "Étage (-2)", val: "-1.5%", type: "neg" },
@@ -141,19 +295,34 @@ export const comparables = [
   {
     id: 2,
     source: "IDEERI",
+    sourceLabel: "Mandat Ideeri vendu",
     type: "Appartement T3",
     surface: 75,
+    pieces: 3,
+    chambres: 2,
     adresse: "rue Lacassagne, Lyon 3",
     prix: 252000,
     prixM2: 3360,
     date: "Fév. 2026",
+    dateISO: "2026-02-10",
     distance: 350,
     etage: 5,
+    etageMax: 6,
     selected: true,
     poids: 0.25,
     similarite: 88,
     donnees: 92,
     fiabilite: "Transaction réelle",
+    dpe: "C",
+    ges: "C",
+    etat: "Bon état",
+    atouts: ["Balcon", "Ascenseur", "Parking"],
+    defauts: [],
+    exposition: "Sud-Est",
+    anneeConstruction: 1975,
+    photoUrl: null,
+    completudePct: 92,
+    commentairePertinence: "Comparable très proche typologiquement, DPE supérieur. Ajustement positif appliqué pour refléter l'écart de performance énergétique.",
     ajustements: [
       { lbl: "Surface (+2.5m²)", val: "+1.2%", type: "pos" },
       { lbl: "DPE C vs D", val: "+3.0%", type: "pos" },
@@ -165,19 +334,34 @@ export const comparables = [
   {
     id: 3,
     source: "EN_COURS",
+    sourceLabel: "Annonce en cours",
     type: "Appartement T2",
     surface: 62,
+    pieces: 2,
+    chambres: 1,
     adresse: "rue Paul Bert, Lyon 3",
     prix: 215000,
     prixM2: 3468,
     date: "En vente",
+    dateISO: null,
     distance: 280,
     etage: 3,
+    etageMax: 4,
     selected: true,
     poids: 0.15,
     similarite: 65,
     donnees: 45,
     fiabilite: "Prix affiché",
+    dpe: "D",
+    ges: "D",
+    etat: "Correct",
+    atouts: ["Balcon"],
+    defauts: ["Pas d'ascenseur"],
+    exposition: "Ouest",
+    anneeConstruction: 1970,
+    photoUrl: null,
+    completudePct: 45,
+    commentairePertinence: "Typologie différente (T2) mais secteur immédiat. Pondération réduite, utilisé comme repère de prix affiché.",
     ajustements: [
       { lbl: "Surface (-10.5m²)", val: "-5.2%", type: "neg" },
       { lbl: "T2 vs T3", val: "-3.0%", type: "neg" },
@@ -233,11 +417,78 @@ export const avisValeur = {
   prixM2: 4138,
   amplitude: 5.7,
   confiance: 78,
+
+  // --- V2 : lettre d'accompagnement ------------------------------------
+  lettre: {
+    dateRDV: "18 mars 2026",
+    introParagraphe:
+      "Suite à notre rencontre du 18 mars 2026 concernant le bien sis au 12 rue des Lilas à Lyon 3ᵉ, j'ai le plaisir de vous transmettre notre avis de valeur détaillé.",
+    cloture:
+      "Je reste à votre entière disposition pour échanger sur ce document et définir ensemble la stratégie de commercialisation la plus adaptée à votre projet.",
+  },
+
+  // --- V2 : méthodologie -----------------------------------------------
+  methodologie: {
+    piliers: [
+      {
+        icon: "📊",
+        titre: "Comparables",
+        desc:
+          "Biens similaires récemment vendus ou en vente dans votre secteur, analysés et pondérés selon leur pertinence.",
+      },
+      {
+        icon: "📈",
+        titre: "Tension du marché",
+        desc:
+          "Rapport offre/demande mesuré en temps réel sur votre typologie dans votre secteur.",
+      },
+      {
+        icon: "🏠",
+        titre: "Caractéristiques du bien",
+        desc:
+          "Atouts et points de vigilance propres à votre bien, argumentant les corrections appliquées.",
+      },
+    ],
+    phraseTransparence: "Chaque ajustement est documenté et défendable.",
+  },
+
+  // --- V2 : cascade de prix (PAS d'ajustement zone) --------------------
   decomposition: [
-    { step: "Médiane comparables", value: "4 172 €/m²", detail: "Moyenne pondérée 5 comparables" },
-    { step: "Impact tension", value: "+0.7%", detail: "Ratio demande/offre 3.2x" },
-    { step: "Corrections spécifiques", value: "-1.5%", detail: "Travaux copro 15k€ · DPE D" },
+    {
+      step: "Référence comparables",
+      value: "302 470 €",
+      detail: "4 172 €/m² × 72.5 m²",
+      delta: null,
+    },
+    {
+      step: "Ajustement tension",
+      value: "305 495 €",
+      detail: "Marché modérément tendu",
+      delta: "+1.0%",
+    },
+    {
+      step: "Corrections bien",
+      value: "299 996 €",
+      detail: "DPE D, pas de parking",
+      delta: "-1.8%",
+    },
+    {
+      step: "Prix retenu",
+      value: "300 000 €",
+      detail: "Arrondi commercial",
+      delta: null,
+      final: true,
+    },
   ],
+
+  // --- V2 : mentions légales du rapport --------------------------------
+  mentionsLegales: [
+    "Le présent avis de valeur a pour objet d'estimer la valeur vénale du bien. Il ne constitue pas une expertise judiciaire au sens de l'article 1592 du Code civil.",
+    "Cette estimation est valable 3 mois à compter de la date d'édition.",
+    "L'estimation repose sur les informations collectées lors de notre visite, les données de marché publiques (DVF) et notre base interne de comparables.",
+    "Le propriétaire reste seul décideur du prix de mise en vente.",
+  ],
+
   prixFinal: "300 000 €",
   comparablesTable: [
     { source: "DVF", adresse: "Villeroy", surface: "68m²", prixM2: "3 206 €", ajust: "-4.1%", poids: "30%" },
@@ -263,9 +514,40 @@ export const avisValeur = {
     "Bruit routier 65dB — classement 3",
   ],
   strategies: [
-    { label: "Agressif", prix: 310000, description: "Haut de marché · Délai vente ~65j" },
-    { label: "Marché", prix: 300000, description: "Prix cohérent · Délai ~42j", recommended: true },
-    { label: "Prudent", prix: 285000, description: "Vente rapide · Délai ~25j" },
+    {
+      label: "Agressif",
+      prix: 310000,
+      prixM2: 4276,
+      description: "Haut de marché · Délai vente ~65j",
+      delai: "~65 jours",
+      profilCible: "Acquéreur coup de cœur, peu sensible au prix",
+      risque: "Allongement du délai de vente, pression à la baisse",
+      argumentaire: "Tester le haut de marché en profitant d'une tension modérément favorable.",
+      argumentaireDetaille: "Cette stratégie cible un acquéreur à fort pouvoir d'achat, prêt à un surcoût pour sécuriser le bien. Elle expose à un délai allongé et au risque de devoir ajuster à la baisse si aucune offre ferme n'arrive sous 60 jours.",
+    },
+    {
+      label: "Marché",
+      prix: 300000,
+      prixM2: 4138,
+      description: "Prix cohérent · Délai ~42j",
+      delai: "~42 jours",
+      profilCible: "5 acquéreurs déjà identifiés en base, budget aligné",
+      risque: "Marge de négociation réduite",
+      argumentaire: "Alignement optimal entre prix médian comparables, tension de marché et critères du bien.",
+      argumentaireDetaille: "C'est la stratégie que nous recommandons. Le prix est cohérent avec les comparables pondérés (4 172 €/m²), intègre la tension modérée du secteur (+1.0%) et les corrections propres au bien (-1.8%). Cinq acquéreurs dans notre base ont un budget compatible et des critères alignés, ce qui laisse envisager une vente ferme sous 6 semaines.",
+      recommended: true,
+    },
+    {
+      label: "Prudent",
+      prix: 285000,
+      prixM2: 3931,
+      description: "Vente rapide · Délai ~25j",
+      delai: "~25 jours",
+      profilCible: "Acquéreur pressé, primo-accédant averti",
+      risque: "Manque à gagner jusqu'à 5% du prix de marché",
+      argumentaire: "Maximiser la vitesse de vente, minimiser le risque de retrait du bien.",
+      argumentaireDetaille: "Cette stratégie positionne le bien 5% sous le prix de marché pour déclencher une vente sous 4 semaines. Elle implique d'accepter un manque à gagner mais sécurise le délai et réduit fortement la négociation.",
+    },
   ],
   acquereurs: [
     { id: 1, budget: 260000, type: "T3", surface: 65, localisation: "Lyon 3", dpe: "D", score: 0.89 },
