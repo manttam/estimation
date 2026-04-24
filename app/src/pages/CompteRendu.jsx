@@ -610,20 +610,56 @@ export default function CompteRendu() {
 }
 
 /**
- * Appelle l'endpoint /api/share-token, copie le lien dans le presse-papier
- * et met à jour l'état UI du bouton.
+ * Génère un lien de partage côté client (pas d'API à appeler).
+ *
+ * Le token est une chaîne base64url encodant { exp: timestampMs + 7j }.
+ * Pas de signature cryptographique (MVP avec données fictives).
+ * Pour de vraies données sensibles, repasser par /api/share-token (JWT signé).
  */
 async function handleShare(setShareStatus) {
   setShareStatus('loading');
   try {
-    const res = await fetch('/api/share-token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reportId: 'default', expiresInDays: 7 }),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const { url } = await res.json();
-    await navigator.clipboard.writeText(url);
+    const expMs = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    const token = btoa(JSON.stringify({ exp: expMs, v: 1 }))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+
+    const url = `${window.location.origin}/#/report?t=${token}`;
+
+    // Copie dans le presse-papier avec fallback si l'API Clipboard est indispo
+    let copied = false;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        copied = true;
+      }
+    } catch (_) {
+      // ignore, on tente le fallback
+    }
+    if (!copied) {
+      // Fallback : textarea temporaire + execCommand('copy')
+      const ta = document.createElement('textarea');
+      ta.value = url;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      try {
+        document.execCommand('copy');
+        copied = true;
+      } catch (_) {
+        /* noop */
+      }
+      ta.remove();
+    }
+
+    if (!copied) {
+      // Dernier recours : afficher le lien dans un prompt pour copie manuelle
+      window.prompt('Copiez ce lien de partage (valide 7 jours) :', url);
+    }
+
     setShareStatus('copied');
     setTimeout(() => setShareStatus('idle'), 4000);
   } catch (e) {
@@ -634,35 +670,16 @@ async function handleShare(setShareStatus) {
 }
 
 /**
- * Déclenche la génération PDF via l'endpoint serverless Puppeteer.
+ * Déclenche l'impression PDF via le navigateur.
+ *
+ * Utilise window.print() (natif, fonctionne partout). L'utilisateur choisit
+ * ensuite "Enregistrer au format PDF" dans la boîte de dialogue d'impression.
+ *
+ * L'endpoint serverless /api/report-pdf (Puppeteer) reste en place pour une
+ * future évolution où on voudrait un PDF généré côté serveur sans prompt.
  */
-async function downloadPdf() {
-  try {
-    const reportUrl = `${window.location.origin}/#/report?print=1`;
-    const res = await fetch('/api/report-pdf', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reportUrl }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      alert(`Erreur de génération PDF : ${err.error || res.statusText}`);
-      return;
-    }
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `avis-de-valeur-${Date.now()}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  } catch (e) {
-    // En dev local l'endpoint n'existe pas : fallback impression navigateur
-    console.warn('Endpoint PDF indisponible, fallback sur impression navigateur.', e);
-    window.print();
-  }
+function downloadPdf() {
+  window.print();
 }
 
 // ===========================================================================
