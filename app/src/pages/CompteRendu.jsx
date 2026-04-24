@@ -46,6 +46,16 @@ export default function CompteRendu() {
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('print') === '1';
 
+  // Mode partage : le rapport est ouvert via un lien sécurisé (?t=JWT).
+  // On masque les actions agent (bouton Retour, Partager) pour le mandant.
+  const shareToken =
+    typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('t')
+      : null;
+  const isSharedView = Boolean(shareToken);
+
+  const [shareStatus, setShareStatus] = useState('idle'); // idle|loading|copied|error
+
   const selectedComps = comparables.filter((c) => c.selected);
 
   // Personas d'acquéreurs : en web on sélectionne, en PDF tout est déplié.
@@ -572,13 +582,55 @@ export default function CompteRendu() {
           <button className="btn primary" onClick={() => downloadPdf()}>
             Télécharger en PDF
           </button>
-          <button className="btn secondary" onClick={() => navigate('/step/5')}>
-            Retour
-          </button>
+
+          {/* Bouton de partage — visible uniquement côté agent (pas dans la vue partagée) */}
+          {!isSharedView && (
+            <button
+              className="btn share"
+              onClick={() => handleShare(setShareStatus)}
+              disabled={shareStatus === 'loading'}
+            >
+              {shareStatus === 'loading' && 'Génération du lien...'}
+              {shareStatus === 'copied' && '✓ Lien copié (valide 7 jours)'}
+              {shareStatus === 'error' && '⚠ Erreur, réessayer'}
+              {shareStatus === 'idle' && 'Copier le lien de partage'}
+            </button>
+          )}
+
+          {/* Retour à l'app — caché en vue partagée (le mandant n'a pas accès à l'app) */}
+          {!isSharedView && (
+            <button className="btn secondary" onClick={() => navigate('/step/5')}>
+              Retour
+            </button>
+          )}
         </div>
       )}
     </div>
   );
+}
+
+/**
+ * Appelle l'endpoint /api/share-token, copie le lien dans le presse-papier
+ * et met à jour l'état UI du bouton.
+ */
+async function handleShare(setShareStatus) {
+  setShareStatus('loading');
+  try {
+    const res = await fetch('/api/share-token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reportId: 'default', expiresInDays: 7 }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const { url } = await res.json();
+    await navigator.clipboard.writeText(url);
+    setShareStatus('copied');
+    setTimeout(() => setShareStatus('idle'), 4000);
+  } catch (e) {
+    console.error('Partage impossible', e);
+    setShareStatus('error');
+    setTimeout(() => setShareStatus('idle'), 4000);
+  }
 }
 
 /**
@@ -853,6 +905,8 @@ const reportCss = `
   .btn { display: inline-block; padding: 10px 24px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; margin: 0 6px; }
   .btn.primary { background: var(--primary); color: #fff; }
   .btn.secondary { background: #fff; color: var(--primary); border: 2px solid var(--primary); }
+  .btn.share { background: #fff; color: var(--secondary); border: 2px solid #e5e5e5; }
+  .btn.share:disabled { opacity: 0.6; cursor: wait; }
 
   /* ====== Print media ====== */
   @media print {
