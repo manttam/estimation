@@ -10,7 +10,7 @@ import chromium from '@sparticuz/chromium';
 import puppeteer from 'puppeteer-core';
 
 export const config = {
-  runtime: 'nodejs20.x',
+  runtime: 'nodejs',
   memory: 1024,
   maxDuration: 30,
 };
