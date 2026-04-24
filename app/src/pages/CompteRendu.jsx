@@ -31,11 +31,6 @@ export default function CompteRendu() {
 
   const recommendedStrategy = avisValeur.strategies.find((s) => s.recommended);
 
-  // Projets d'achat budget-compatibles : budget ≥ prix de présentation recommandé
-  const projetsMatch = (avisValeur.acquereurs || []).filter(
-    (a) => a.budget >= recommendedStrategy.prix
-  ).length;
-
   const dateEdition = new Date().toLocaleDateString('fr-FR', {
     day: 'numeric',
     month: 'long',
@@ -140,45 +135,8 @@ export default function CompteRendu() {
         </div>
       </section>
 
-      {/* =============================================================
-          SECTION 3 — Synthèse exécutive
-          ============================================================= */}
-      <section className="summary page-break">
-        <h2 className="section-title">Synthèse</h2>
-
-        <div className="summary-hero">
-          <div className="summary-label">Prix de présentation recommandé</div>
-          <div className="summary-price">
-            {recommendedStrategy.prix.toLocaleString('fr-FR')} €
-          </div>
-          <div className="summary-range">
-            Fourchette : <strong>{avisValeur.prixBas.toLocaleString('fr-FR')} €</strong> — <strong>{avisValeur.prixHaut.toLocaleString('fr-FR')} €</strong>
-          </div>
-        </div>
-
-        <div className="summary-kpis">
-          <div className="kpi">
-            <div className="kpi-value">{avisValeur.prixM2.toLocaleString('fr-FR')} €/m²</div>
-            <div className="kpi-label">Prix au m²</div>
-          </div>
-          <div className="kpi">
-            <div className="kpi-value">{avisValeur.confiance}/100</div>
-            <div className="kpi-label">Indice de confiance</div>
-          </div>
-          <div className="kpi">
-            <div className="kpi-value">{recommendedStrategy.label}</div>
-            <div className="kpi-label">Stratégie recommandée</div>
-          </div>
-          <div className="kpi kpi-highlight">
-            <div className="kpi-value">{projetsMatch}</div>
-            <div className="kpi-label">Projets d'achat compatibles</div>
-          </div>
-        </div>
-
-        <div className="summary-reco">
-          <strong>Notre recommandation :</strong> {recommendedStrategy.argumentaire}
-        </div>
-      </section>
+      {/* Section Synthèse supprimée à la demande — le prix/fourchette est
+          présenté directement en section Proposition commerciale. */}
 
       {/* =============================================================
           SECTION 4 — Votre bien
@@ -426,9 +384,6 @@ export default function CompteRendu() {
                 <div>
                   <strong>{c.prix.toLocaleString('fr-FR')} €</strong>
                   <span className="comp-m2"> · {c.prixM2.toLocaleString('fr-FR')} €/m²</span>
-                </div>
-                <div className="comp-adjust">
-                  Ajustement <strong>{c.totalAjustement}</strong> · Poids <strong>{(c.poids * 100).toFixed(0)}%</strong>
                 </div>
               </div>
 

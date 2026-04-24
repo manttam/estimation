@@ -515,7 +515,7 @@ export const avisValeur = {
   ],
   strategies: [
     {
-      label: "Agressif",
+      label: "Max",
       prix: 310000,
       prixM2: 4276,
       description: "Haut de marché · Délai vente ~65j",
@@ -538,7 +538,7 @@ export const avisValeur = {
       recommended: true,
     },
     {
-      label: "Prudent",
+      label: "Agressif",
       prix: 285000,
       prixM2: 3931,
       description: "Vente rapide · Délai ~25j",
