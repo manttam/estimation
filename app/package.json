@@ -10,9 +10,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@sparticuz/chromium": "^147.0.2",
+    "jsonwebtoken": "^9.0.3",
     "leaflet": "^1.9.4",
     "leaflet-draw": "^1.0.4",
     "leaflet-freedraw": "^2.15.0",
+    "puppeteer-core": "^24.42.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-leaflet": "^5.0.0",

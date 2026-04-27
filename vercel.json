@@ -2,7 +2,13 @@
   "buildCommand": "cd app && npm install && npm run build",
   "outputDirectory": "app/dist",
   "framework": "vite",
+  "functions": {
+    "api/report-pdf.js": {
+      "maxDuration": 30
+    }
+  },
   "rewrites": [
+    { "source": "/api/:path*", "destination": "/api/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [

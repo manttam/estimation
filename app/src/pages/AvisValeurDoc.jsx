@@ -273,25 +273,10 @@ export default function AvisValeurDoc() {
               </div>
             </div>
 
-            {/* 2. Ajustement zone */}
+            {/* 2. Impact tension march&eacute; */}
             <div style={s.decompSection}>
               <div style={s.decompHeader}>
-                <div style={s.decompTitle}>2. Ajustement zone</div>
-                <div style={{ ...s.decompPct, color: '#46B962' }}>+1.2%</div>
-              </div>
-              <div style={s.decompBody}>
-                Accessibilit&eacute; transports +0.8%<br />
-                Risque inondation PPRI &minus;0.5%<br />
-                Score socio-&eacute;co +0.4%<br />
-                March&eacute; en hausse +0.5%<br />
-                <div style={{ ...s.decompResult, color: '#46B962' }}>&rarr; +3 630 &euro;</div>
-              </div>
-            </div>
-
-            {/* 3. Impact tension march&eacute; */}
-            <div style={s.decompSection}>
-              <div style={s.decompHeader}>
-                <div style={s.decompTitle}>3. Impact tension march&eacute;</div>
+                <div style={s.decompTitle}>2. Impact tension march&eacute;</div>
                 <div style={{ ...s.decompPct, color: '#46B962' }}>+0.7%</div>
               </div>
               <div style={s.decompBody}>
@@ -301,10 +286,10 @@ export default function AvisValeurDoc() {
               </div>
             </div>
 
-            {/* 4. Corrections sp&eacute;cifiques */}
+            {/* 3. Corrections sp&eacute;cifiques */}
             <div style={s.decompSection}>
               <div style={s.decompHeader}>
-                <div style={s.decompTitle}>4. Corrections sp&eacute;cifiques</div>
+                <div style={s.decompTitle}>3. Corrections sp&eacute;cifiques</div>
                 <div style={{ ...s.decompPct, color: '#e74c3c' }}>&minus;1.5%</div>
               </div>
               <div style={s.decompBody}>
@@ -322,7 +307,7 @@ export default function AvisValeurDoc() {
             <div style={s.finalRow}>
               <div style={s.finalLabel}>Avis de valeur</div>
               <div>
-                <div style={s.finalPrice}>305 000 &euro;</div>
+                <div style={s.finalPrice}>300 000 &euro;</div>
                 <div style={s.finalRange}>
                   Fourchette : {avisValeur.prixBas.toLocaleString('fr-FR')} &euro; &mdash; {avisValeur.prixHaut.toLocaleString('fr-FR')} &euro;
                 </div>
