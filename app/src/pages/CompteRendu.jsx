@@ -13,6 +13,37 @@ import {
 import ReliabilityBadge from '../components/ReliabilityBadge';
 
 /**
+ * Icônes Lucide inlinées (ISC license).
+ * Utilisées par la section Méthodologie via `iconeLucide` du mock.
+ */
+const LUCIDE_ICONS = {
+  SearchCheck: (
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="m8 11 2 2 4-4" />
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.3-4.3" />
+    </svg>
+  ),
+  TrendingUp: (
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+      <polyline points="16 7 22 7 22 13" />
+    </svg>
+  ),
+  Building2: (
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z" />
+      <path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2" />
+      <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" />
+      <path d="M10 6h4" />
+      <path d="M10 10h4" />
+      <path d="M10 14h4" />
+      <path d="M10 18h4" />
+    </svg>
+  ),
+};
+
+/**
  * CompteRendu — V2
  *
  * Document commercial d'avis de valeur remis au mandant.
@@ -68,7 +99,7 @@ export default function CompteRendu() {
       <section className="cover">
         <img src={agence.logo} alt={agence.nom} className="cover-logo" />
         <div className="cover-bar" />
-        <h1 className="cover-title">AVIS DE VALEUR</h1>
+        <h1 className="cover-title">ÉTUDE DE MARCHÉ</h1>
         <p className="cover-address">{property.adresse}</p>
         <div className="cover-hero" aria-hidden="true">
           <div className="cover-hero-placeholder">
@@ -105,7 +136,7 @@ export default function CompteRendu() {
         <p className="letter-date">{agence.adresse.split(',').slice(-1)[0].trim().split(' ').slice(-1)[0] /* ville */ ? `Lyon, le ${dateEdition}` : `Le ${dateEdition}`}</p>
 
         <p className="letter-object">
-          <strong>Objet :</strong> Avis de valeur — {property.adresse}
+          <strong>Objet :</strong> Étude de marché — {property.adresse}
         </p>
 
         <div className="letter-body">
@@ -202,6 +233,9 @@ export default function CompteRendu() {
           ============================================================= */}
       <section className="market page-break">
         <h2 className="section-title">Votre marché local</h2>
+        <p className="market-zone">
+          {contexteZone.zoneLabel} · rayon {contexteZone.rayonMetres} m autour du bien
+        </p>
 
         <div className="market-kpis">
           <div className="kpi">
@@ -224,13 +258,41 @@ export default function CompteRendu() {
 
         <div className="market-tension">
           <strong>Tension du marché : </strong>
-          <span className="tension-badge">Marché modérément tendu</span>
+          <span className="tension-badge">{contexteZone.tensionLabel}</span>
+          <span className="tension-score">{contexteZone.tensionScore}/10</span>
         </div>
 
         <p className="market-caption">
           Fourchette de prix observée sur la typologie T3 dans votre secteur :
           <strong> {contexteZone.market.fourchette} €/m²</strong>.
         </p>
+
+        {avisValeur.afficherCommodites && contexteZone.commodites?.length > 0 && (
+          <div className="market-commodites">
+            <h3>Commodités à proximité</h3>
+            {Object.entries(
+              contexteZone.commodites.reduce((acc, c) => {
+                (acc[c.categorie] ||= []).push(c);
+                return acc;
+              }, {})
+            ).map(([cat, items]) => (
+              <div className="commod-cat" key={cat}>
+                <h4>{cat}</h4>
+                <ul>
+                  {items
+                    .slice()
+                    .sort((a, b) => a.distance - b.distance)
+                    .map((c, i) => (
+                      <li key={i}>
+                        <strong>{c.nom}</strong>
+                        <span> · {c.distance} m · {c.tempsAPied} min à pied</span>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* =============================================================
@@ -335,14 +397,14 @@ export default function CompteRendu() {
         <div className="pillars">
           {avisValeur.methodologie.piliers.map((p, i) => (
             <div className="pillar" key={i}>
-              <div className="pillar-icon">{p.icon}</div>
+              <div className="pillar-visual">
+                {LUCIDE_ICONS[p.iconeLucide] || null}
+              </div>
               <div className="pillar-title">{p.titre}</div>
               <div className="pillar-desc">{p.desc}</div>
             </div>
           ))}
         </div>
-
-        <p className="transparency">{avisValeur.methodologie.phraseTransparence}</p>
       </section>
 
       {/* =============================================================
@@ -350,6 +412,11 @@ export default function CompteRendu() {
           ============================================================= */}
       <section className="comparables page-break">
         <h2 className="section-title">Comparables retenus</h2>
+        <p className="comp-intro">
+          Nous avons analysé <strong>{comparables.length} biens comparables</strong>,
+          dont <strong>{selectedComps.length} retenus</strong> pour le calcul
+          de la moyenne pondérée.
+        </p>
 
         <div className="comparables-grid">
           {selectedComps.map((c) => (
@@ -388,13 +455,39 @@ export default function CompteRendu() {
               </div>
 
               <div className="comp-reliability">
-                <ReliabilityBadge comparable={c} bienRef={property} size="sm" />
+                <ReliabilityBadge comparable={c} size="sm" />
               </div>
 
               <p className="comp-comment">{c.commentairePertinence}</p>
             </div>
           ))}
         </div>
+
+        {comparables.some((c) => !c.selected) && (
+          <div className="comp-others">
+            <h3>Autres biens analysés (non retenus)</h3>
+            <div className="comp-others-list">
+              {comparables
+                .filter((c) => !c.selected)
+                .map((c) => (
+                  <div className="comp-other-row" key={c.id}>
+                    <div className="cor-main">
+                      <strong className="cor-address">{c.adresse}</strong>
+                      <span className="cor-typo">
+                        {c.type} · {c.surface} m²
+                      </span>
+                    </div>
+                    <div className="cor-side">
+                      <span className="cor-price">
+                        {c.prixM2.toLocaleString('fr-FR')} €/m²
+                      </span>
+                      <span className="cor-reason">{c.raisonEcart}</span>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
 
         <div className="comp-average">
           Moyenne pondérée retenue : <strong>{avisValeur.prixM2.toLocaleString('fr-FR')} €/m²</strong>
@@ -739,10 +832,21 @@ const reportCss = `
   .dpe-G { background: #d63024; }
 
   /* ====== 5. Market ====== */
+  .market-zone { margin: -16px 0 18px; font-size: 13px; color: #949494; font-style: italic; }
   .market-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
-  .market-tension { margin: 16px 0; font-size: 14px; }
+  .market-tension { margin: 16px 0; font-size: 14px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
   .tension-badge { display: inline-block; background: var(--primary)15; color: var(--primary); border: 1px solid var(--primary)40; border-radius: 6px; padding: 4px 12px; font-weight: 600; font-size: 13px; }
+  .tension-score { font-size: 13px; color: #949494; font-weight: 600; }
   .market-caption { font-size: 13px; color: var(--secondary); }
+  .market-commodites { margin-top: 24px; padding-top: 18px; border-top: 1px solid #e5e5e5; }
+  .market-commodites > h3 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--secondary); margin: 0 0 14px; }
+  .commod-cat { margin-bottom: 12px; }
+  .commod-cat h4 { font-size: 11px; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: 0.8px; margin: 0 0 6px; }
+  .commod-cat ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 3px; }
+  .commod-cat li { font-size: 13px; color: var(--secondary); line-height: 1.5; padding-left: 14px; position: relative; }
+  .commod-cat li::before { content: '•'; position: absolute; left: 0; color: var(--primary); }
+  .commod-cat li strong { font-weight: 600; color: var(--secondary); }
+  .commod-cat li span { color: #949494; }
 
   /* ====== 6. Personas acquéreurs ====== */
   .section-intro { font-size: 14px; color: var(--secondary); margin: 0 0 20px; line-height: 1.6; }
@@ -785,12 +889,13 @@ const reportCss = `
   /* ====== 7. Methodology ====== */
   .pillars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 20px 0; }
   .pillar { text-align: center; padding: 20px 14px; border: 1px solid #e5e5e5; border-radius: 8px; background: #fafafa; }
-  .pillar-icon { font-size: 32px; margin-bottom: 8px; }
+  .pillar-visual { width: 56px; height: 56px; border-radius: 50%; border: 1px solid var(--primary); color: var(--primary); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; background: #fff; }
   .pillar-title { font-weight: 700; color: var(--primary); font-size: 14px; margin-bottom: 6px; }
   .pillar-desc { font-size: 12px; color: var(--secondary); line-height: 1.5; }
-  .transparency { text-align: center; font-style: italic; color: var(--primary); font-weight: 600; margin: 16px 0 0; font-size: 14px; }
 
   /* ====== 7. Comparables ====== */
+  .comp-intro { font-size: 14px; color: var(--secondary); line-height: 1.6; margin: 0 0 18px; }
+  .comp-intro strong { color: var(--primary); }
   .comparables-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
   .comp-card { border: 1px solid #e5e5e5; border-radius: 10px; padding: 20px; background: #fff; }
   .comp-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
@@ -814,6 +919,16 @@ const reportCss = `
   .comp-comment { font-size: 12px; color: var(--secondary); font-style: italic; margin: 8px 0 0; padding: 8px 12px; background: #fafafa; border-radius: 4px; }
   .comp-average { margin-top: 20px; padding: 12px 20px; background: var(--primary)15; border-radius: 8px; text-align: right; font-size: 14px; color: var(--secondary); }
   .comp-average strong { color: var(--primary); font-size: 16px; }
+  .comp-others { margin: 24px 0 12px; padding: 18px 20px; background: #fafafa; border-radius: 8px; border: 1px solid #ebebeb; }
+  .comp-others h3 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #6b6b6b; margin: 0 0 12px; }
+  .comp-others-list { display: flex; flex-direction: column; gap: 8px; }
+  .comp-other-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 14px; background: #fff; border: 1px solid #ebebeb; border-radius: 6px; flex-wrap: wrap; }
+  .cor-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .cor-address { font-size: 13px; color: var(--secondary); }
+  .cor-typo { font-size: 11px; color: #949494; }
+  .cor-side { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .cor-price { font-size: 13px; color: var(--secondary); font-weight: 600; }
+  .cor-reason { display: inline-block; background: #fdecec; color: #c83a3a; border: 1px solid #f5c6c6; border-radius: 12px; padding: 2px 10px; font-size: 11px; font-weight: 600; }
 
   /* ====== 8. Arguments ====== */
   .arg-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }

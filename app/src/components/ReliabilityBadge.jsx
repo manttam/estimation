@@ -1,52 +1,57 @@
 import React from 'react';
-import { calculerFiabilite } from '../utils/reliability';
+import { calculerFiabilite, CRITERES_FIABILITE } from '../utils/reliability';
 
 /**
  * Badge visuel d'indice de fiabilité d'un comparable (V2).
- * Affiche : étoiles (5 max, demi-étoile possible) + score + label + couleur.
+ *
+ * Affiche une suite de 10 ronds (pleins = donnée croisée, vides = manquante)
+ * + compteur "N / 10" + label coloré.
  *
  * @param {object} props
- * @param {object} props.comparable - comparable enrichi
- * @param {object} [props.bienRef]  - bien de référence (pour critère similarité)
- * @param {"sm"|"md"} [props.size]  - taille du badge
+ * @param {object} props.comparable - comparable enrichi avec donneesCroisees
+ * @param {"sm"|"md"} [props.size]  - taille du badge (par défaut "md")
  */
-export default function ReliabilityBadge({ comparable, bienRef, size = 'md' }) {
-  const { score, label, color } = calculerFiabilite({ ...comparable, bienRef });
-  const fullStars = Math.floor(score);
-  const hasHalf = score - fullStars >= 0.5;
-
+export default function ReliabilityBadge({ comparable, size = 'md' }) {
+  const { count, total, checks, label, color } = calculerFiabilite(comparable);
+  const dotSize = size === 'sm' ? 7 : 9;
   const fontSize = size === 'sm' ? 11 : 13;
-  const starSize = size === 'sm' ? 12 : 14;
 
   return (
     <div
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        gap: 6,
+        gap: 8,
         fontSize,
+        lineHeight: 1.4,
       }}
     >
-      <div style={{ display: 'flex', gap: 1 }}>
-        {[1, 2, 3, 4, 5].map((i) => {
-          const full = i <= fullStars;
-          const half = i === fullStars + 1 && hasHalf;
-          return (
-            <span
-              key={i}
-              style={{
-                color: full || half ? color : '#e5e5e5',
-                fontSize: starSize,
-                lineHeight: 1,
-              }}
-            >
-              {half ? '✮' : '★'}
-            </span>
-          );
-        })}
+      <div
+        style={{ display: 'flex', gap: 3 }}
+        aria-label={`${count} données croisées sur ${total}`}
+      >
+        {checks.map((ok, i) => (
+          <span
+            key={i}
+            title={
+              CRITERES_FIABILITE[i].label +
+              (ok ? ' — vérifié' : ' — non disponible')
+            }
+            style={{
+              width: dotSize,
+              height: dotSize,
+              borderRadius: '50%',
+              background: ok ? color : 'transparent',
+              border: ok ? `1px solid ${color}` : '1px solid #d4d4d4',
+              display: 'inline-block',
+            }}
+          />
+        ))}
       </div>
-      <span style={{ color, fontWeight: 600 }}>{score.toFixed(1)}/5</span>
-      <span style={{ color: '#949494' }}>— {label}</span>
+      <span style={{ color, fontWeight: 600 }}>
+        {count} / {total}
+      </span>
+      <span style={{ color: '#949494' }}>données croisées · {label}</span>
     </div>
   );
 }
