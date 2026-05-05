@@ -4,6 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import PropertyCard from '../components/PropertyCard';
 import Stepper from '../components/Stepper';
+import ComparableDrawer from '../components/ComparableDrawer';
 import { comparables } from '../data/propertyData';
 
 const SOURCE_COLORS = {
@@ -902,6 +903,71 @@ const cssStyles = `
     font-weight: 500;
   }
 
+  /* COMP CARD CLICKABLE */
+  .comp-card.selected.clickable {
+    cursor: pointer;
+    transition: border-color 0.18s, box-shadow 0.18s, transform 0.12s;
+  }
+  .comp-card.selected.clickable:hover {
+    border-color: #46B962;
+    box-shadow: 0 4px 14px rgba(70, 185, 98, 0.12);
+  }
+
+  /* WEIGHT CONTROL */
+  .weight-control {
+    background: #f6faf7;
+    border: 1px solid #d4ead8;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+  }
+  .weight-control-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .weight-control-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #333;
+  }
+  .weight-control-value {
+    font-size: 13px;
+    font-weight: 700;
+    color: #46B962;
+  }
+  .weight-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: #e3eee6;
+    outline: none;
+    cursor: pointer;
+    margin: 0;
+  }
+  .weight-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #46B962;
+    border: 2px solid white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+  }
+  .weight-slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #46B962;
+    border: 2px solid white;
+    cursor: pointer;
+  }
+
   /* ADJUSTMENTS */
   .adj-section {
     background: #fafafa;
@@ -1019,6 +1085,37 @@ const cssStyles = `
   .t-avg td {
     color: #333;
     padding: 11px 10px;
+  }
+  .t-weight-input {
+    width: 48px;
+    padding: 3px 5px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 12px;
+    font-family: inherit;
+    text-align: center;
+    background: white;
+    color: #46B962;
+    font-weight: 600;
+  }
+  .t-weight-input:focus {
+    border-color: #46B962;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(70, 185, 98, 0.15);
+  }
+  .btn-trash {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    color: #aaa;
+    padding: 4px 6px;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+  }
+  .btn-trash:hover {
+    color: #e74c3c;
+    background: #fef2f2;
   }
 
   /* FOOTER */
@@ -1200,6 +1297,7 @@ const INITIAL_SELECTED = [
     sourceLabel: 'DVF',
     prix: '285 000',
     prixM2: '4 191',
+    prixNum: 285000,
     distance: '380m',
     venteLabel: '285 000 \u20ac',
     venteDetail: '3 926 \u20ac/m\u00b2 net vendeur',
@@ -1224,6 +1322,10 @@ const INITIAL_SELECTED = [
     ],
     description: 'Bel appartement T3 traversant de 68m² au 3ème étage avec ascenseur. Séjour lumineux donnant sur cour arborée, cuisine équipée récente, deux chambres avec rangements. Parquet ancien, moulures. Cave et local vélo.',
     noPhoto: true,
+    surface: 68,
+    pieces: 3,
+    // DVF : données minimales (pas de photos, pas d'historique de commercialisation)
+    dateMutationISO: '2025-12-12',
   },
   {
     id: 'lacassagne',
@@ -1233,6 +1335,7 @@ const INITIAL_SELECTED = [
     sourceLabel: 'Ideeri vendu',
     prix: '310 000',
     prixM2: '4 133',
+    prixNum: 310000,
     distance: '520m',
     venteLabel: '310 000 \u20ac',
     venteDetail: '4 133 \u20ac/m\u00b2 net vendeur',
@@ -1258,6 +1361,52 @@ const INITIAL_SELECTED = [
     description: 'Appartement T3 rénové de 75m² au 5ème étage avec terrasse de 8m². Vue dégagée, séjour double exposition, cuisine ouverte aménagée, salle de bain avec douche italienne. Copropriété bien entretenue, gardien.',
     noPhoto: false,
     photoUrl: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=520&h=140&fit=crop&crop=bottom',
+    surface: 75,
+    pieces: 3,
+    // Ideeri vendu : jeu complet
+    photos: [
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=900&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=900&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1567767292278-a4f21aa2d36e?w=900&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1558211583-d26f610c1eb1?w=900&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=900&h=600&fit=crop',
+    ],
+    rooms: [
+      { nom: 'Salon / S\u00e9jour', surface: 26, etage: 5, etat: 'R\u00e9nov\u00e9 2022' },
+      { nom: 'Cuisine ouverte', surface: 11, etage: 5, etat: 'Refaite \u00e0 neuf' },
+      { nom: 'Chambre 1', surface: 14, etage: 5, etat: 'Bon \u00e9tat' },
+      { nom: 'Chambre 2', surface: 11, etage: 5, etat: 'Bon \u00e9tat' },
+      { nom: 'Salle de bain', surface: 6, etage: 5, etat: 'Refaite (douche italienne)' },
+      { nom: 'WC s\u00e9par\u00e9', surface: 2, etage: 5, etat: 'Bon \u00e9tat' },
+      { nom: 'Entr\u00e9e / D\u00e9gagement', surface: 5, etage: 5, etat: 'Bon \u00e9tat' },
+      { nom: 'Terrasse', surface: 8, etage: 5, etat: 'Carrel\u00e9e, expos\u00e9e Sud' },
+    ],
+    infosGenerales: {
+      chauffage: 'Gaz individuel \u2014 chaudi\u00e8re Frisquet 2019',
+      rafraichissement: 'Aucun (orient\u00e9 Est)',
+      surfaceHabitable: 75,
+      surfaceExterieurs: 8,
+      dependances: 'Cave priv\u00e9e 5 m\u00b2',
+      sol: 'Parquet ch\u00eane massif (s\u00e9jour, chambres) + carrelage gr\u00e8s c\u00e9rame (cuisine, sdb)',
+      menuiseries: 'PVC double vitrage 2018',
+      toitureCharpente: 'Toiture terrasse \u00e9tanch\u00e9it\u00e9 refaite 2020',
+      dpe: 'D',
+      ges: 'D',
+      anneeConstruction: 1975,
+      renovationAnnee: 2022,
+      etatGeneral: 'Tr\u00e8s bon \u00e9tat \u2014 r\u00e9nov\u00e9 2022',
+      emplacement: 'Centre-ville Lyon 3\u00e8me, vue d\u00e9gag\u00e9e sur jardin int\u00e9rieur, calme, vis-\u00e0-vis nul',
+    },
+    atoutsQualitatifs: ['Lumineux double exposition', 'Terrasse 8m\u00b2', 'R\u00e9nov\u00e9 r\u00e9cemment', 'Calme', 'Cave', 'Gardien', 'Proche m\u00e9tro Sans-Souci'],
+    pointsContraintes: ['Pas de parking', 'Pas d\'ascenseur dispens\u00e9 (B\u00e2ti des ann\u00e9es 70)'],
+    historique: [
+      { date: '2025-09-12', evenement: 'Estimation agent', prix: 320000 },
+      { date: '2025-09-25', evenement: 'Mise en commercialisation', prix: 325000 },
+      { date: '2025-11-10', evenement: 'Baisse de prix', prix: 315000 },
+      { date: '2025-12-18', evenement: 'Compromis sign\u00e9', prix: 310000 },
+      { date: '2026-02-10', evenement: 'Vente conclue', prix: 310000 },
+    ],
+    joursEnCommercialisation: 84,
   },
   {
     id: 'paulbert',
@@ -1267,6 +1416,7 @@ const INITIAL_SELECTED = [
     sourceLabel: 'En cours',
     prix: '265 000',
     prixM2: '4 274',
+    prixNum: 265000,
     distance: '290m',
     venteLabel: '\u2014 En cours de vente',
     venteDetail: 'Prix affich\u00e9 : 265 000 \u20ac',
@@ -1293,6 +1443,48 @@ const INITIAL_SELECTED = [
     description: 'T2 de 62m² au 2ème étage, en cours de vente. Séjour avec balcon côté rue, chambre calme sur cour, cuisine semi-équipée. DPE E, travaux d\'isolation à prévoir. Proche transports et commerces Paul Bert.',
     noPhoto: false,
     photoUrl: 'https://images.unsplash.com/photo-1574362848149-11496d93a7c7?w=520&h=140&fit=crop&crop=center',
+    surface: 62,
+    pieces: 2,
+    // Ideeri en cours : jeu complet sans vente finale
+    photos: [
+      'https://images.unsplash.com/photo-1574362848149-11496d93a7c7?w=900&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1502672023488-70e25813eb80?w=900&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=900&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=900&h=600&fit=crop',
+    ],
+    rooms: [
+      { nom: 'S\u00e9jour avec balcon', surface: 22, etage: 2, etat: 'Bon \u00e9tat' },
+      { nom: 'Cuisine semi-\u00e9quip\u00e9e', surface: 8, etage: 2, etat: 'Correct' },
+      { nom: 'Chambre', surface: 13, etage: 2, etat: 'Bon \u00e9tat' },
+      { nom: 'Salle de bain', surface: 5, etage: 2, etat: '\u00c0 rafra\u00eechir' },
+      { nom: 'WC', surface: 1.5, etage: 2, etat: 'Correct' },
+      { nom: 'Entr\u00e9e', surface: 4, etage: 2, etat: 'Correct' },
+      { nom: 'Balcon', surface: 4, etage: 2, etat: 'C\u00f4t\u00e9 rue' },
+    ],
+    infosGenerales: {
+      chauffage: 'Chauffage collectif gaz',
+      rafraichissement: 'Aucun',
+      surfaceHabitable: 62,
+      surfaceExterieurs: 4,
+      dependances: 'Local v\u00e9lo commun',
+      sol: 'Parquet stratifi\u00e9 (s\u00e9jour, chambre) + lino (cuisine, sdb)',
+      menuiseries: 'Bois simple vitrage \u2014 \u00e0 r\u00e9nover',
+      toitureCharpente: 'Toiture commune correcte',
+      dpe: 'E',
+      ges: 'E',
+      anneeConstruction: 1968,
+      renovationAnnee: null,
+      etatGeneral: 'Correct \u2014 travaux d\'isolation \u00e0 pr\u00e9voir',
+      emplacement: 'Quartier Paul Bert, proche commerces, balcon c\u00f4t\u00e9 rue (passages), chambre c\u00f4t\u00e9 cour calme',
+    },
+    atoutsQualitatifs: ['Balcon', 'Proche transports', 'Quartier vivant', 'Chambre calme c\u00f4t\u00e9 cour'],
+    pointsContraintes: ['Pas d\'ascenseur', 'DPE E', 'Stationnement difficile', 'Travaux d\'isolation \u00e0 pr\u00e9voir'],
+    historique: [
+      { date: '2025-12-15', evenement: 'Estimation agent', prix: 270000 },
+      { date: '2026-01-05', evenement: 'Mise en commercialisation', prix: 275000 },
+      { date: '2026-02-20', evenement: 'Baisse de prix', prix: 265000 },
+    ],
+    joursEnCommercialisation: 90,
   },
 ];
 
@@ -1304,9 +1496,13 @@ const INITIAL_OTHERS = [
   { id: 'felixfaure', title: 'T3 69m\u00b2 \u2014 42 av. F\u00e9lix Faure, Lyon 3', source: 'portail', portalName: 'Leboncoin', meta: 'Portail \u00b7 289k\u20ac \u00b7 4 188\u20ac/m\u00b2 \u00b7 1.1km', simScore: '76% sim.', simClass: 'mid', donScore: '7% donn\u00e9es', donClass: 'low', donCount: '13/182' },
 ];
 
-function SelectedCompCard({ comp, onRemove }) {
+function SelectedCompCard({ comp, onRemove, onOpenDrawer, weight, onWeightChange }) {
+  const pertinence = Math.round((comp.similarite || 0) * 0.6 + (comp.donnees || 0) * 0.4);
+  const pertinenceClass = pertinence >= 80 ? 'score-high' : pertinence >= 60 ? 'score-mid' : 'score-low';
+  const stop = (e) => e.stopPropagation();
+  const openDrawer = () => onOpenDrawer && onOpenDrawer(comp);
   return (
-    <div className="comp-card selected">
+    <div className="comp-card selected clickable" onClick={openDrawer}>
       {comp.source === 'dvf' ? (
         <div className="comp-card-photo no-photo">
           <span>Pas de photo &mdash; source {comp.sourceLabel}</span>
@@ -1355,19 +1551,33 @@ function SelectedCompCard({ comp, onRemove }) {
         </div>
       </div>
       <div className="comp-meta">{comp.meta}</div>
+
+      {/* Pertinence : score unique fusionnant similarit\u00e9 + donn\u00e9es */}
       <div className="scoring-row">
-        <div className={`score-badge ${comp.simClass}`}>
-          <span className="score-badge-label">Similarit&eacute;</span>
-          <span className="score-badge-value">{comp.similarite}%</span>
-          <span className="score-badge-bar"><span className="score-badge-fill" style={{ width: `${comp.similarite}%` }} /></span>
-        </div>
-        <div className={`score-badge ${comp.donClass}`}>
-          <span className="score-badge-label">Donn&eacute;es</span>
-          <span className="score-badge-value">{comp.donnees}%</span>
-          <span className="score-badge-bar"><span className="score-badge-fill" style={{ width: `${comp.donnees}%` }} /></span>
-          <span className="data-count">{comp.donCount}</span>
+        <div className={`score-badge ${pertinenceClass}`} style={{ flex: 1 }} title={`Similarit\u00e9 ${comp.similarite}% \u00b7 Donn\u00e9es ${comp.donnees}%`}>
+          <span className="score-badge-label">Pertinence</span>
+          <span className="score-badge-value">{pertinence}%</span>
+          <span className="score-badge-bar"><span className="score-badge-fill" style={{ width: `${pertinence}%` }} /></span>
         </div>
       </div>
+
+      {/* Pond\u00e9ration manuelle */}
+      <div className="weight-control" onClick={stop}>
+        <div className="weight-control-header">
+          <span className="weight-control-label">Poids dans l&rsquo;estimation</span>
+          <span className="weight-control-value">{weight}%</span>
+        </div>
+        <input
+          type="range"
+          min="0"
+          max="100"
+          step="1"
+          value={weight}
+          onChange={(e) => onWeightChange && onWeightChange(comp.id, Number(e.target.value))}
+          className="weight-slider"
+        />
+      </div>
+
       <div className={`reliability ${comp.reliability}`}>{comp.reliabilityLabel}</div>
       <div className="adj-section">
         <div className="adj-title">
@@ -1380,10 +1590,10 @@ function SelectedCompCard({ comp, onRemove }) {
           </div>
         ))}
       </div>
-      <div className="comp-actions">
-        <a className="link-edit">&#9998; Modifier ajustement</a>
-        {comp.portalName && <a className="btn-view-ad" href="#" onClick={(e) => e.preventDefault()}>&#8599; Voir l&rsquo;annonce {comp.portalName}</a>}
-        <button className="btn-remove" onClick={() => onRemove && onRemove(comp.id)}>&times; Retirer</button>
+      <div className="comp-actions" onClick={stop}>
+        <a className="link-edit" onClick={stop}>&#9998; Modifier ajustement</a>
+        {comp.portalName && <a className="btn-view-ad" href="#" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>&#8599; Voir l&rsquo;annonce {comp.portalName}</a>}
+        <button className="btn-remove" onClick={(e) => { e.stopPropagation(); onRemove && onRemove(comp.id); }}>&times; Retirer</button>
       </div>
     </div>
   );
@@ -1438,6 +1648,80 @@ export default function Step3Comparables() {
   // Selected / Others comparable lists (dynamic)
   const [selected, setSelected] = useState(INITIAL_SELECTED);
   const [others, setOthers] = useState(INITIAL_OTHERS);
+
+  // Drawer pour afficher le d\u00e9tail d'un comparable
+  const [drawerComp, setDrawerComp] = useState(null);
+
+  // Pond\u00e9ration manuelle des comparables (somme = 100, normalis\u00e9e auto)
+  const [weights, setWeights] = useState(() => {
+    const eq = Math.round(100 / Math.max(INITIAL_SELECTED.length, 1));
+    const obj = {};
+    INITIAL_SELECTED.forEach((c, i) => {
+      obj[c.id] = i === INITIAL_SELECTED.length - 1 ? 100 - eq * (INITIAL_SELECTED.length - 1) : eq;
+    });
+    return obj;
+  });
+
+  // Modifier le poids d'un comparable et re-normaliser les autres pour somme = 100
+  const handleWeightChange = (id, newValue) => {
+    setWeights((prev) => {
+      const ids = Object.keys(prev);
+      if (ids.length <= 1) return { ...prev, [id]: 100 };
+      const clamped = Math.max(0, Math.min(100, newValue));
+      const otherIds = ids.filter((k) => k !== id);
+      const otherSumOld = otherIds.reduce((s, k) => s + (prev[k] || 0), 0);
+      const remaining = 100 - clamped;
+      const next = { [id]: clamped };
+      if (otherSumOld <= 0) {
+        // Tous les autres \u00e9taient \u00e0 0 \u2192 r\u00e9partition \u00e9gale
+        const each = Math.floor(remaining / otherIds.length);
+        otherIds.forEach((k, i) => {
+          next[k] = i === otherIds.length - 1 ? remaining - each * (otherIds.length - 1) : each;
+        });
+      } else {
+        // R\u00e9partition proportionnelle, derni\u00e8re cl\u00e9 absorbe l'arrondi
+        let allocated = 0;
+        otherIds.forEach((k, i) => {
+          if (i === otherIds.length - 1) {
+            next[k] = Math.max(0, remaining - allocated);
+          } else {
+            const v = Math.round((prev[k] / otherSumOld) * remaining);
+            next[k] = v;
+            allocated += v;
+          }
+        });
+      }
+      return next;
+    });
+  };
+
+  // Nettoyage du poids associ\u00e9 \u00e0 un comparable supprim\u00e9 (re-normalisation \u00e0 100%)
+  const cleanupWeight = (id) => {
+    setWeights((prev) => {
+      const { [id]: _removed, ...rest } = prev;
+      const ids = Object.keys(rest);
+      if (ids.length === 0) return {};
+      const sum = ids.reduce((s, k) => s + (rest[k] || 0), 0);
+      if (sum === 0) {
+        const eq = Math.round(100 / ids.length);
+        const next = {};
+        ids.forEach((k, i) => { next[k] = i === ids.length - 1 ? 100 - eq * (ids.length - 1) : eq; });
+        return next;
+      }
+      let allocated = 0;
+      const next = {};
+      ids.forEach((k, i) => {
+        if (i === ids.length - 1) {
+          next[k] = Math.max(0, 100 - allocated);
+        } else {
+          const v = Math.round((rest[k] / sum) * 100);
+          next[k] = v;
+          allocated += v;
+        }
+      });
+      return next;
+    });
+  };
 
   const addToSelected = (compId) => {
     const comp = others.find(c => c.id === compId);
@@ -1506,7 +1790,11 @@ export default function Step3Comparables() {
     };
     setSelected(prev => prev.filter(c => c.id !== compId));
     setOthers(prev => [...prev, demoted]);
+    cleanupWeight(compId);
   };
+
+  // Alias utilis\u00e9 par la card et le tableau r\u00e9cap pour la suppression
+  const handleRemoveComparable = removeFromSelected;
 
   // Expose addToSelected for Leaflet popups
   addCompRef.current = addToSelected;
@@ -2151,7 +2439,14 @@ export default function Step3Comparables() {
         <div className="list-panel">
           <div className="section-label">S&eacute;lectionn&eacute;s ({selected.length})</div>
           {selected.map((c) => (
-            <SelectedCompCard key={c.id} comp={c} onRemove={removeFromSelected} />
+            <SelectedCompCard
+              key={c.id}
+              comp={c}
+              onRemove={handleRemoveComparable}
+              onOpenDrawer={setDrawerComp}
+              weight={weights[c.id] !== undefined ? weights[c.id] : 0}
+              onWeightChange={handleWeightChange}
+            />
           ))}
           {others.length > 0 && <div className="section-label others">Autres ({others.length})</div>}
           {others.map((c) => (
@@ -2168,59 +2463,100 @@ export default function Step3Comparables() {
             <col style={{ width: '22%' }} />
             <col style={{ width: '10%' }} />
             <col style={{ width: '8%' }} />
-            <col style={{ width: '9%' }} />
-            <col style={{ width: '14%' }} />
+            <col style={{ width: '13%' }} />
             <col style={{ width: '12%' }} />
-            <col style={{ width: '11%' }} />
-            <col style={{ width: '14%' }} />
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '13%' }} />
+            <col style={{ width: '8%' }} />
+            <col style={{ width: '4%' }} />
           </colgroup>
           <thead>
             <tr>
               <th>Comparable</th>
               <th>Source</th>
-              <th className="t-adj">Sim.</th>
-              <th className="t-adj">Donn&eacute;es</th>
+              <th className="t-adj">Pert.</th>
               <th className="t-price">Prix</th>
               <th className="t-price">Prix/m&sup2;</th>
-              <th className="t-adj">Correction</th>
+              <th className="t-adj">Corr.</th>
               <th className="t-price">Ajust&eacute;/m&sup2;</th>
+              <th className="t-adj">Poids</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td><strong>T3 68m&sup2; &mdash; Villeroy</strong></td>
-              <td><span className="source-dot dot-dvf" style={{ display: 'inline-block', marginRight: 4 }} />DVF</td>
-              <td className="t-adj pos">87%</td>
-              <td className="t-adj" style={{ color: '#d97706' }}>68%</td>
-              <td className="t-price">285 000 &euro;</td>
-              <td className="t-price">4 191 &euro;</td>
-              <td className="t-adj neg">&minus;2.1%</td>
-              <td className="t-price">4 103 &euro;</td>
-            </tr>
-            <tr>
-              <td><strong>T3 75m&sup2; &mdash; Lacassagne</strong></td>
-              <td><span className="source-dot dot-ideeri" style={{ display: 'inline-block', marginRight: 4 }} />Ideeri</td>
-              <td className="t-adj pos">92%</td>
-              <td className="t-adj pos">95%</td>
-              <td className="t-price">310 000 &euro;</td>
-              <td className="t-price">4 133 &euro;</td>
-              <td className="t-adj pos">+1.5%</td>
-              <td className="t-price">4 195 &euro;</td>
-            </tr>
-            <tr>
-              <td><strong>T2 62m&sup2; &mdash; Paul Bert</strong></td>
-              <td><span className="source-dot dot-encours" style={{ display: 'inline-block', marginRight: 4 }} />En cours</td>
-              <td className="t-adj" style={{ color: '#d97706' }}>61%</td>
-              <td className="t-adj neg">7%</td>
-              <td className="t-price">265 000 &euro;</td>
-              <td className="t-price">4 274 &euro;</td>
-              <td className="t-adj neg">&minus;3.8%</td>
-              <td className="t-price">4 113 &euro;</td>
-            </tr>
-            <tr className="t-avg">
-              <td colSpan={7} style={{ textAlign: 'right', paddingRight: 12 }}><strong>Moyenne pond&eacute;r&eacute;e :</strong></td>
-              <td className="t-price"><strong>4 172 &euro;/m&sup2;</strong></td>
-            </tr>
+            {selected.map((c) => {
+              const pertinence = Math.round((c.similarite || 0) * 0.6 + (c.donnees || 0) * 0.4);
+              const pertCls = pertinence >= 80 ? 'pos' : pertinence >= 60 ? '' : 'neg';
+              const sourceShort = c.source === 'dvf' ? 'DVF' : c.source === 'ideeri' ? 'Ideeri' : c.source === 'encours' ? 'En cours' : 'Portail';
+              const dotCls = c.source === 'dvf' ? 'dot-dvf' : c.source === 'ideeri' ? 'dot-ideeri' : c.source === 'encours' ? 'dot-encours' : 'dot-portail';
+              // Tentative de calcul Ajust\u00e9/m\u00b2 \u00e0 partir de prix/m\u00b2 et adjTotal
+              const m2Num = parseInt(String(c.prixM2).replace(/\D/g, ''), 10) || 0;
+              const adjPctMatch = String(c.adjTotal || '0%').replace(',', '.').match(/-?\d+(\.\d+)?/);
+              const adjPct = adjPctMatch ? parseFloat(adjPctMatch[0]) * (String(c.adjTotal).startsWith('\u2212') ? -1 : 1) : 0;
+              const adjustedM2 = Math.round(m2Num * (1 + adjPct / 100));
+              return (
+                <tr key={c.id}>
+                  <td><strong>{c.title}</strong></td>
+                  <td><span className={`source-dot ${dotCls}`} style={{ display: 'inline-block', marginRight: 4 }} />{sourceShort}</td>
+                  <td className={`t-adj ${pertCls}`} style={pertCls === '' ? { color: '#d97706' } : {}}>{pertinence}%</td>
+                  <td className="t-price">{c.prix} &euro;</td>
+                  <td className="t-price">{c.prixM2} &euro;</td>
+                  <td className={`t-adj ${c.adjTotalClass || ''}`}>{c.adjTotal}</td>
+                  <td className="t-price">{adjustedM2 ? `${adjustedM2.toLocaleString('fr-FR')} \u20ac` : '\u2014'}</td>
+                  <td className="t-adj">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={weights[c.id] !== undefined ? weights[c.id] : 0}
+                      onChange={(e) => handleWeightChange(c.id, Number(e.target.value))}
+                      className="t-weight-input"
+                    />
+                    <span style={{ marginLeft: 2, color: '#888', fontSize: 11 }}>%</span>
+                  </td>
+                  <td style={{ textAlign: 'center' }}>
+                    <button
+                      className="btn-trash"
+                      onClick={() => handleRemoveComparable(c.id)}
+                      title="Retirer ce comparable"
+                      aria-label="Retirer"
+                    >
+                      &#128465;
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+            {selected.length === 0 && (
+              <tr>
+                <td colSpan={9} style={{ textAlign: 'center', color: '#999', padding: '20px 0', fontStyle: 'italic' }}>
+                  Aucun comparable s\u00e9lectionn\u00e9
+                </td>
+              </tr>
+            )}
+            {selected.length > 0 && (() => {
+              // Moyenne pond\u00e9r\u00e9e des prix/m\u00b2 ajust\u00e9s
+              let sumW = 0;
+              let sumWP = 0;
+              selected.forEach((c) => {
+                const w = weights[c.id] || 0;
+                const m2Num = parseInt(String(c.prixM2).replace(/\D/g, ''), 10) || 0;
+                const adjPctMatch = String(c.adjTotal || '0%').replace(',', '.').match(/-?\d+(\.\d+)?/);
+                const adjPct = adjPctMatch ? parseFloat(adjPctMatch[0]) * (String(c.adjTotal).startsWith('\u2212') ? -1 : 1) : 0;
+                const adjustedM2 = Math.round(m2Num * (1 + adjPct / 100));
+                sumW += w;
+                sumWP += adjustedM2 * w;
+              });
+              const avgM2 = sumW > 0 ? Math.round(sumWP / sumW) : 0;
+              return (
+                <tr className="t-avg">
+                  <td colSpan={6} style={{ textAlign: 'right', paddingRight: 12 }}><strong>Moyenne pond\u00e9r\u00e9e :</strong></td>
+                  <td className="t-price"><strong>{avgM2 ? `${avgM2.toLocaleString('fr-FR')} \u20ac/m\u00b2` : '\u2014'}</strong></td>
+                  <td className="t-adj"><strong>{sumW}%</strong></td>
+                  <td></td>
+                </tr>
+              );
+            })()}
           </tbody>
         </table>
       </div>
@@ -2237,6 +2573,11 @@ export default function Step3Comparables() {
           <div className="min-note">&#10003; Minimum recommand&eacute; : 3 comparables s&eacute;lectionn&eacute;s</div>
         </div>
       </div>
+
+      {/* Drawer d\u00e9tail comparable */}
+      {drawerComp && (
+        <ComparableDrawer comp={drawerComp} onClose={() => setDrawerComp(null)} />
+      )}
     </div>
   );
 }
