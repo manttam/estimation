@@ -1320,11 +1320,11 @@ const INITIAL_SELECTED = [
       { lbl: '\u00c9tage (3 vs 4)', val: '\u22120.8%', cls: 'neg' },
       { lbl: 'Ext\u00e9rieurs', val: '\u22120.6%', cls: 'neg' },
     ],
-    description: 'Bel appartement T3 traversant de 68m² au 3ème étage avec ascenseur. Séjour lumineux donnant sur cour arborée, cuisine équipée récente, deux chambres avec rangements. Parquet ancien, moulures. Cave et local vélo.',
+    description: '',
     noPhoto: true,
     surface: 68,
     pieces: 3,
-    // DVF : données minimales (pas de photos, pas d'historique de commercialisation)
+    // DVF : données minimales (pas de description, pas de photos, pas d'historique de commercialisation)
     dateMutationISO: '2025-12-12',
     coords: [45.7565, 4.8635],
     parcelleRef: '69383 BL 0142',
@@ -1627,7 +1627,7 @@ function SelectedCompCard({ comp, onRemove, onOpenDrawer, weight, onWeightChange
         <div className="p-item"><div className="p-label">Prix/m&sup2;</div><div className="p-val">{comp.prixM2} &euro;</div></div>
         <div className="p-item"><div className="p-label">Distance</div><div className="p-val" style={{ color: '#4a6cf7' }}>{comp.distance}</div></div>
       </div>
-      {comp.description && (
+      {comp.source !== 'dvf' && comp.description && (
         <div className="comp-description">
           <div className="comp-description-label">Description du bien</div>
           {comp.description}

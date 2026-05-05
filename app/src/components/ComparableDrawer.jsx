@@ -1030,7 +1030,7 @@ export default function ComparableDrawer({ comp, onClose }) {
           )}
 
           {/* Description fallback */}
-          {!comp.infosGenerales && !comp.descriptifAnnonce && comp.description && (
+          {!isDvf && !comp.infosGenerales && !comp.descriptifAnnonce && comp.description && (
             <div className="drawer-section">
               <h3 className="drawer-section-title">Description du bien</h3>
               <div className="ad-description">{comp.description}</div>
