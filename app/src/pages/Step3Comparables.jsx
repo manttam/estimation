@@ -1366,10 +1366,10 @@ const INITIAL_SELECTED = [
     // Ideeri vendu : jeu complet
     photos: [
       'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=900&h=600&fit=crop',
-      'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=900&h=600&fit=crop',
-      'https://images.unsplash.com/photo-1567767292278-a4f21aa2d36e?w=900&h=600&fit=crop',
-      'https://images.unsplash.com/photo-1558211583-d26f610c1eb1?w=900&h=600&fit=crop',
-      'https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=900&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=900&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=900&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1583847268964-b28dc8f51f92?w=900&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1620626011761-996317b8d101?w=900&h=600&fit=crop',
     ],
     rooms: [
       { nom: 'Salon / S\u00e9jour', surface: 26, etage: 5, etat: 'R\u00e9nov\u00e9 2022' },
@@ -1447,10 +1447,10 @@ const INITIAL_SELECTED = [
     pieces: 2,
     // Ideeri en cours : jeu complet sans vente finale
     photos: [
-      'https://images.unsplash.com/photo-1574362848149-11496d93a7c7?w=900&h=600&fit=crop',
-      'https://images.unsplash.com/photo-1502672023488-70e25813eb80?w=900&h=600&fit=crop',
-      'https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=900&h=600&fit=crop',
-      'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=900&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1502005229762-cf1b2da7c5d6?w=900&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1484101403633-562f891dc89a?w=900&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1554995207-c18c203602cb?w=900&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1540518614846-7eded433c457?w=900&h=600&fit=crop',
     ],
     rooms: [
       { nom: 'S\u00e9jour avec balcon', surface: 22, etage: 2, etat: 'Bon \u00e9tat' },
@@ -1486,6 +1486,80 @@ const INITIAL_SELECTED = [
     ],
     joursEnCommercialisation: 90,
   },
+  {
+    id: 'felixfaure',
+    title: 'T3 69m\u00b2 \u2014 42 av. F\u00e9lix Faure',
+    addr: 'Lyon 3\u00e8me',
+    source: 'portail',
+    sourceLabel: 'Annonce portail',
+    portalName: 'Leboncoin',
+    prix: '289 000',
+    prixM2: '4 188',
+    prixNum: 289000,
+    distance: '1.1km',
+    venteLabel: '\u2014 En ligne',
+    venteDetail: 'Prix affich\u00e9 : 289 000 \u20ac',
+    venteNa: true,
+    avisLabel: '\u2014',
+    avisDetail: 'Pas d\'avis agent (annonce externe)',
+    avisNa: true,
+    meta: '\u00c9tage 4/5 \u00b7 DPE D \u00b7 En ligne 62 jours',
+    similarite: 76,
+    simClass: 'score-mid',
+    donnees: 38,
+    donClass: 'score-low',
+    donCount: '69 / 182',
+    reliability: 'listed',
+    reliabilityLabel: '\ud83d\udfe0 Prix affich\u00e9',
+    adjTotal: '\u22121.5%',
+    adjTotalClass: 'neg',
+    adjustments: [
+      { lbl: 'Surface (-3.5m\u00b2)', val: '\u22121.6%', cls: 'neg' },
+      { lbl: '\u00c9tage (4 vs 4)', val: '0%', cls: 'pos' },
+      { lbl: 'DPE \u00e9quivalent', val: '+0.1%', cls: 'pos' },
+    ],
+    description: '',
+    noPhoto: false,
+    photoUrl: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=520&h=140&fit=crop',
+    surface: 69,
+    pieces: 3,
+    // Donn\u00e9es propres aux annonces de portails
+    photos: [
+      'https://images.unsplash.com/photo-1554995207-c18c203602cb?w=900&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1565183997392-2f6f122e5912?w=900&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=900&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1616137466211-f939a420be84?w=900&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1502005229762-cf1b2da7c5d6?w=900&h=600&fit=crop',
+    ],
+    descriptifAnnonce: "Bel appartement T3 de 69 m\u00b2 situ\u00e9 dans une copropri\u00e9t\u00e9 de standing avenue F\u00e9lix Faure. Au 4\u00e8me \u00e9tage avec ascenseur, cet appartement traversant b\u00e9n\u00e9ficie d'une belle luminosit\u00e9 naturelle gr\u00e2ce \u00e0 sa double exposition Est/Ouest.\n\nIl se compose d'une entr\u00e9e avec rangement, d'un s\u00e9jour spacieux donnant sur balcon, d'une cuisine s\u00e9par\u00e9e am\u00e9nag\u00e9e et \u00e9quip\u00e9e, de deux chambres avec placards, d'une salle de bain et de WC s\u00e9par\u00e9s.\n\nProche de toutes commodit\u00e9s : commerces, transports (M\u00e9tro Sans-Souci \u00e0 200m, Tram T3 \u00e0 300m), \u00e9coles. Cave et possibilit\u00e9 de location de parking en sous-sol.\n\nDPE D \u2014 GES D. Charges de copropri\u00e9t\u00e9 : 145 \u20ac/mois. Taxe fonci\u00e8re : 1 240 \u20ac/an. Bien soumis au statut de la copropri\u00e9t\u00e9.",
+    criteresEnAvant: ['Balcon', 'Cave', 'Ascenseur', 'Double exposition', 'Cuisine \u00e9quip\u00e9e', 'Proche m\u00e9tro', 'Lumineux'],
+    agence: {
+      nom: 'Century 21 Lyon Part-Dieu',
+      agent: 'Marc Dupont',
+      telephone: '04 78 XX XX XX',
+    },
+    urlAnnonce: '#',
+    datePublication: '2025-12-28',
+    historique: [
+      { date: '2025-12-28', evenement: 'Mise en ligne', prix: 305000 },
+      { date: '2026-01-25', evenement: 'Baisse de prix', prix: 295000 },
+      { date: '2026-02-18', evenement: 'Baisse de prix', prix: 289000 },
+    ],
+    joursEnCommercialisation: 62,
+    // Infos partielles disponibles via le portail
+    infosGenerales: {
+      surfaceHabitable: 69,
+      surfaceExterieurs: 4,
+      dependances: 'Cave',
+      chauffage: 'Gaz collectif',
+      rafraichissement: null,
+      dpe: 'D',
+      ges: 'D',
+      anneeConstruction: 1980,
+      etatGeneral: 'Bon \u00e9tat g\u00e9n\u00e9ral (selon annonce)',
+      emplacement: 'Avenue F\u00e9lix Faure, Lyon 3\u00e8me, proche m\u00e9tro Sans-Souci',
+    },
+  },
 ];
 
 const INITIAL_OTHERS = [
@@ -1493,7 +1567,6 @@ const INITIAL_OTHERS = [
   { id: 'lafayette', title: 'T4 85m\u00b2 \u2014 18 cours Lafayette, Lyon 3', source: 'portail', portalName: 'SeLoger', meta: 'Portail \u00b7 340k\u20ac \u00b7 4 000\u20ac/m\u00b2 \u00b7 890m', simScore: '58% sim.', simClass: 'mid', donScore: '5% donn\u00e9es', donClass: 'low', donCount: '9/182' },
   { id: 'mazenod', title: 'T2 55m\u00b2 \u2014 33 rue Mazenod, Lyon 3', source: 'dvf', meta: 'DVF \u00b7 240k\u20ac \u00b7 4 363\u20ac/m\u00b2 \u00b7 420m', simScore: '71% sim.', simClass: 'mid', donScore: '68% donn\u00e9es', donClass: 'mid', donCount: '124/182' },
   { id: 'guichard', title: 'T3 71m\u00b2 \u2014 7 place Guichard, Lyon 3', source: 'ideeri', meta: 'Ideeri \u00b7 298k\u20ac \u00b7 4 197\u20ac/m\u00b2 \u00b7 310m', simScore: '89% sim.', simClass: 'high', donScore: '93% donn\u00e9es', donClass: 'high', donCount: '538/575' },
-  { id: 'felixfaure', title: 'T3 69m\u00b2 \u2014 42 av. F\u00e9lix Faure, Lyon 3', source: 'portail', portalName: 'Leboncoin', meta: 'Portail \u00b7 289k\u20ac \u00b7 4 188\u20ac/m\u00b2 \u00b7 1.1km', simScore: '76% sim.', simClass: 'mid', donScore: '7% donn\u00e9es', donClass: 'low', donCount: '13/182' },
 ];
 
 function SelectedCompCard({ comp, onRemove, onOpenDrawer, weight, onWeightChange }) {
@@ -1562,7 +1635,14 @@ function SelectedCompCard({ comp, onRemove, onOpenDrawer, weight, onWeightChange
       </div>
 
       {/* Pond\u00e9ration manuelle */}
-      <div className="weight-control" onClick={stop}>
+      <div
+        className="weight-control"
+        onClick={stop}
+        onMouseDown={stop}
+        onMouseUp={stop}
+        onPointerDown={stop}
+        onTouchStart={stop}
+      >
         <div className="weight-control-header">
           <span className="weight-control-label">Poids dans l&rsquo;estimation</span>
           <span className="weight-control-value">{weight}%</span>
@@ -1574,6 +1654,8 @@ function SelectedCompCard({ comp, onRemove, onOpenDrawer, weight, onWeightChange
           step="1"
           value={weight}
           onChange={(e) => onWeightChange && onWeightChange(comp.id, Number(e.target.value))}
+          onClick={stop}
+          onMouseDown={stop}
           className="weight-slider"
         />
       </div>

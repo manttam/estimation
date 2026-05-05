@@ -39,10 +39,7 @@ const drawerCss = `
     align-items: flex-start;
     gap: 12px;
   }
-  .drawer-header-text {
-    flex: 1;
-    min-width: 0;
-  }
+  .drawer-header-text { flex: 1; min-width: 0; }
   .drawer-title {
     font-size: 16px;
     font-weight: 600;
@@ -72,16 +69,9 @@ const drawerCss = `
     justify-content: center;
     flex-shrink: 0;
   }
-  .drawer-close:hover {
-    background: #ececec;
-    color: #1a1a1a;
-  }
-  .drawer-body {
-    padding: 18px 22px 32px;
-  }
-  .drawer-section {
-    margin-bottom: 22px;
-  }
+  .drawer-close:hover { background: #ececec; color: #1a1a1a; }
+  .drawer-body { padding: 18px 22px 32px; }
+  .drawer-section { margin-bottom: 22px; }
   .drawer-section-title {
     font-size: 11px;
     font-weight: 600;
@@ -124,9 +114,7 @@ const drawerCss = `
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
     transition: background 0.15s;
   }
-  .carousel-arrow:hover {
-    background: #fff;
-  }
+  .carousel-arrow:hover { background: #fff; }
   .carousel-arrow.left { left: 10px; }
   .carousel-arrow.right { right: 10px; }
   .carousel-dots {
@@ -145,9 +133,7 @@ const drawerCss = `
     cursor: pointer;
     transition: background 0.15s;
   }
-  .carousel-dot.active {
-    background: #fff;
-  }
+  .carousel-dot.active { background: #fff; }
   .carousel-counter {
     position: absolute;
     top: 10px;
@@ -180,9 +166,7 @@ const drawerCss = `
     border-radius: 10px;
     padding: 14px;
   }
-  .key-fact-item {
-    text-align: center;
-  }
+  .key-fact-item { text-align: center; }
   .key-fact-label {
     font-size: 10px;
     color: #888;
@@ -225,11 +209,7 @@ const drawerCss = `
   }
   .pros-cons-col.pros .pros-cons-title { color: #2d8856; }
   .pros-cons-col.cons .pros-cons-title { color: #c0392b; }
-  .pros-cons ul {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
+  .pros-cons ul { list-style: none; margin: 0; padding: 0; }
   .pros-cons li {
     font-size: 12px;
     color: #333;
@@ -246,7 +226,7 @@ const drawerCss = `
     color: #46B962;
   }
   .pros-cons-col.cons li::before {
-    content: "\u2212";
+    content: "−";
     position: absolute;
     left: 0;
     font-weight: 700;
@@ -289,9 +269,7 @@ const drawerCss = `
     border-bottom: 1px solid #f5f5f5;
     color: #333;
   }
-  .rooms-table tbody tr:last-child td {
-    border-bottom: none;
-  }
+  .rooms-table tbody tr:last-child td { border-bottom: none; }
   .rooms-total {
     font-weight: 600;
     background: #f0f8f5;
@@ -343,6 +321,7 @@ const drawerCss = `
     line-height: 1.55;
     color: #333;
     border: 1px solid #eee;
+    white-space: pre-wrap;
   }
   /* Agency */
   .agency-card {
@@ -407,6 +386,52 @@ const drawerCss = `
     padding: 12px;
     border: 1px solid #eee;
     margin-bottom: 12px;
+    position: relative;
+  }
+  .price-curve-svg { width: 100%; display: block; }
+  .price-curve-svg circle.dot {
+    cursor: pointer;
+    transition: r 0.12s;
+  }
+  .price-curve-svg circle.dot:hover { r: 6; }
+  .curve-tooltip {
+    position: absolute;
+    background: #1a1a1a;
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    line-height: 1.4;
+    pointer-events: none;
+    white-space: nowrap;
+    transform: translate(-50%, -100%);
+    z-index: 10;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+  }
+  .curve-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: #1a1a1a;
+  }
+  .curve-tooltip-date {
+    color: #aaa;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 2px;
+  }
+  .curve-tooltip-event {
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+  .curve-tooltip-price {
+    color: #46B962;
+    font-weight: 700;
+    font-size: 13px;
   }
   .price-timeline {
     list-style: none;
@@ -431,9 +456,7 @@ const drawerCss = `
     background: #fff;
     border: 2px solid #46B962;
   }
-  .price-timeline li.event-baisse::before {
-    border-color: #d97706;
-  }
+  .price-timeline li.event-baisse::before { border-color: #d97706; }
   .price-timeline li.event-vente::before {
     background: #46B962;
     border-color: #46B962;
@@ -455,9 +478,7 @@ const drawerCss = `
     font-weight: 700;
     font-size: 13px;
   }
-  .timeline-price.neg {
-    color: #d97706;
-  }
+  .timeline-price.neg { color: #d97706; }
   /* Notice */
   .data-notice {
     background: #fff8e1;
@@ -480,8 +501,8 @@ function PhotoCarousel({ photos }) {
       <img src={photos[idx]} alt={`Photo ${idx + 1}`} />
       {photos.length > 1 && (
         <>
-          <button className="carousel-arrow left" onClick={prev}>&lsaquo;</button>
-          <button className="carousel-arrow right" onClick={next}>&rsaquo;</button>
+          <button className="carousel-arrow left" onClick={prev}>‹</button>
+          <button className="carousel-arrow right" onClick={next}>›</button>
           <div className="carousel-counter">{idx + 1} / {photos.length}</div>
           <div className="carousel-dots">
             {photos.map((_, i) => (
@@ -503,19 +524,19 @@ function KeyFacts({ comp }) {
     <div className="key-facts">
       <div className="key-fact-item">
         <div className="key-fact-label">Prix</div>
-        <div className="key-fact-value">{comp.prix} &euro;</div>
+        <div className="key-fact-value">{comp.prix} €</div>
       </div>
       <div className="key-fact-item">
-        <div className="key-fact-label">Prix/m&sup2;</div>
-        <div className="key-fact-value">{comp.prixM2} &euro;</div>
+        <div className="key-fact-label">Prix/m²</div>
+        <div className="key-fact-value">{comp.prixM2} €</div>
       </div>
       <div className="key-fact-item">
         <div className="key-fact-label">Surface</div>
-        <div className="key-fact-value">{comp.surface || '\u2014'} m&sup2;</div>
+        <div className="key-fact-value">{comp.surface || '—'} m²</div>
       </div>
       <div className="key-fact-item">
-        <div className="key-fact-label">Pi\u00e8ces</div>
-        <div className="key-fact-value">{comp.pieces || '\u2014'}</div>
+        <div className="key-fact-label">Pièces</div>
+        <div className="key-fact-value">{comp.pieces || '—'}</div>
       </div>
       <div className="key-fact-item">
         <div className="key-fact-label">Distance</div>
@@ -536,14 +557,14 @@ function ProsCons({ atouts = [], contraintes = [] }) {
       <div className="pros-cons-col pros">
         <div className="pros-cons-title">Atouts qualitatifs</div>
         <ul>
-          {atouts.length === 0 && <li style={{ color: '#999', fontStyle: 'italic' }}>Aucun renseign\u00e9</li>}
+          {atouts.length === 0 && <li style={{ color: '#999', fontStyle: 'italic' }}>Aucun renseigné</li>}
           {atouts.map((a, i) => <li key={i}>{a}</li>)}
         </ul>
       </div>
       <div className="pros-cons-col cons">
         <div className="pros-cons-title">Points de contrainte</div>
         <ul>
-          {contraintes.length === 0 && <li style={{ color: '#999', fontStyle: 'italic' }}>Aucun renseign\u00e9</li>}
+          {contraintes.length === 0 && <li style={{ color: '#999', fontStyle: 'italic' }}>Aucun renseigné</li>}
           {contraintes.map((c, i) => <li key={i}>{c}</li>)}
         </ul>
       </div>
@@ -558,24 +579,24 @@ function RoomsTable({ rooms }) {
     <table className="rooms-table">
       <thead>
         <tr>
-          <th>Pi\u00e8ce</th>
+          <th>Pièce</th>
           <th>Surface</th>
-          <th>\u00c9tage</th>
-          <th>\u00c9tat</th>
+          <th>Étage</th>
+          <th>État</th>
         </tr>
       </thead>
       <tbody>
         {rooms.map((r, i) => (
           <tr key={i}>
             <td><strong>{r.nom}</strong></td>
-            <td>{r.surface} m&sup2;</td>
-            <td>{r.etage !== undefined ? r.etage : '\u2014'}</td>
-            <td>{r.etat || '\u2014'}</td>
+            <td>{r.surface} m²</td>
+            <td>{r.etage !== undefined ? r.etage : '—'}</td>
+            <td>{r.etat || '—'}</td>
           </tr>
         ))}
         <tr className="rooms-total">
           <td>Total</td>
-          <td>{totalSurface.toFixed(1).replace('.0', '')} m&sup2;</td>
+          <td>{totalSurface.toFixed(1).replace('.0', '')} m²</td>
           <td colSpan={2}></td>
         </tr>
       </tbody>
@@ -586,54 +607,54 @@ function RoomsTable({ rooms }) {
 function GeneralInfo({ data }) {
   if (!data) return null;
   const fields = [
-    { label: 'Surface habitable', value: data.surfaceHabitable ? `${data.surfaceHabitable} m\u00b2` : null },
-    { label: 'Surface ext\u00e9rieurs', value: data.surfaceExterieurs ? `${data.surfaceExterieurs} m\u00b2` : null },
-    { label: 'D\u00e9pendances', value: data.dependances },
+    { label: 'Surface habitable', value: data.surfaceHabitable ? `${data.surfaceHabitable} m²` : null },
+    { label: 'Surface extérieurs', value: data.surfaceExterieurs ? `${data.surfaceExterieurs} m²` : null },
+    { label: 'Dépendances', value: data.dependances },
     { label: 'Chauffage', value: data.chauffage },
-    { label: 'Rafra\u00eechissement', value: data.rafraichissement },
+    { label: 'Rafraîchissement', value: data.rafraichissement },
     { label: 'Sol', value: data.sol },
     { label: 'Menuiseries', value: data.menuiseries },
     { label: 'Toiture / charpente', value: data.toitureCharpente },
-    { label: 'Ann\u00e9e construction', value: data.anneeConstruction },
-    { label: 'R\u00e9novation', value: data.renovationAnnee ? `R\u00e9nov\u00e9 en ${data.renovationAnnee}` : 'Non' },
-    { label: '\u00c9tat g\u00e9n\u00e9ral', value: data.etatGeneral },
+    { label: 'Année construction', value: data.anneeConstruction },
+    { label: 'Rénovation', value: data.renovationAnnee ? `Rénové en ${data.renovationAnnee}` : 'Non' },
+    { label: 'État général', value: data.etatGeneral },
     { label: 'Emplacement', value: data.emplacement },
   ];
   return (
-    <>
-      <div className="general-info">
-        {fields.filter(f => f.value).map((f, i) => (
-          <div className="general-info-row" key={i}>
-            <div className="general-info-label">{f.label}</div>
-            <div className="general-info-value">{f.value}</div>
+    <div className="general-info">
+      {fields.filter(f => f.value).map((f, i) => (
+        <div className="general-info-row" key={i}>
+          <div className="general-info-label">{f.label}</div>
+          <div className="general-info-value">{f.value}</div>
+        </div>
+      ))}
+      {data.dpe && (
+        <div className="general-info-row">
+          <div className="general-info-label">DPE</div>
+          <div className="general-info-value">
+            <span className={`dpe-badge dpe-${data.dpe}`}>{data.dpe}</span>
+            {data.ges && <span className={`dpe-badge dpe-${data.ges}`} style={{ marginLeft: 6 }}>GES {data.ges}</span>}
           </div>
-        ))}
-        {data.dpe && (
-          <div className="general-info-row">
-            <div className="general-info-label">DPE</div>
-            <div className="general-info-value">
-              <span className={`dpe-badge dpe-${data.dpe}`}>{data.dpe}</span>
-              {data.ges && <span className={`dpe-badge dpe-${data.ges}`} style={{ marginLeft: 6 }}>GES {data.ges}</span>}
-            </div>
-          </div>
-        )}
-      </div>
-    </>
+        </div>
+      )}
+    </div>
   );
 }
 
 function PriceEvolution({ historique, joursEnCommercialisation, source }) {
+  const [hover, setHover] = useState(null); // index du point survolé
   if (!historique || historique.length === 0) return null;
   const prix = historique.map(h => h.prix);
   const minPrix = Math.min(...prix);
   const maxPrix = Math.max(...prix);
   const range = maxPrix - minPrix || 1;
   const W = 480;
-  const H = 80;
-  const PAD = 8;
+  const H = 90;
+  const PAD_X = 10;
+  const PAD_Y = 12;
   const points = historique.map((h, i) => {
-    const x = PAD + (i * (W - 2 * PAD)) / Math.max(historique.length - 1, 1);
-    const y = H - PAD - ((h.prix - minPrix) / range) * (H - 2 * PAD);
+    const x = PAD_X + (i * (W - 2 * PAD_X)) / Math.max(historique.length - 1, 1);
+    const y = H - PAD_Y - ((h.prix - minPrix) / range) * (H - 2 * PAD_Y);
     return { x, y, ...h };
   });
   const polyline = points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
@@ -642,19 +663,32 @@ function PriceEvolution({ historique, joursEnCommercialisation, source }) {
   const trendPositive = final >= initial;
   const lineColor = trendPositive ? '#46B962' : '#d97706';
   const days = joursEnCommercialisation || 0;
-  const fmtPrix = (p) => p.toLocaleString('fr-FR') + ' \u20ac';
+  const fmtPrix = (p) => p.toLocaleString('fr-FR') + ' €';
+  const fmtDate = (d) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+
+  // Position du tooltip en pourcentage du SVG (responsive)
+  const tooltipPos = hover !== null ? {
+    leftPct: (points[hover].x / W) * 100,
+    topPct: (points[hover].y / H) * 100,
+  } : null;
+
   return (
     <>
       <div className="price-evo-header">
         <span style={{ fontSize: 12, color: '#666' }}>
-          {source === 'encours' ? 'En commercialisation depuis' : 'Dur\u00e9e de commercialisation'}
+          {source === 'encours' ? 'En commercialisation depuis' : 'Durée de commercialisation'}
         </span>
         <span className={`days-badge ${days > 90 ? 'long' : ''}`}>
           {days} jours
         </span>
       </div>
       <div className="price-curve-wrap">
-        <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none">
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          className="price-curve-svg"
+          preserveAspectRatio="none"
+          style={{ height: H, overflow: 'visible' }}
+        >
           <polyline
             fill="none"
             stroke={lineColor}
@@ -667,10 +701,44 @@ function PriceEvolution({ historique, joursEnCommercialisation, source }) {
             if (ev.includes('baisse')) color = '#d97706';
             else if (ev.includes('vente') || ev.includes('compromis')) color = '#1f7a3f';
             return (
-              <circle key={i} cx={p.x} cy={p.y} r="4" fill="#fff" stroke={color} strokeWidth="2" />
+              <g key={i}>
+                {/* Cercle invisible plus large pour faciliter le hover */}
+                <circle
+                  cx={p.x}
+                  cy={p.y}
+                  r="14"
+                  fill="transparent"
+                  onMouseEnter={() => setHover(i)}
+                  onMouseLeave={() => setHover(null)}
+                  style={{ cursor: 'pointer' }}
+                />
+                <circle
+                  className="dot"
+                  cx={p.x}
+                  cy={p.y}
+                  r={hover === i ? 6 : 4}
+                  fill="#fff"
+                  stroke={color}
+                  strokeWidth="2"
+                  style={{ pointerEvents: 'none' }}
+                />
+              </g>
             );
           })}
         </svg>
+        {tooltipPos && (
+          <div
+            className="curve-tooltip"
+            style={{
+              left: `calc(${tooltipPos.leftPct}% + 12px)`,
+              top: `calc(${tooltipPos.topPct}% + 12px - 12px)`,
+            }}
+          >
+            <div className="curve-tooltip-date">{fmtDate(points[hover].date)}</div>
+            <div className="curve-tooltip-event">{points[hover].evenement}</div>
+            <div className="curve-tooltip-price">{fmtPrix(points[hover].prix)}</div>
+          </div>
+        )}
       </div>
       <ul className="price-timeline">
         {historique.map((h, i) => {
@@ -682,13 +750,13 @@ function PriceEvolution({ historique, joursEnCommercialisation, source }) {
           const delta = prevPrix !== null ? h.prix - prevPrix : 0;
           return (
             <li key={i} className={cls}>
-              <div className="timeline-date">{new Date(h.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+              <div className="timeline-date">{fmtDate(h.date)}</div>
               <div className="timeline-event">{h.evenement}</div>
               <div className={`timeline-price ${delta < 0 ? 'neg' : ''}`}>
                 {fmtPrix(h.prix)}
                 {delta !== 0 && (
                   <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 500, color: delta < 0 ? '#d97706' : '#2d8856' }}>
-                    ({delta > 0 ? '+' : ''}{delta.toLocaleString('fr-FR')} \u20ac)
+                    ({delta > 0 ? '+' : ''}{delta.toLocaleString('fr-FR')} €)
                   </span>
                 )}
               </div>
@@ -711,7 +779,6 @@ export default function ComparableDrawer({ comp, onClose }) {
   if (!comp) return null;
   const isDvf = comp.source === 'dvf';
   const isPortail = comp.source === 'portail';
-  const isIdeeri = comp.source === 'ideeri' || comp.source === 'encours';
 
   return (
     <div className="comp-drawer-overlay" onClick={onClose}>
@@ -722,12 +789,12 @@ export default function ComparableDrawer({ comp, onClose }) {
             <h2 className="drawer-title">{comp.title}</h2>
             <div className="drawer-subtitle">
               <span>{comp.addr}</span>
-              <span>&middot;</span>
+              <span>·</span>
               <span className={`source-badge ${comp.source}`}>{comp.sourceLabel}</span>
               {comp.portalName && <span className="portal-tag">{comp.portalName}</span>}
             </div>
           </div>
-          <button className="drawer-close" onClick={onClose} aria-label="Fermer">&times;</button>
+          <button className="drawer-close" onClick={onClose} aria-label="Fermer">×</button>
         </header>
 
         <div className="drawer-body">
@@ -739,7 +806,7 @@ export default function ComparableDrawer({ comp, onClose }) {
           ) : isDvf ? (
             <div className="drawer-section">
               <div className="no-photo-block">
-                Pas de photos &mdash; les transactions DVF ne contiennent pas d&rsquo;images
+                Pas de photos — les transactions DVF ne contiennent pas d'images
               </div>
             </div>
           ) : null}
@@ -749,10 +816,10 @@ export default function ComparableDrawer({ comp, onClose }) {
             <KeyFacts comp={comp} />
           </div>
 
-          {/* Atouts / contraintes (Ideeri) */}
+          {/* Atouts / contraintes */}
           {(comp.atoutsQualitatifs || comp.pointsContraintes) && (
             <div className="drawer-section">
-              <h3 className="drawer-section-title">Qualit\u00e9 du bien</h3>
+              <h3 className="drawer-section-title">Qualité du bien</h3>
               <ProsCons
                 atouts={comp.atoutsQualitatifs || []}
                 contraintes={comp.pointsContraintes || []}
@@ -763,7 +830,7 @@ export default function ComparableDrawer({ comp, onClose }) {
           {/* Critères mis en avant (Portails) */}
           {isPortail && comp.criteresEnAvant && comp.criteresEnAvant.length > 0 && (
             <div className="drawer-section">
-              <h3 className="drawer-section-title">Crit\u00e8res mis en avant sur l&rsquo;annonce</h3>
+              <h3 className="drawer-section-title">Critères mis en avant sur l'annonce</h3>
               <div className="highlights-tags">
                 {comp.criteresEnAvant.map((c, i) => (
                   <span key={i} className="highlight-tag">{c}</span>
@@ -775,7 +842,7 @@ export default function ComparableDrawer({ comp, onClose }) {
           {/* Pièces */}
           {comp.rooms && comp.rooms.length > 0 && (
             <div className="drawer-section">
-              <h3 className="drawer-section-title">D\u00e9tail des pi\u00e8ces</h3>
+              <h3 className="drawer-section-title">Détail des pièces</h3>
               <RoomsTable rooms={comp.rooms} />
             </div>
           )}
@@ -783,7 +850,7 @@ export default function ComparableDrawer({ comp, onClose }) {
           {/* Infos générales */}
           {comp.infosGenerales && (
             <div className="drawer-section">
-              <h3 className="drawer-section-title">Informations g\u00e9n\u00e9rales</h3>
+              <h3 className="drawer-section-title">Informations générales</h3>
               <GeneralInfo data={comp.infosGenerales} />
             </div>
           )}
@@ -791,13 +858,13 @@ export default function ComparableDrawer({ comp, onClose }) {
           {/* Descriptif annonce (Portails) */}
           {isPortail && comp.descriptifAnnonce && (
             <div className="drawer-section">
-              <h3 className="drawer-section-title">Descriptif de l&rsquo;annonce</h3>
+              <h3 className="drawer-section-title">Descriptif de l'annonce</h3>
               <div className="ad-description">{comp.descriptifAnnonce}</div>
             </div>
           )}
 
-          {/* Description Ideeri (fallback si pas de pieces/infosGen) */}
-          {!comp.infosGenerales && comp.description && (
+          {/* Description fallback */}
+          {!comp.infosGenerales && !comp.descriptifAnnonce && comp.description && (
             <div className="drawer-section">
               <h3 className="drawer-section-title">Description du bien</h3>
               <div className="ad-description">{comp.description}</div>
@@ -814,7 +881,7 @@ export default function ComparableDrawer({ comp, onClose }) {
                 <div className="agency-phone">{comp.agence.telephone}</div>
                 {comp.urlAnnonce && (
                   <a href={comp.urlAnnonce} className="agency-link" onClick={(e) => e.preventDefault()}>
-                    &uarr; Voir l&rsquo;annonce sur {comp.portalName}
+                    ↗ Voir l'annonce sur {comp.portalName}
                   </a>
                 )}
               </div>
@@ -824,7 +891,7 @@ export default function ComparableDrawer({ comp, onClose }) {
           {/* Évolution prix */}
           {comp.historique && comp.historique.length > 0 && (
             <div className="drawer-section">
-              <h3 className="drawer-section-title">\u00c9volution du prix &amp; commercialisation</h3>
+              <h3 className="drawer-section-title">Évolution du prix &amp; commercialisation</h3>
               <PriceEvolution
                 historique={comp.historique}
                 joursEnCommercialisation={comp.joursEnCommercialisation}
@@ -837,7 +904,7 @@ export default function ComparableDrawer({ comp, onClose }) {
           {isDvf && (
             <div className="drawer-section">
               <div className="data-notice">
-                <strong>Donn\u00e9es limit\u00e9es \u2014 source DVF.</strong> Les transactions DVF (Demandes de Valeurs Foncières) ne contiennent que les informations cadastrales et le prix de mutation. Pour plus de d\u00e9tails, consultez l&rsquo;annonce d&rsquo;origine ou le mandat de l&rsquo;\u00e9poque.
+                <strong>Données limitées — source DVF.</strong> Les transactions DVF (Demandes de Valeurs Foncières) ne contiennent que les informations cadastrales et le prix de mutation. Pour plus de détails, consultez l'annonce d'origine ou le mandat de l'époque.
                 {comp.dateMutationISO && (
                   <div style={{ marginTop: 8 }}>
                     Date de mutation : <strong>{new Date(comp.dateMutationISO).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}</strong>
