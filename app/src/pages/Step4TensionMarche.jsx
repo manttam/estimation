@@ -378,6 +378,58 @@ const cssStyles = `
   .mini-kpi-value.orange { color: var(--orange); }
   .mini-kpi-hint { font-size: 10px; color: var(--muted); margin-top: 4px; font-weight: 400; }
 
+  /* Curseur "Nouveaux projets" J-10 / J-20 / J-30 */
+  .new-projects-slider { width: 100%; max-width: 130px; margin-top: 8px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .new-projects-range {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 3px;
+    border-radius: 2px;
+    background: #e3eee6;
+    outline: none;
+    cursor: pointer;
+    margin: 0;
+  }
+  .new-projects-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--green);
+    border: 2px solid white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+  }
+  .new-projects-range::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--green);
+    border: 2px solid white;
+    cursor: pointer;
+  }
+  .new-projects-ticks {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+  }
+  .new-projects-tick {
+    background: none;
+    border: none;
+    font-size: 9px;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 1px 3px;
+    font-family: inherit;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+    transition: color 0.15s;
+  }
+  .new-projects-tick:hover { color: var(--text); }
+  .new-projects-tick.active { color: var(--green); font-weight: 700; }
+
   /* ACTE 2 */
   .personas-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 22px; }
   .persona-card { border: 1px solid #eee; border-radius: 8px; padding: 20px 14px 18px; background: #fff; cursor: pointer; transition: all 0.18s; display: flex; flex-direction: column; align-items: center; text-align: center; position: relative; }
@@ -679,6 +731,10 @@ export default function Step4TensionMarche() {
   const OFFRE_SNAPSHOT = 7;
   const tension = (P.total / OFFRE_SNAPSHOT).toFixed(1).replace('.', ',');
 
+  // Curseur "Nouveaux projets" : nombre de projets d'achat créés à J-10 / J-20 / J-30
+  const newProjectsByWindow = { 10: 5, 20: 11, 30: 17 };
+  const [newProjectsWindow, setNewProjectsWindow] = useState(10);
+
   const persona = PERSONAS[activePersona];
   const cardCount = P.personas[activePersona];
   const shownBuyers = persona.buyers.slice(0, cardCount);
@@ -796,16 +852,44 @@ export default function Step4TensionMarche() {
           </div>
           <div className="mini-kpi">
             <div className="mini-kpi-label">Tension</div>
-            <div className="mini-kpi-value orange">
+            <div className="mini-kpi-value">
               <span>{tension}</span>
               <span style={{ fontSize: 14, color: '#949494' }}>×</span>
             </div>
             <div className="mini-kpi-hint">projets pour 1 bien</div>
           </div>
           <div className="mini-kpi">
-            <div className="mini-kpi-label">Nouveaux</div>
-            <div className="mini-kpi-value green">+5</div>
-            <div className="mini-kpi-hint">cette semaine</div>
+            <div className="mini-kpi-label">Nouveaux projets</div>
+            <div className="mini-kpi-value green">+{newProjectsByWindow[newProjectsWindow]}</div>
+            <div className="new-projects-slider">
+              <input
+                type="range"
+                min="10"
+                max="30"
+                step="10"
+                value={newProjectsWindow}
+                onChange={(e) => setNewProjectsWindow(Number(e.target.value))}
+                className="new-projects-range"
+                aria-label="P\u00e9riode J-10 / J-20 / J-30"
+              />
+              <div className="new-projects-ticks">
+                <button
+                  type="button"
+                  className={`new-projects-tick${newProjectsWindow === 10 ? ' active' : ''}`}
+                  onClick={() => setNewProjectsWindow(10)}
+                >J-10</button>
+                <button
+                  type="button"
+                  className={`new-projects-tick${newProjectsWindow === 20 ? ' active' : ''}`}
+                  onClick={() => setNewProjectsWindow(20)}
+                >J-20</button>
+                <button
+                  type="button"
+                  className={`new-projects-tick${newProjectsWindow === 30 ? ' active' : ''}`}
+                  onClick={() => setNewProjectsWindow(30)}
+                >J-30</button>
+              </div>
+            </div>
           </div>
         </div>
       </section>

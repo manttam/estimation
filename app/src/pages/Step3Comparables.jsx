@@ -4,6 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import PropertyCard from '../components/PropertyCard';
 import Stepper from '../components/Stepper';
+import ComparableDrawer from '../components/ComparableDrawer';
 import { comparables } from '../data/propertyData';
 
 const SOURCE_COLORS = {
@@ -171,7 +172,7 @@ const cssStyles = `
   .source-checkboxes {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 8px;
   }
   .source-cb-label {
     display: flex;
@@ -187,6 +188,60 @@ const cssStyles = `
     height: 14px;
     cursor: pointer;
   }
+  .source-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .source-row .source-cb-label {
+    flex: 0 0 auto;
+    padding: 0;
+  }
+  .source-row .source-mini-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    flex: 1 1 80px;
+    min-width: 0;
+    max-width: 90px;
+    height: 3px;
+    border-radius: 2px;
+    background: #eee;
+    outline: none;
+    cursor: pointer;
+    margin: 0;
+  }
+  .source-row .source-mini-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: #46B962;
+    border: 1.5px solid white;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    cursor: pointer;
+  }
+  .source-row .source-mini-slider::-moz-range-thumb {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: #46B962;
+    border: 1.5px solid white;
+    cursor: pointer;
+  }
+  .source-row .source-delay-value {
+    flex: 0 0 auto;
+    margin-left: auto;
+    font-size: 10px;
+    font-weight: 600;
+    color: #46B962;
+    text-align: right;
+    white-space: nowrap;
+  }
+  .source-row.disabled .source-mini-slider,
+  .source-row.disabled .source-delay-value {
+    opacity: 0.4;
+  }
   .source-dot {
     width: 8px;
     height: 8px;
@@ -197,7 +252,7 @@ const cssStyles = `
   .dot-dvf { background: #4a6cf7; }
   .dot-ideeri { background: #46B962; }
   .dot-encours { background: #f5a623; }
-  .dot-portail { background: #e87722; }
+  .dot-portail { background: #e74c3c; }
   .source-cb-count {
     font-size: 10px;
     color: #888;
@@ -848,6 +903,149 @@ const cssStyles = `
     font-weight: 500;
   }
 
+  /* PERTINENCE DROPDOWN */
+  .pertinence-toggle {
+    flex: 1;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    transition: filter 0.15s, transform 0.15s;
+  }
+  .pertinence-toggle:hover { filter: brightness(0.97); }
+  .pertinence-chevron {
+    color: #555;
+    font-size: 10px;
+    transition: transform 0.18s ease;
+    margin-left: 4px;
+  }
+  .pertinence-chevron.open { transform: rotate(180deg); }
+  .pertinence-detail {
+    background: #fafafa;
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    margin-top: -2px;
+  }
+  .pertinence-detail-row {
+    margin-bottom: 12px;
+  }
+  .pertinence-detail-row:last-of-type { margin-bottom: 8px; }
+  .pertinence-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+  .pertinence-detail-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #333;
+  }
+  .pertinence-detail-value {
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .pertinence-detail-value.score-high { color: #2d8a47; }
+  .pertinence-detail-value.score-mid { color: #b45309; }
+  .pertinence-detail-value.score-low { color: #c0392b; }
+  .pertinence-detail-bar {
+    height: 5px;
+    border-radius: 3px;
+    background: rgba(0,0,0,0.06);
+    overflow: hidden;
+    margin-bottom: 4px;
+  }
+  .pertinence-detail-fill {
+    display: block;
+    height: 100%;
+    border-radius: 3px;
+  }
+  .pertinence-detail-fill.score-high { background: #46B962; }
+  .pertinence-detail-fill.score-mid { background: #d97706; }
+  .pertinence-detail-fill.score-low { background: #e74c3c; }
+  .pertinence-detail-hint {
+    font-size: 10px;
+    color: #888;
+    line-height: 1.3;
+  }
+  .pertinence-detail-formula {
+    font-size: 11px;
+    color: #555;
+    border-top: 1px dashed #d8d8d8;
+    padding-top: 8px;
+    margin-top: 6px;
+  }
+  .pertinence-detail-formula strong {
+    color: #2d8a47;
+    font-weight: 700;
+  }
+
+  /* COMP CARD CLICKABLE */
+  .comp-card.selected.clickable {
+    cursor: pointer;
+    transition: border-color 0.18s, box-shadow 0.18s, transform 0.12s;
+  }
+  .comp-card.selected.clickable:hover {
+    border-color: #46B962;
+    box-shadow: 0 4px 14px rgba(70, 185, 98, 0.12);
+  }
+
+  /* WEIGHT CONTROL */
+  .weight-control {
+    background: #f6faf7;
+    border: 1px solid #d4ead8;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+  }
+  .weight-control-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .weight-control-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #333;
+  }
+  .weight-control-value {
+    font-size: 13px;
+    font-weight: 700;
+    color: #46B962;
+  }
+  .weight-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: #e3eee6;
+    outline: none;
+    cursor: pointer;
+    margin: 0;
+  }
+  .weight-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #46B962;
+    border: 2px solid white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+  }
+  .weight-slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #46B962;
+    border: 2px solid white;
+    cursor: pointer;
+  }
+
   /* ADJUSTMENTS */
   .adj-section {
     background: #fafafa;
@@ -965,6 +1163,37 @@ const cssStyles = `
   .t-avg td {
     color: #333;
     padding: 11px 10px;
+  }
+  .t-weight-input {
+    width: 48px;
+    padding: 3px 5px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 12px;
+    font-family: inherit;
+    text-align: center;
+    background: white;
+    color: #46B962;
+    font-weight: 600;
+  }
+  .t-weight-input:focus {
+    border-color: #46B962;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(70, 185, 98, 0.15);
+  }
+  .btn-trash {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    color: #aaa;
+    padding: 4px 6px;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+  }
+  .btn-trash:hover {
+    color: #e74c3c;
+    background: #fef2f2;
   }
 
   /* FOOTER */
@@ -1146,6 +1375,7 @@ const INITIAL_SELECTED = [
     sourceLabel: 'DVF',
     prix: '285 000',
     prixM2: '4 191',
+    prixNum: 285000,
     distance: '380m',
     venteLabel: '285 000 \u20ac',
     venteDetail: '3 926 \u20ac/m\u00b2 net vendeur',
@@ -1168,8 +1398,14 @@ const INITIAL_SELECTED = [
       { lbl: '\u00c9tage (3 vs 4)', val: '\u22120.8%', cls: 'neg' },
       { lbl: 'Ext\u00e9rieurs', val: '\u22120.6%', cls: 'neg' },
     ],
-    description: 'Bel appartement T3 traversant de 68m² au 3ème étage avec ascenseur. Séjour lumineux donnant sur cour arborée, cuisine équipée récente, deux chambres avec rangements. Parquet ancien, moulures. Cave et local vélo.',
+    description: '',
     noPhoto: true,
+    surface: 68,
+    pieces: 3,
+    // DVF : données minimales (pas de description, pas de photos, pas d'historique de commercialisation)
+    dateMutationISO: '2025-12-12',
+    coords: [45.7565, 4.8635],
+    parcelleRef: '69383 BL 0142',
   },
   {
     id: 'lacassagne',
@@ -1179,11 +1415,12 @@ const INITIAL_SELECTED = [
     sourceLabel: 'Ideeri vendu',
     prix: '310 000',
     prixM2: '4 133',
+    prixNum: 310000,
     distance: '520m',
     venteLabel: '310 000 \u20ac',
     venteDetail: '4 133 \u20ac/m\u00b2 net vendeur',
-    avisLabel: '305 000 \u20ac',
-    avisDetail: '\u25b2 \u22121.6% vs vente \u2014 Estimation pr\u00e9cise',
+    avisLabel: '300 000 \u20ac',
+    avisDetail: '\u25b2 \u22123.2% vs vente \u2014 Estimation pr\u00e9cise',
     avisHighlight: true,
     avisPos: true,
     meta: '\u00c9tage 5/6 \u00b7 DPE D \u00b7 Vendu il y a 2 mois',
@@ -1204,6 +1441,52 @@ const INITIAL_SELECTED = [
     description: 'Appartement T3 rénové de 75m² au 5ème étage avec terrasse de 8m². Vue dégagée, séjour double exposition, cuisine ouverte aménagée, salle de bain avec douche italienne. Copropriété bien entretenue, gardien.',
     noPhoto: false,
     photoUrl: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=520&h=140&fit=crop&crop=bottom',
+    surface: 75,
+    pieces: 3,
+    // Ideeri vendu : jeu complet
+    photos: [
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=900&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=900&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=900&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1583847268964-b28dc8f51f92?w=900&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1620626011761-996317b8d101?w=900&h=600&fit=crop',
+    ],
+    rooms: [
+      { nom: 'Salon / S\u00e9jour', surface: 26, etage: 5, etat: 'R\u00e9nov\u00e9 2022' },
+      { nom: 'Cuisine ouverte', surface: 11, etage: 5, etat: 'Refaite \u00e0 neuf' },
+      { nom: 'Chambre 1', surface: 14, etage: 5, etat: 'Bon \u00e9tat' },
+      { nom: 'Chambre 2', surface: 11, etage: 5, etat: 'Bon \u00e9tat' },
+      { nom: 'Salle de bain', surface: 6, etage: 5, etat: 'Refaite (douche italienne)' },
+      { nom: 'WC s\u00e9par\u00e9', surface: 2, etage: 5, etat: 'Bon \u00e9tat' },
+      { nom: 'Entr\u00e9e / D\u00e9gagement', surface: 5, etage: 5, etat: 'Bon \u00e9tat' },
+      { nom: 'Terrasse', surface: 8, etage: 5, etat: 'Carrel\u00e9e, expos\u00e9e Sud' },
+    ],
+    infosGenerales: {
+      chauffage: 'Gaz individuel \u2014 chaudi\u00e8re Frisquet 2019',
+      rafraichissement: 'Aucun (orient\u00e9 Est)',
+      surfaceHabitable: 75,
+      surfaceExterieurs: 8,
+      dependances: 'Cave priv\u00e9e 5 m\u00b2',
+      sol: 'Parquet ch\u00eane massif (s\u00e9jour, chambres) + carrelage gr\u00e8s c\u00e9rame (cuisine, sdb)',
+      menuiseries: 'PVC double vitrage 2018',
+      toitureCharpente: 'Toiture terrasse \u00e9tanch\u00e9it\u00e9 refaite 2020',
+      dpe: 'D',
+      ges: 'D',
+      anneeConstruction: 1975,
+      renovationAnnee: 2022,
+      etatGeneral: 'Tr\u00e8s bon \u00e9tat \u2014 r\u00e9nov\u00e9 2022',
+      emplacement: 'Centre-ville Lyon 3\u00e8me, vue d\u00e9gag\u00e9e sur jardin int\u00e9rieur, calme, vis-\u00e0-vis nul',
+    },
+    atoutsQualitatifs: ['Lumineux double exposition', 'Terrasse 8m\u00b2', 'R\u00e9nov\u00e9 r\u00e9cemment', 'Calme', 'Cave', 'Gardien', 'Proche m\u00e9tro Sans-Souci'],
+    pointsContraintes: ['Pas de parking', 'Pas d\'ascenseur dispens\u00e9 (B\u00e2ti des ann\u00e9es 70)'],
+    historique: [
+      { date: '2025-09-12', evenement: 'Estimation agent', prix: 320000 },
+      { date: '2025-09-25', evenement: 'Mise en commercialisation', prix: 325000 },
+      { date: '2025-11-10', evenement: 'Baisse de prix', prix: 315000 },
+      { date: '2025-12-18', evenement: 'Compromis sign\u00e9', prix: 310000 },
+      { date: '2026-02-10', evenement: 'Vente conclue', prix: 310000 },
+    ],
+    joursEnCommercialisation: 84,
   },
   {
     id: 'paulbert',
@@ -1213,6 +1496,7 @@ const INITIAL_SELECTED = [
     sourceLabel: 'En cours',
     prix: '265 000',
     prixM2: '4 274',
+    prixNum: 265000,
     distance: '290m',
     venteLabel: '\u2014 En cours de vente',
     venteDetail: 'Prix affich\u00e9 : 265 000 \u20ac',
@@ -1239,6 +1523,142 @@ const INITIAL_SELECTED = [
     description: 'T2 de 62m² au 2ème étage, en cours de vente. Séjour avec balcon côté rue, chambre calme sur cour, cuisine semi-équipée. DPE E, travaux d\'isolation à prévoir. Proche transports et commerces Paul Bert.',
     noPhoto: false,
     photoUrl: 'https://images.unsplash.com/photo-1574362848149-11496d93a7c7?w=520&h=140&fit=crop&crop=center',
+    surface: 62,
+    pieces: 2,
+    // Ideeri en cours : jeu complet sans vente finale
+    photos: [
+      'https://images.unsplash.com/photo-1502005229762-cf1b2da7c5d6?w=900&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1484101403633-562f891dc89a?w=900&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1554995207-c18c203602cb?w=900&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1540518614846-7eded433c457?w=900&h=600&fit=crop',
+    ],
+    rooms: [
+      { nom: 'S\u00e9jour avec balcon', surface: 22, etage: 2, etat: 'Bon \u00e9tat' },
+      { nom: 'Cuisine semi-\u00e9quip\u00e9e', surface: 8, etage: 2, etat: 'Correct' },
+      { nom: 'Chambre', surface: 13, etage: 2, etat: 'Bon \u00e9tat' },
+      { nom: 'Salle de bain', surface: 5, etage: 2, etat: '\u00c0 rafra\u00eechir' },
+      { nom: 'WC', surface: 1.5, etage: 2, etat: 'Correct' },
+      { nom: 'Entr\u00e9e', surface: 4, etage: 2, etat: 'Correct' },
+      { nom: 'Balcon', surface: 4, etage: 2, etat: 'C\u00f4t\u00e9 rue' },
+    ],
+    infosGenerales: {
+      chauffage: 'Chauffage collectif gaz',
+      rafraichissement: 'Aucun',
+      surfaceHabitable: 62,
+      surfaceExterieurs: 4,
+      dependances: 'Local v\u00e9lo commun',
+      sol: 'Parquet stratifi\u00e9 (s\u00e9jour, chambre) + lino (cuisine, sdb)',
+      menuiseries: 'Bois simple vitrage \u2014 \u00e0 r\u00e9nover',
+      toitureCharpente: 'Toiture commune correcte',
+      dpe: 'E',
+      ges: 'E',
+      anneeConstruction: 1968,
+      renovationAnnee: null,
+      etatGeneral: 'Correct \u2014 travaux d\'isolation \u00e0 pr\u00e9voir',
+      emplacement: 'Quartier Paul Bert, proche commerces, balcon c\u00f4t\u00e9 rue (passages), chambre c\u00f4t\u00e9 cour calme',
+    },
+    atoutsQualitatifs: ['Balcon', 'Proche transports', 'Quartier vivant', 'Chambre calme c\u00f4t\u00e9 cour'],
+    pointsContraintes: ['Pas d\'ascenseur', 'DPE E', 'Stationnement difficile', 'Travaux d\'isolation \u00e0 pr\u00e9voir'],
+    historique: [
+      { date: '2025-12-15', evenement: 'Estimation agent', prix: 270000 },
+      { date: '2026-01-05', evenement: 'Mise en commercialisation', prix: 275000 },
+      { date: '2026-02-20', evenement: 'Baisse de prix', prix: 265000 },
+    ],
+    joursEnCommercialisation: 90,
+  },
+  {
+    id: 'felixfaure',
+    title: 'T3 69m\u00b2 \u2014 42 av. F\u00e9lix Faure',
+    addr: 'Lyon 3\u00e8me',
+    source: 'portail',
+    sourceLabel: 'Annonce portail',
+    portalName: 'Leboncoin',
+    prix: '289 000',
+    prixM2: '4 188',
+    prixNum: 289000,
+    distance: '1.1km',
+    venteLabel: '\u2014 En ligne',
+    venteDetail: 'Prix affich\u00e9 : 289 000 \u20ac',
+    venteNa: true,
+    avisLabel: '\u2014',
+    avisDetail: 'Pas d\'avis agent (annonce externe)',
+    avisNa: true,
+    meta: '\u00c9tage 4/5 \u00b7 DPE D \u00b7 En ligne 62 jours',
+    similarite: 76,
+    simClass: 'score-mid',
+    donnees: 38,
+    donClass: 'score-low',
+    donCount: '69 / 182',
+    reliability: 'listed',
+    reliabilityLabel: '\ud83d\udfe0 Prix affich\u00e9',
+    adjTotal: '\u22121.5%',
+    adjTotalClass: 'neg',
+    adjustments: [
+      { lbl: 'Surface (-3.5m\u00b2)', val: '\u22121.6%', cls: 'neg' },
+      { lbl: '\u00c9tage (4 vs 4)', val: '0%', cls: 'pos' },
+      { lbl: 'DPE \u00e9quivalent', val: '+0.1%', cls: 'pos' },
+    ],
+    description: '',
+    noPhoto: false,
+    photoUrl: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=520&h=140&fit=crop',
+    surface: 69,
+    pieces: 3,
+    // Donn\u00e9es propres aux annonces de portails
+    photos: [
+      'https://images.unsplash.com/photo-1554995207-c18c203602cb?w=900&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1565183997392-2f6f122e5912?w=900&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=900&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1616137466211-f939a420be84?w=900&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1502005229762-cf1b2da7c5d6?w=900&h=600&fit=crop',
+    ],
+    descriptifAnnonce: "Bel appartement T3 de 69 m\u00b2 situ\u00e9 dans une copropri\u00e9t\u00e9 de standing avenue F\u00e9lix Faure. Au 4\u00e8me \u00e9tage avec ascenseur, cet appartement traversant b\u00e9n\u00e9ficie d'une belle luminosit\u00e9 naturelle gr\u00e2ce \u00e0 sa double exposition Est/Ouest.\n\nIl se compose d'une entr\u00e9e avec rangement, d'un s\u00e9jour spacieux donnant sur balcon, d'une cuisine s\u00e9par\u00e9e am\u00e9nag\u00e9e et \u00e9quip\u00e9e, de deux chambres avec placards, d'une salle de bain et de WC s\u00e9par\u00e9s.\n\nProche de toutes commodit\u00e9s : commerces, transports (M\u00e9tro Sans-Souci \u00e0 200m, Tram T3 \u00e0 300m), \u00e9coles. Cave et possibilit\u00e9 de location de parking en sous-sol.\n\nDPE D \u2014 GES D. Charges de copropri\u00e9t\u00e9 : 145 \u20ac/mois. Taxe fonci\u00e8re : 1 240 \u20ac/an. Bien soumis au statut de la copropri\u00e9t\u00e9.",
+    // Crit\u00e8res structur\u00e9s tels qu'ils apparaissent sur Leboncoin / SeLoger / BienIci
+    criteresPortail: [
+      { label: 'Type de bien', value: 'Appartement' },
+      { label: 'Surface habitable', value: '69 m\u00b2' },
+      { label: 'Nombre de pi\u00e8ces', value: '3' },
+      { label: 'Nombre de chambres', value: '2 ch.' },
+      { label: '\u00c9tage', value: '4\u1d49' },
+      { label: 'Nombre d\u2019\u00e9tages dans l\u2019immeuble', value: '5' },
+      { label: 'Ascenseur', value: 'Oui' },
+      { label: 'Ext\u00e9rieur', value: 'Balcon' },
+      { label: 'Caract\u00e9ristiques', value: 'Cuisine \u00e9quip\u00e9e' },
+      { label: '\u00c9tat du bien', value: 'Bon \u00e9tat' },
+      { label: 'Cave', value: 'Oui' },
+      { label: 'Parking', value: 'En location (sous-sol)' },
+      { label: 'Exposition', value: 'Est / Ouest (double)' },
+      { label: 'Chauffage', value: 'Gaz collectif' },
+      { label: 'Charges de copropri\u00e9t\u00e9', value: '145 \u20ac / mois' },
+      { label: 'Taxe fonci\u00e8re', value: '1 240 \u20ac / an' },
+      { label: 'Date de r\u00e9alisation du DPE', value: '12 d\u00e9cembre 2025' },
+      { label: 'R\u00e9f\u00e9rence annonce', value: 'LBC-1949642' },
+    ],
+    agence: {
+      nom: 'Century 21 Lyon Part-Dieu',
+      agent: 'Marc Dupont',
+      telephone: '04 78 XX XX XX',
+    },
+    urlAnnonce: '#',
+    datePublication: '2025-12-28',
+    historique: [
+      { date: '2025-12-28', evenement: 'Mise en ligne', prix: 305000 },
+      { date: '2026-01-25', evenement: 'Baisse de prix', prix: 295000 },
+      { date: '2026-02-18', evenement: 'Baisse de prix', prix: 289000 },
+    ],
+    joursEnCommercialisation: 62,
+    // Infos partielles disponibles via le portail
+    infosGenerales: {
+      surfaceHabitable: 69,
+      surfaceExterieurs: 4,
+      dependances: 'Cave',
+      chauffage: 'Gaz collectif',
+      rafraichissement: null,
+      dpe: 'D',
+      ges: 'D',
+      anneeConstruction: 1980,
+      etatGeneral: 'Bon \u00e9tat g\u00e9n\u00e9ral (selon annonce)',
+      emplacement: 'Avenue F\u00e9lix Faure, Lyon 3\u00e8me, proche m\u00e9tro Sans-Souci',
+    },
   },
 ];
 
@@ -1247,12 +1667,18 @@ const INITIAL_OTHERS = [
   { id: 'lafayette', title: 'T4 85m\u00b2 \u2014 18 cours Lafayette, Lyon 3', source: 'portail', portalName: 'SeLoger', meta: 'Portail \u00b7 340k\u20ac \u00b7 4 000\u20ac/m\u00b2 \u00b7 890m', simScore: '58% sim.', simClass: 'mid', donScore: '5% donn\u00e9es', donClass: 'low', donCount: '9/182' },
   { id: 'mazenod', title: 'T2 55m\u00b2 \u2014 33 rue Mazenod, Lyon 3', source: 'dvf', meta: 'DVF \u00b7 240k\u20ac \u00b7 4 363\u20ac/m\u00b2 \u00b7 420m', simScore: '71% sim.', simClass: 'mid', donScore: '68% donn\u00e9es', donClass: 'mid', donCount: '124/182' },
   { id: 'guichard', title: 'T3 71m\u00b2 \u2014 7 place Guichard, Lyon 3', source: 'ideeri', meta: 'Ideeri \u00b7 298k\u20ac \u00b7 4 197\u20ac/m\u00b2 \u00b7 310m', simScore: '89% sim.', simClass: 'high', donScore: '93% donn\u00e9es', donClass: 'high', donCount: '538/575' },
-  { id: 'felixfaure', title: 'T3 69m\u00b2 \u2014 42 av. F\u00e9lix Faure, Lyon 3', source: 'portail', portalName: 'Leboncoin', meta: 'Portail \u00b7 289k\u20ac \u00b7 4 188\u20ac/m\u00b2 \u00b7 1.1km', simScore: '76% sim.', simClass: 'mid', donScore: '7% donn\u00e9es', donClass: 'low', donCount: '13/182' },
 ];
 
-function SelectedCompCard({ comp, onRemove }) {
+function SelectedCompCard({ comp, onRemove, onOpenDrawer, weight, onWeightChange }) {
+  const pertinence = Math.round((comp.similarite || 0) * 0.6 + (comp.donnees || 0) * 0.4);
+  const pertinenceClass = pertinence >= 80 ? 'score-high' : pertinence >= 60 ? 'score-mid' : 'score-low';
+  const simClass = comp.similarite >= 80 ? 'score-high' : comp.similarite >= 60 ? 'score-mid' : 'score-low';
+  const donClass = comp.donnees >= 80 ? 'score-high' : comp.donnees >= 40 ? 'score-mid' : 'score-low';
+  const [pertinenceOpen, setPertinenceOpen] = useState(false);
+  const stop = (e) => e.stopPropagation();
+  const openDrawer = () => onOpenDrawer && onOpenDrawer(comp);
   return (
-    <div className="comp-card selected">
+    <div className="comp-card selected clickable" onClick={openDrawer}>
       {comp.source === 'dvf' ? (
         <div className="comp-card-photo no-photo">
           <span>Pas de photo &mdash; source {comp.sourceLabel}</span>
@@ -1282,7 +1708,7 @@ function SelectedCompCard({ comp, onRemove }) {
         <div className="p-item"><div className="p-label">Prix/m&sup2;</div><div className="p-val">{comp.prixM2} &euro;</div></div>
         <div className="p-item"><div className="p-label">Distance</div><div className="p-val" style={{ color: '#4a6cf7' }}>{comp.distance}</div></div>
       </div>
-      {comp.description && (
+      {comp.source !== 'dvf' && comp.description && (
         <div className="comp-description">
           <div className="comp-description-label">Description du bien</div>
           {comp.description}
@@ -1301,19 +1727,71 @@ function SelectedCompCard({ comp, onRemove }) {
         </div>
       </div>
       <div className="comp-meta">{comp.meta}</div>
-      <div className="scoring-row">
-        <div className={`score-badge ${comp.simClass}`}>
-          <span className="score-badge-label">Similarit&eacute;</span>
-          <span className="score-badge-value">{comp.similarite}%</span>
-          <span className="score-badge-bar"><span className="score-badge-fill" style={{ width: `${comp.similarite}%` }} /></span>
-        </div>
-        <div className={`score-badge ${comp.donClass}`}>
-          <span className="score-badge-label">Donn&eacute;es</span>
-          <span className="score-badge-value">{comp.donnees}%</span>
-          <span className="score-badge-bar"><span className="score-badge-fill" style={{ width: `${comp.donnees}%` }} /></span>
-          <span className="data-count">{comp.donCount}</span>
-        </div>
+
+      {/* Pertinence : score unique avec dropdown d\u00e9tail Similarit\u00e9 + Donn\u00e9es */}
+      <div className="scoring-row" onClick={stop}>
+        <button
+          type="button"
+          className={`score-badge pertinence-toggle ${pertinenceClass}`}
+          aria-expanded={pertinenceOpen}
+          onClick={(e) => { e.stopPropagation(); setPertinenceOpen((v) => !v); }}
+        >
+          <span className="score-badge-label">Pertinence</span>
+          <span className="score-badge-value">{pertinence}%</span>
+          <span className="score-badge-bar"><span className="score-badge-fill" style={{ width: `${pertinence}%` }} /></span>
+          <span className={`pertinence-chevron ${pertinenceOpen ? 'open' : ''}`}>&#9662;</span>
+        </button>
       </div>
+      {pertinenceOpen && (
+        <div className="pertinence-detail" onClick={stop}>
+          <div className="pertinence-detail-row">
+            <div className="pertinence-detail-header">
+              <span className="pertinence-detail-label">Similarit&eacute;</span>
+              <span className={`pertinence-detail-value ${simClass}`}>{comp.similarite}%</span>
+            </div>
+            <div className="pertinence-detail-bar"><span className={`pertinence-detail-fill ${simClass}`} style={{ width: `${comp.similarite}%` }} /></div>
+            <div className="pertinence-detail-hint">Proximit&eacute; typologique &amp; g&eacute;ographique &mdash; pond&eacute;ration 60%</div>
+          </div>
+          <div className="pertinence-detail-row">
+            <div className="pertinence-detail-header">
+              <span className="pertinence-detail-label">Donn&eacute;es disponibles</span>
+              <span className={`pertinence-detail-value ${donClass}`}>{comp.donnees}%</span>
+            </div>
+            <div className="pertinence-detail-bar"><span className={`pertinence-detail-fill ${donClass}`} style={{ width: `${comp.donnees}%` }} /></div>
+            <div className="pertinence-detail-hint">{comp.donCount ? `${comp.donCount} champs renseign\u00e9s` : 'Compl\u00e9tude des champs renseign\u00e9s'} &mdash; pond&eacute;ration 40%</div>
+          </div>
+          <div className="pertinence-detail-formula">
+            Score Pertinence = Similarit&eacute; &times; 0,6 + Donn&eacute;es &times; 0,4 = <strong>{pertinence}%</strong>
+          </div>
+        </div>
+      )}
+
+      {/* Pond\u00e9ration manuelle */}
+      <div
+        className="weight-control"
+        onClick={stop}
+        onMouseDown={stop}
+        onMouseUp={stop}
+        onPointerDown={stop}
+        onTouchStart={stop}
+      >
+        <div className="weight-control-header">
+          <span className="weight-control-label">Poids dans l&rsquo;estimation</span>
+          <span className="weight-control-value">{weight}%</span>
+        </div>
+        <input
+          type="range"
+          min="0"
+          max="100"
+          step="1"
+          value={weight}
+          onChange={(e) => onWeightChange && onWeightChange(comp.id, Number(e.target.value))}
+          onClick={stop}
+          onMouseDown={stop}
+          className="weight-slider"
+        />
+      </div>
+
       <div className={`reliability ${comp.reliability}`}>{comp.reliabilityLabel}</div>
       <div className="adj-section">
         <div className="adj-title">
@@ -1326,10 +1804,10 @@ function SelectedCompCard({ comp, onRemove }) {
           </div>
         ))}
       </div>
-      <div className="comp-actions">
-        <a className="link-edit">&#9998; Modifier ajustement</a>
-        {comp.portalName && <a className="btn-view-ad" href="#" onClick={(e) => e.preventDefault()}>&#8599; Voir l&rsquo;annonce {comp.portalName}</a>}
-        <button className="btn-remove" onClick={() => onRemove && onRemove(comp.id)}>&times; Retirer</button>
+      <div className="comp-actions" onClick={stop}>
+        <a className="link-edit" onClick={stop}>&#9998; Modifier ajustement</a>
+        {comp.portalName && <a className="btn-view-ad" href="#" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>&#8599; Voir l&rsquo;annonce {comp.portalName}</a>}
+        <button className="btn-remove" onClick={(e) => { e.stopPropagation(); onRemove && onRemove(comp.id); }}>&times; Retirer</button>
       </div>
     </div>
   );
@@ -1365,7 +1843,11 @@ export default function Step3Comparables() {
   const navigate = useNavigate();
   const [radius, setRadius] = useState(1000);
   const [mapStyle, setMapStyle] = useState('plan');
-  const [dateSlider, setDateSlider] = useState(12);
+  // Délai max par source (en mois) — 3 ans (36 mois) pour "En cours" et "Portail", 8 ans (96 mois) pour DVF et Ideeri/Bien vendus
+  const [delayDvf, setDelayDvf] = useState(36);
+  const [delayIdeeri, setDelayIdeeri] = useState(36);
+  const [delayEncours, setDelayEncours] = useState(12);
+  const [delayPortail, setDelayPortail] = useState(12);
   const [drawMode, setDrawMode] = useState(false);
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -1380,6 +1862,80 @@ export default function Step3Comparables() {
   // Selected / Others comparable lists (dynamic)
   const [selected, setSelected] = useState(INITIAL_SELECTED);
   const [others, setOthers] = useState(INITIAL_OTHERS);
+
+  // Drawer pour afficher le d\u00e9tail d'un comparable
+  const [drawerComp, setDrawerComp] = useState(null);
+
+  // Pond\u00e9ration manuelle des comparables (somme = 100, normalis\u00e9e auto)
+  const [weights, setWeights] = useState(() => {
+    const eq = Math.round(100 / Math.max(INITIAL_SELECTED.length, 1));
+    const obj = {};
+    INITIAL_SELECTED.forEach((c, i) => {
+      obj[c.id] = i === INITIAL_SELECTED.length - 1 ? 100 - eq * (INITIAL_SELECTED.length - 1) : eq;
+    });
+    return obj;
+  });
+
+  // Modifier le poids d'un comparable et re-normaliser les autres pour somme = 100
+  const handleWeightChange = (id, newValue) => {
+    setWeights((prev) => {
+      const ids = Object.keys(prev);
+      if (ids.length <= 1) return { ...prev, [id]: 100 };
+      const clamped = Math.max(0, Math.min(100, newValue));
+      const otherIds = ids.filter((k) => k !== id);
+      const otherSumOld = otherIds.reduce((s, k) => s + (prev[k] || 0), 0);
+      const remaining = 100 - clamped;
+      const next = { [id]: clamped };
+      if (otherSumOld <= 0) {
+        // Tous les autres \u00e9taient \u00e0 0 \u2192 r\u00e9partition \u00e9gale
+        const each = Math.floor(remaining / otherIds.length);
+        otherIds.forEach((k, i) => {
+          next[k] = i === otherIds.length - 1 ? remaining - each * (otherIds.length - 1) : each;
+        });
+      } else {
+        // R\u00e9partition proportionnelle, derni\u00e8re cl\u00e9 absorbe l'arrondi
+        let allocated = 0;
+        otherIds.forEach((k, i) => {
+          if (i === otherIds.length - 1) {
+            next[k] = Math.max(0, remaining - allocated);
+          } else {
+            const v = Math.round((prev[k] / otherSumOld) * remaining);
+            next[k] = v;
+            allocated += v;
+          }
+        });
+      }
+      return next;
+    });
+  };
+
+  // Nettoyage du poids associ\u00e9 \u00e0 un comparable supprim\u00e9 (re-normalisation \u00e0 100%)
+  const cleanupWeight = (id) => {
+    setWeights((prev) => {
+      const { [id]: _removed, ...rest } = prev;
+      const ids = Object.keys(rest);
+      if (ids.length === 0) return {};
+      const sum = ids.reduce((s, k) => s + (rest[k] || 0), 0);
+      if (sum === 0) {
+        const eq = Math.round(100 / ids.length);
+        const next = {};
+        ids.forEach((k, i) => { next[k] = i === ids.length - 1 ? 100 - eq * (ids.length - 1) : eq; });
+        return next;
+      }
+      let allocated = 0;
+      const next = {};
+      ids.forEach((k, i) => {
+        if (i === ids.length - 1) {
+          next[k] = Math.max(0, 100 - allocated);
+        } else {
+          const v = Math.round((rest[k] / sum) * 100);
+          next[k] = v;
+          allocated += v;
+        }
+      });
+      return next;
+    });
+  };
 
   const addToSelected = (compId) => {
     const comp = others.find(c => c.id === compId);
@@ -1448,7 +2004,11 @@ export default function Step3Comparables() {
     };
     setSelected(prev => prev.filter(c => c.id !== compId));
     setOthers(prev => [...prev, demoted]);
+    cleanupWeight(compId);
   };
+
+  // Alias utilis\u00e9 par la card et le tableau r\u00e9cap pour la suppression
+  const handleRemoveComparable = removeFromSelected;
 
   // Expose addToSelected for Leaflet popups
   addCompRef.current = addToSelected;
@@ -1506,9 +2066,19 @@ export default function Step3Comparables() {
     // Source effect
     const sourcesOn = [sourceDvf, sourceIdeeri, sourceEncours, sourcePortail].filter(Boolean).length;
     if (sourcesOn < 4) count = Math.max(Math.round(count * (sourcesOn / 4)), 1);
-    // Date slider
-    if (dateSlider < 6) count = Math.max(Math.round(count * 0.5), 1);
-    else if (dateSlider < 9) count = Math.round(count * 0.75);
+    // Délai par source — chaque source contribue proportionnellement à son délai
+    // DVF & Ideeri : pleine contribution à 96 mois (8 ans)
+    // En cours & Portail : pleine contribution à 36 mois (3 ans)
+    const sourceContribs = [];
+    if (sourceDvf) sourceContribs.push(Math.min(delayDvf / 96, 1));
+    if (sourceIdeeri) sourceContribs.push(Math.min(delayIdeeri / 96, 1));
+    if (sourceEncours) sourceContribs.push(Math.min(delayEncours / 36, 1));
+    if (sourcePortail) sourceContribs.push(Math.min(delayPortail / 36, 1));
+    const dateFactor = sourceContribs.length
+      ? sourceContribs.reduce((a, b) => a + b, 0) / sourceContribs.length
+      : 1;
+    // Pondération non-linéaire : courbe douce pour que les petits délais réduisent fortement
+    count = Math.max(Math.round(count * (0.15 + 0.85 * dateFactor)), 1);
     // Type
     if (typeFilter === 'tous') count = Math.min(count + 8, 90);
     return Math.max(count, 1);
@@ -1519,11 +2089,12 @@ export default function Step3Comparables() {
   const sliderPct = ((radius - 100) / (5000 - 100)) * 100;
 
   // Source → marker color mapping
+  // vert = Ideeri vendu (mandat) · bleu = DVF officiel · orange = Ideeri en cours · rouge = Portails
   const sourceMarkerColor = {
     dvf: '#4a6cf7',
     ideeri: '#46B962',
     encours: '#f5a623',
-    portail: '#e87722',
+    portail: '#e74c3c',
   };
 
   // Initialize Leaflet map with markers and draw tool
@@ -1764,12 +2335,72 @@ export default function Step3Comparables() {
         {/* Filter Grid */}
         <div className="filter-grid">
           <div className="filter-item">
-            <div className="filter-item-label">Source <span className="chip-close">&times;</span></div>
+            <div className="filter-item-label">Source &amp; anciennet&eacute; max <span className="chip-close">&times;</span></div>
             <div className="source-checkboxes">
-              <label className="source-cb-label"><input type="checkbox" checked={sourceDvf} onChange={() => setSourceDvf(!sourceDvf)} /> <span className="source-dot dot-dvf" /> DVF</label>
-              <label className="source-cb-label"><input type="checkbox" checked={sourceIdeeri} onChange={() => setSourceIdeeri(!sourceIdeeri)} /> <span className="source-dot dot-ideeri" /> Ideeri vendus</label>
-              <label className="source-cb-label"><input type="checkbox" checked={sourceEncours} onChange={() => setSourceEncours(!sourceEncours)} /> <span className="source-dot dot-encours" /> En cours</label>
-              <label className="source-cb-label"><input type="checkbox" checked={sourcePortail} onChange={() => setSourcePortail(!sourcePortail)} /> <span className="source-dot dot-portail" /> Portails</label>
+              <div className={`source-row${sourceDvf ? '' : ' disabled'}`}>
+                <label className="source-cb-label">
+                  <input type="checkbox" checked={sourceDvf} onChange={() => setSourceDvf(!sourceDvf)} />
+                  <span className="source-dot dot-dvf" /> DVF
+                </label>
+                <input
+                  type="range"
+                  className="source-mini-slider"
+                  min="1"
+                  max="96"
+                  value={delayDvf}
+                  disabled={!sourceDvf}
+                  onChange={(e) => setDelayDvf(Number(e.target.value))}
+                />
+                <span className="source-delay-value">{delayDvf} mois</span>
+              </div>
+              <div className={`source-row${sourceIdeeri ? '' : ' disabled'}`}>
+                <label className="source-cb-label">
+                  <input type="checkbox" checked={sourceIdeeri} onChange={() => setSourceIdeeri(!sourceIdeeri)} />
+                  <span className="source-dot dot-ideeri" /> Bien vendus
+                </label>
+                <input
+                  type="range"
+                  className="source-mini-slider"
+                  min="1"
+                  max="96"
+                  value={delayIdeeri}
+                  disabled={!sourceIdeeri}
+                  onChange={(e) => setDelayIdeeri(Number(e.target.value))}
+                />
+                <span className="source-delay-value">{delayIdeeri} mois</span>
+              </div>
+              <div className={`source-row${sourceEncours ? '' : ' disabled'}`}>
+                <label className="source-cb-label">
+                  <input type="checkbox" checked={sourceEncours} onChange={() => setSourceEncours(!sourceEncours)} />
+                  <span className="source-dot dot-encours" /> En cours
+                </label>
+                <input
+                  type="range"
+                  className="source-mini-slider"
+                  min="1"
+                  max="36"
+                  value={delayEncours}
+                  disabled={!sourceEncours}
+                  onChange={(e) => setDelayEncours(Number(e.target.value))}
+                />
+                <span className="source-delay-value">{delayEncours} mois</span>
+              </div>
+              <div className={`source-row${sourcePortail ? '' : ' disabled'}`}>
+                <label className="source-cb-label">
+                  <input type="checkbox" checked={sourcePortail} onChange={() => setSourcePortail(!sourcePortail)} />
+                  <span className="source-dot dot-portail" /> Portails
+                </label>
+                <input
+                  type="range"
+                  className="source-mini-slider"
+                  min="1"
+                  max="36"
+                  value={delayPortail}
+                  disabled={!sourcePortail}
+                  onChange={(e) => setDelayPortail(Number(e.target.value))}
+                />
+                <span className="source-delay-value">{delayPortail} mois</span>
+              </div>
             </div>
           </div>
           <div className="filter-item">
@@ -1873,21 +2504,6 @@ export default function Step3Comparables() {
                 </>
               );
             })()}
-          </div>
-          <div className="filter-item">
-            <div className="filter-item-label">Anciennet&eacute; max <span className="chip-close">&times;</span></div>
-            <div className="filter-range">
-              <input
-                type="range"
-                className="filter-slider"
-                min="1"
-                max="36"
-                value={dateSlider}
-                onChange={(e) => setDateSlider(Number(e.target.value))}
-              />
-              <span className="unit" style={{ minWidth: 55, textAlign: 'right', fontWeight: 600, color: '#46B962' }}>{dateSlider} mois</span>
-            </div>
-            <div className="filter-hint">Transactions ou mises en vente depuis &mdash; <strong style={{ color: '#46B962' }}>{filteredCount} biens</strong></div>
           </div>
           {/* Extra filters added dynamically */}
           {extraFilters.includes('dpe') && (
@@ -2026,10 +2642,10 @@ export default function Step3Comparables() {
               </div>
             </div>
             <div className="map-legend-inline">
+              <div className="map-legend-item"><span className="legend-dot" style={{ background: '#46B962' }} /> Ideeri vendu</div>
               <div className="map-legend-item"><span className="legend-dot" style={{ background: '#4a6cf7' }} /> DVF</div>
-              <div className="map-legend-item"><span className="legend-dot" style={{ background: '#46B962' }} /> Ideeri</div>
-              <div className="map-legend-item"><span className="legend-dot" style={{ background: '#f5a623' }} /> En cours</div>
-              <div className="map-legend-item"><span className="legend-dot" style={{ background: '#e87722' }} /> Portail</div>
+              <div className="map-legend-item"><span className="legend-dot" style={{ background: '#f5a623' }} /> Ideeri en cours</div>
+              <div className="map-legend-item"><span className="legend-dot" style={{ background: '#e74c3c' }} /> Portails</div>
             </div>
           </div>
         </div>
@@ -2038,7 +2654,14 @@ export default function Step3Comparables() {
         <div className="list-panel">
           <div className="section-label">S&eacute;lectionn&eacute;s ({selected.length})</div>
           {selected.map((c) => (
-            <SelectedCompCard key={c.id} comp={c} onRemove={removeFromSelected} />
+            <SelectedCompCard
+              key={c.id}
+              comp={c}
+              onRemove={handleRemoveComparable}
+              onOpenDrawer={setDrawerComp}
+              weight={weights[c.id] !== undefined ? weights[c.id] : 0}
+              onWeightChange={handleWeightChange}
+            />
           ))}
           {others.length > 0 && <div className="section-label others">Autres ({others.length})</div>}
           {others.map((c) => (
@@ -2055,59 +2678,100 @@ export default function Step3Comparables() {
             <col style={{ width: '22%' }} />
             <col style={{ width: '10%' }} />
             <col style={{ width: '8%' }} />
-            <col style={{ width: '9%' }} />
-            <col style={{ width: '14%' }} />
+            <col style={{ width: '13%' }} />
             <col style={{ width: '12%' }} />
-            <col style={{ width: '11%' }} />
-            <col style={{ width: '14%' }} />
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '13%' }} />
+            <col style={{ width: '8%' }} />
+            <col style={{ width: '4%' }} />
           </colgroup>
           <thead>
             <tr>
               <th>Comparable</th>
               <th>Source</th>
-              <th className="t-adj">Sim.</th>
-              <th className="t-adj">Donn&eacute;es</th>
+              <th className="t-adj">Pert.</th>
               <th className="t-price">Prix</th>
               <th className="t-price">Prix/m&sup2;</th>
-              <th className="t-adj">Correction</th>
+              <th className="t-adj">Corr.</th>
               <th className="t-price">Ajust&eacute;/m&sup2;</th>
+              <th className="t-adj">Poids</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td><strong>T3 68m&sup2; &mdash; Villeroy</strong></td>
-              <td><span className="source-dot dot-dvf" style={{ display: 'inline-block', marginRight: 4 }} />DVF</td>
-              <td className="t-adj pos">87%</td>
-              <td className="t-adj" style={{ color: '#d97706' }}>68%</td>
-              <td className="t-price">285 000 &euro;</td>
-              <td className="t-price">4 191 &euro;</td>
-              <td className="t-adj neg">&minus;2.1%</td>
-              <td className="t-price">4 103 &euro;</td>
-            </tr>
-            <tr>
-              <td><strong>T3 75m&sup2; &mdash; Lacassagne</strong></td>
-              <td><span className="source-dot dot-ideeri" style={{ display: 'inline-block', marginRight: 4 }} />Ideeri</td>
-              <td className="t-adj pos">92%</td>
-              <td className="t-adj pos">95%</td>
-              <td className="t-price">310 000 &euro;</td>
-              <td className="t-price">4 133 &euro;</td>
-              <td className="t-adj pos">+1.5%</td>
-              <td className="t-price">4 195 &euro;</td>
-            </tr>
-            <tr>
-              <td><strong>T2 62m&sup2; &mdash; Paul Bert</strong></td>
-              <td><span className="source-dot dot-encours" style={{ display: 'inline-block', marginRight: 4 }} />En cours</td>
-              <td className="t-adj" style={{ color: '#d97706' }}>61%</td>
-              <td className="t-adj neg">7%</td>
-              <td className="t-price">265 000 &euro;</td>
-              <td className="t-price">4 274 &euro;</td>
-              <td className="t-adj neg">&minus;3.8%</td>
-              <td className="t-price">4 113 &euro;</td>
-            </tr>
-            <tr className="t-avg">
-              <td colSpan={7} style={{ textAlign: 'right', paddingRight: 12 }}><strong>Moyenne pond&eacute;r&eacute;e :</strong></td>
-              <td className="t-price"><strong>4 172 &euro;/m&sup2;</strong></td>
-            </tr>
+            {selected.map((c) => {
+              const pertinence = Math.round((c.similarite || 0) * 0.6 + (c.donnees || 0) * 0.4);
+              const pertCls = pertinence >= 80 ? 'pos' : pertinence >= 60 ? '' : 'neg';
+              const sourceShort = c.source === 'dvf' ? 'DVF' : c.source === 'ideeri' ? 'Ideeri' : c.source === 'encours' ? 'En cours' : 'Portail';
+              const dotCls = c.source === 'dvf' ? 'dot-dvf' : c.source === 'ideeri' ? 'dot-ideeri' : c.source === 'encours' ? 'dot-encours' : 'dot-portail';
+              // Tentative de calcul Ajust\u00e9/m\u00b2 \u00e0 partir de prix/m\u00b2 et adjTotal
+              const m2Num = parseInt(String(c.prixM2).replace(/\D/g, ''), 10) || 0;
+              const adjPctMatch = String(c.adjTotal || '0%').replace(',', '.').match(/-?\d+(\.\d+)?/);
+              const adjPct = adjPctMatch ? parseFloat(adjPctMatch[0]) * (String(c.adjTotal).startsWith('\u2212') ? -1 : 1) : 0;
+              const adjustedM2 = Math.round(m2Num * (1 + adjPct / 100));
+              return (
+                <tr key={c.id}>
+                  <td><strong>{c.title}</strong></td>
+                  <td><span className={`source-dot ${dotCls}`} style={{ display: 'inline-block', marginRight: 4 }} />{sourceShort}</td>
+                  <td className={`t-adj ${pertCls}`} style={pertCls === '' ? { color: '#d97706' } : {}}>{pertinence}%</td>
+                  <td className="t-price">{c.prix} &euro;</td>
+                  <td className="t-price">{c.prixM2} &euro;</td>
+                  <td className={`t-adj ${c.adjTotalClass || ''}`}>{c.adjTotal}</td>
+                  <td className="t-price">{adjustedM2 ? `${adjustedM2.toLocaleString('fr-FR')} \u20ac` : '\u2014'}</td>
+                  <td className="t-adj">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={weights[c.id] !== undefined ? weights[c.id] : 0}
+                      onChange={(e) => handleWeightChange(c.id, Number(e.target.value))}
+                      className="t-weight-input"
+                    />
+                    <span style={{ marginLeft: 2, color: '#888', fontSize: 11 }}>%</span>
+                  </td>
+                  <td style={{ textAlign: 'center' }}>
+                    <button
+                      className="btn-trash"
+                      onClick={() => handleRemoveComparable(c.id)}
+                      title="Retirer ce comparable"
+                      aria-label="Retirer"
+                    >
+                      &#128465;
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+            {selected.length === 0 && (
+              <tr>
+                <td colSpan={9} style={{ textAlign: 'center', color: '#999', padding: '20px 0', fontStyle: 'italic' }}>
+                  Aucun comparable s\u00e9lectionn\u00e9
+                </td>
+              </tr>
+            )}
+            {selected.length > 0 && (() => {
+              // Moyenne pond\u00e9r\u00e9e des prix/m\u00b2 ajust\u00e9s
+              let sumW = 0;
+              let sumWP = 0;
+              selected.forEach((c) => {
+                const w = weights[c.id] || 0;
+                const m2Num = parseInt(String(c.prixM2).replace(/\D/g, ''), 10) || 0;
+                const adjPctMatch = String(c.adjTotal || '0%').replace(',', '.').match(/-?\d+(\.\d+)?/);
+                const adjPct = adjPctMatch ? parseFloat(adjPctMatch[0]) * (String(c.adjTotal).startsWith('\u2212') ? -1 : 1) : 0;
+                const adjustedM2 = Math.round(m2Num * (1 + adjPct / 100));
+                sumW += w;
+                sumWP += adjustedM2 * w;
+              });
+              const avgM2 = sumW > 0 ? Math.round(sumWP / sumW) : 0;
+              return (
+                <tr className="t-avg">
+                  <td colSpan={6} style={{ textAlign: 'right', paddingRight: 12 }}><strong>Moyenne pondérée :</strong></td>
+                  <td className="t-price"><strong>{avgM2 ? `${avgM2.toLocaleString('fr-FR')} €/m²` : '—'}</strong></td>
+                  <td className="t-adj"><strong>{sumW}%</strong></td>
+                  <td></td>
+                </tr>
+              );
+            })()}
           </tbody>
         </table>
       </div>
@@ -2124,6 +2788,11 @@ export default function Step3Comparables() {
           <div className="min-note">&#10003; Minimum recommand&eacute; : 3 comparables s&eacute;lectionn&eacute;s</div>
         </div>
       </div>
+
+      {/* Drawer d\u00e9tail comparable */}
+      {drawerComp && (
+        <ComparableDrawer comp={drawerComp} onClose={() => setDrawerComp(null)} />
+      )}
     </div>
   );
 }
