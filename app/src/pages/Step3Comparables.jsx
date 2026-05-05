@@ -1326,6 +1326,8 @@ const INITIAL_SELECTED = [
     pieces: 3,
     // DVF : données minimales (pas de photos, pas d'historique de commercialisation)
     dateMutationISO: '2025-12-12',
+    coords: [45.7565, 4.8635],
+    parcelleRef: '69383 BL 0142',
   },
   {
     id: 'lacassagne',
@@ -1532,7 +1534,27 @@ const INITIAL_SELECTED = [
       'https://images.unsplash.com/photo-1502005229762-cf1b2da7c5d6?w=900&h=600&fit=crop',
     ],
     descriptifAnnonce: "Bel appartement T3 de 69 m\u00b2 situ\u00e9 dans une copropri\u00e9t\u00e9 de standing avenue F\u00e9lix Faure. Au 4\u00e8me \u00e9tage avec ascenseur, cet appartement traversant b\u00e9n\u00e9ficie d'une belle luminosit\u00e9 naturelle gr\u00e2ce \u00e0 sa double exposition Est/Ouest.\n\nIl se compose d'une entr\u00e9e avec rangement, d'un s\u00e9jour spacieux donnant sur balcon, d'une cuisine s\u00e9par\u00e9e am\u00e9nag\u00e9e et \u00e9quip\u00e9e, de deux chambres avec placards, d'une salle de bain et de WC s\u00e9par\u00e9s.\n\nProche de toutes commodit\u00e9s : commerces, transports (M\u00e9tro Sans-Souci \u00e0 200m, Tram T3 \u00e0 300m), \u00e9coles. Cave et possibilit\u00e9 de location de parking en sous-sol.\n\nDPE D \u2014 GES D. Charges de copropri\u00e9t\u00e9 : 145 \u20ac/mois. Taxe fonci\u00e8re : 1 240 \u20ac/an. Bien soumis au statut de la copropri\u00e9t\u00e9.",
-    criteresEnAvant: ['Balcon', 'Cave', 'Ascenseur', 'Double exposition', 'Cuisine \u00e9quip\u00e9e', 'Proche m\u00e9tro', 'Lumineux'],
+    // Crit\u00e8res structur\u00e9s tels qu'ils apparaissent sur Leboncoin / SeLoger / BienIci
+    criteresPortail: [
+      { label: 'Type de bien', value: 'Appartement' },
+      { label: 'Surface habitable', value: '69 m\u00b2' },
+      { label: 'Nombre de pi\u00e8ces', value: '3' },
+      { label: 'Nombre de chambres', value: '2 ch.' },
+      { label: '\u00c9tage', value: '4\u1d49' },
+      { label: 'Nombre d\u2019\u00e9tages dans l\u2019immeuble', value: '5' },
+      { label: 'Ascenseur', value: 'Oui' },
+      { label: 'Ext\u00e9rieur', value: 'Balcon' },
+      { label: 'Caract\u00e9ristiques', value: 'Cuisine \u00e9quip\u00e9e' },
+      { label: '\u00c9tat du bien', value: 'Bon \u00e9tat' },
+      { label: 'Cave', value: 'Oui' },
+      { label: 'Parking', value: 'En location (sous-sol)' },
+      { label: 'Exposition', value: 'Est / Ouest (double)' },
+      { label: 'Chauffage', value: 'Gaz collectif' },
+      { label: 'Charges de copropri\u00e9t\u00e9', value: '145 \u20ac / mois' },
+      { label: 'Taxe fonci\u00e8re', value: '1 240 \u20ac / an' },
+      { label: 'Date de r\u00e9alisation du DPE', value: '12 d\u00e9cembre 2025' },
+      { label: 'R\u00e9f\u00e9rence annonce', value: 'LBC-1949642' },
+    ],
     agence: {
       nom: 'Century 21 Lyon Part-Dieu',
       agent: 'Marc Dupont',

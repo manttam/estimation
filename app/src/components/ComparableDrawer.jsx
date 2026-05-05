@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import L from 'leaflet';
 
 const drawerCss = `
   .comp-drawer-overlay {
@@ -383,10 +384,12 @@ const drawerCss = `
   .price-curve-wrap {
     background: #fafafa;
     border-radius: 10px;
-    padding: 12px;
+    padding: 12px 12px 16px;
     border: 1px solid #eee;
     margin-bottom: 12px;
     position: relative;
+    /* Espace en haut pour le tooltip flottant */
+    padding-top: 56px;
   }
   .price-curve-svg { width: 100%; display: block; }
   .price-curve-svg circle.dot {
@@ -394,19 +397,22 @@ const drawerCss = `
     transition: r 0.12s;
   }
   .price-curve-svg circle.dot:hover { r: 6; }
+  /* Tooltip "rail" affich\u00e9 en haut du wrap, pos\u00e9 dans le padding-top */
   .curve-tooltip {
     position: absolute;
+    top: 8px;
     background: #1a1a1a;
     color: #fff;
-    padding: 8px 12px;
+    padding: 7px 11px;
     border-radius: 6px;
     font-size: 11px;
-    line-height: 1.4;
+    line-height: 1.35;
     pointer-events: none;
     white-space: nowrap;
-    transform: translate(-50%, -100%);
     z-index: 10;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+    transform: translateX(-50%);
+    transition: left 0.08s linear;
   }
   .curve-tooltip::after {
     content: '';
@@ -488,6 +494,83 @@ const drawerCss = `
     font-size: 12px;
     color: #8a6500;
     line-height: 1.4;
+  }
+  /* Portail criteria table */
+  .portail-criteres {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    border: 1px solid #f3d4b8;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .portail-critere-row {
+    display: grid;
+    grid-template-columns: 45% 55%;
+    border-bottom: 1px solid #f7e8d6;
+  }
+  .portail-critere-row:nth-last-child(-n+2) {
+    border-bottom: none;
+  }
+  .portail-critere-row:nth-last-child(2) {
+    border-bottom: 1px solid #f7e8d6;
+  }
+  .portail-critere-label {
+    background: #fef6f0;
+    padding: 8px 12px;
+    font-size: 11px;
+    color: #8a5a30;
+    font-weight: 500;
+    border-right: 1px solid #f7e8d6;
+    display: flex;
+    align-items: center;
+  }
+  .portail-critere-value {
+    padding: 8px 12px;
+    font-size: 12px;
+    color: #1a1a1a;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+  }
+  /* DVF parcel map */
+  .parcel-map-wrap {
+    position: relative;
+    width: 100%;
+    height: 280px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid #eee;
+    background: #f5f5f5;
+  }
+  .parcel-map {
+    width: 100%;
+    height: 100%;
+  }
+  .parcel-ref {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #333;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+    z-index: 500;
+  }
+  .parcel-overlay-attribution {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(255, 255, 255, 0.85);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 9px;
+    color: #666;
+    z-index: 500;
   }
 `;
 
@@ -641,6 +724,79 @@ function GeneralInfo({ data }) {
   );
 }
 
+function CriteresPortail({ criteres }) {
+  if (!criteres || criteres.length === 0) return null;
+  return (
+    <div className="portail-criteres">
+      {criteres.map((c, i) => (
+        <div className="portail-critere-row" key={i}>
+          <div className="portail-critere-label">{c.label}</div>
+          <div className="portail-critere-value">{c.value}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ParcelMap({ coords, addr, parcelleRef }) {
+  const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+
+  useEffect(() => {
+    if (!coords || !mapRef.current) return;
+    if (mapInstanceRef.current) return;
+    const map = L.map(mapRef.current, {
+      zoomControl: false,
+      attributionControl: false,
+      dragging: true,
+      scrollWheelZoom: false,
+    }).setView(coords, 18);
+    mapInstanceRef.current = map;
+
+    // Tile cadastre IGN (parcelles + b\u00e2ti) — service public, pas de cl\u00e9
+    L.tileLayer(
+      'https://data.geopf.fr/wmts?REQUEST=GetTile&SERVICE=WMTS&VERSION=1.0.0&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/png&LAYER=CADASTRALPARCELS.PARCELLAIRE_EXPRESS&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
+      { maxZoom: 19, opacity: 0.85 }
+    ).addTo(map);
+
+    // Fond OSM en dessous pour le contexte
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+    }).addTo(map).bringToBack();
+
+    // Marker au centre de la parcelle
+    const icon = L.divIcon({
+      className: 'parcel-marker',
+      html: '<div style="width:18px;height:18px;border-radius:50%;background:#4a6cf7;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.35)"></div>',
+      iconSize: [18, 18],
+      iconAnchor: [9, 9],
+    });
+    L.marker(coords, { icon }).addTo(map);
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, [coords]);
+
+  if (!coords) return null;
+  return (
+    <div className="parcel-map-wrap">
+      <div ref={mapRef} className="parcel-map" />
+      {parcelleRef && (
+        <div className="parcel-ref">
+          📍 Parcelle {parcelleRef}
+        </div>
+      )}
+      <div className="parcel-overlay-attribution">
+        Cadastre IGN / OSM
+      </div>
+    </div>
+  );
+}
+
 function PriceEvolution({ historique, joursEnCommercialisation, source }) {
   const [hover, setHover] = useState(null); // index du point survolé
   if (!historique || historique.length === 0) return null;
@@ -666,10 +822,10 @@ function PriceEvolution({ historique, joursEnCommercialisation, source }) {
   const fmtPrix = (p) => p.toLocaleString('fr-FR') + ' €';
   const fmtDate = (d) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
 
-  // Position du tooltip en pourcentage du SVG (responsive)
+  // Position du tooltip : clamp horizontal pour ne pas d\u00e9border (min 14% / max 86%)
+  // Le tooltip est positionn\u00e9 dans le rail du haut du wrap, donc pas de souci vertical
   const tooltipPos = hover !== null ? {
-    leftPct: (points[hover].x / W) * 100,
-    topPct: (points[hover].y / H) * 100,
+    leftPct: Math.max(14, Math.min(86, (points[hover].x / W) * 100)),
   } : null;
 
   return (
@@ -729,10 +885,7 @@ function PriceEvolution({ historique, joursEnCommercialisation, source }) {
         {tooltipPos && (
           <div
             className="curve-tooltip"
-            style={{
-              left: `calc(${tooltipPos.leftPct}% + 12px)`,
-              top: `calc(${tooltipPos.topPct}% + 12px - 12px)`,
-            }}
+            style={{ left: `${tooltipPos.leftPct}%` }}
           >
             <div className="curve-tooltip-date">{fmtDate(points[hover].date)}</div>
             <div className="curve-tooltip-event">{points[hover].evenement}</div>
@@ -803,6 +956,11 @@ export default function ComparableDrawer({ comp, onClose }) {
             <div className="drawer-section">
               <PhotoCarousel photos={comp.photos} />
             </div>
+          ) : isDvf && comp.coords ? (
+            <div className="drawer-section">
+              <h3 className="drawer-section-title">Vue cadastrale de la parcelle</h3>
+              <ParcelMap coords={comp.coords} addr={comp.addr} parcelleRef={comp.parcelleRef} />
+            </div>
           ) : isDvf ? (
             <div className="drawer-section">
               <div className="no-photo-block">
@@ -827,7 +985,7 @@ export default function ComparableDrawer({ comp, onClose }) {
             </div>
           )}
 
-          {/* Critères mis en avant (Portails) */}
+          {/* Critères mis en avant (Portails) — tags rapides */}
           {isPortail && comp.criteresEnAvant && comp.criteresEnAvant.length > 0 && (
             <div className="drawer-section">
               <h3 className="drawer-section-title">Critères mis en avant sur l'annonce</h3>
@@ -836,6 +994,14 @@ export default function ComparableDrawer({ comp, onClose }) {
                   <span key={i} className="highlight-tag">{c}</span>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Critères structurés (label / valeur) tels qu'ils apparaissent sur le portail */}
+          {isPortail && comp.criteresPortail && comp.criteresPortail.length > 0 && (
+            <div className="drawer-section">
+              <h3 className="drawer-section-title">Caractéristiques de l'annonce {comp.portalName ? `(${comp.portalName})` : ''}</h3>
+              <CriteresPortail criteres={comp.criteresPortail} />
             </div>
           )}
 
