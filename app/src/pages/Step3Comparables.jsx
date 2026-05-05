@@ -189,24 +189,51 @@ const cssStyles = `
   }
   .source-row {
     display: grid;
-    grid-template-columns: minmax(110px, auto) 1fr 56px;
+    grid-template-columns: minmax(100px, auto) 90px 50px;
     align-items: center;
     gap: 8px;
   }
   .source-row .source-cb-label {
     padding: 0;
   }
-  .source-row .filter-slider {
-    margin-top: 0;
+  .source-row .source-mini-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 3px;
+    border-radius: 2px;
+    background: #eee;
+    outline: none;
+    cursor: pointer;
+    margin: 0;
+  }
+  .source-row .source-mini-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: #46B962;
+    border: 1.5px solid white;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    cursor: pointer;
+  }
+  .source-row .source-mini-slider::-moz-range-thumb {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: #46B962;
+    border: 1.5px solid white;
+    cursor: pointer;
   }
   .source-row .source-delay-value {
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
     color: #46B962;
     text-align: right;
     white-space: nowrap;
   }
-  .source-row.disabled .filter-slider,
+  .source-row.disabled .source-mini-slider,
   .source-row.disabled .source-delay-value {
     opacity: 0.4;
   }
@@ -1533,18 +1560,19 @@ export default function Step3Comparables() {
     // Source effect
     const sourcesOn = [sourceDvf, sourceIdeeri, sourceEncours, sourcePortail].filter(Boolean).length;
     if (sourcesOn < 4) count = Math.max(Math.round(count * (sourcesOn / 4)), 1);
-    // Date slider — moyenne des délais des sources actives
-    const activeDelays = [
-      sourceDvf ? delayDvf : null,
-      sourceIdeeri ? delayIdeeri : null,
-      sourceEncours ? delayEncours : null,
-      sourcePortail ? delayPortail : null,
-    ].filter((v) => v !== null);
-    const avgDelay = activeDelays.length
-      ? activeDelays.reduce((a, b) => a + b, 0) / activeDelays.length
-      : 12;
-    if (avgDelay < 6) count = Math.max(Math.round(count * 0.5), 1);
-    else if (avgDelay < 9) count = Math.round(count * 0.75);
+    // Délai par source — chaque source contribue proportionnellement à son délai
+    // DVF & Ideeri : pleine contribution à 96 mois (8 ans)
+    // En cours & Portail : pleine contribution à 36 mois (3 ans)
+    const sourceContribs = [];
+    if (sourceDvf) sourceContribs.push(Math.min(delayDvf / 96, 1));
+    if (sourceIdeeri) sourceContribs.push(Math.min(delayIdeeri / 96, 1));
+    if (sourceEncours) sourceContribs.push(Math.min(delayEncours / 36, 1));
+    if (sourcePortail) sourceContribs.push(Math.min(delayPortail / 36, 1));
+    const dateFactor = sourceContribs.length
+      ? sourceContribs.reduce((a, b) => a + b, 0) / sourceContribs.length
+      : 1;
+    // Pondération non-linéaire : courbe douce pour que les petits délais réduisent fortement
+    count = Math.max(Math.round(count * (0.15 + 0.85 * dateFactor)), 1);
     // Type
     if (typeFilter === 'tous') count = Math.min(count + 8, 90);
     return Math.max(count, 1);
@@ -1809,7 +1837,7 @@ export default function Step3Comparables() {
                 </label>
                 <input
                   type="range"
-                  className="filter-slider"
+                  className="source-mini-slider"
                   min="1"
                   max="96"
                   value={delayDvf}
@@ -1825,7 +1853,7 @@ export default function Step3Comparables() {
                 </label>
                 <input
                   type="range"
-                  className="filter-slider"
+                  className="source-mini-slider"
                   min="1"
                   max="96"
                   value={delayIdeeri}
@@ -1841,7 +1869,7 @@ export default function Step3Comparables() {
                 </label>
                 <input
                   type="range"
-                  className="filter-slider"
+                  className="source-mini-slider"
                   min="1"
                   max="36"
                   value={delayEncours}
@@ -1857,7 +1885,7 @@ export default function Step3Comparables() {
                 </label>
                 <input
                   type="range"
-                  className="filter-slider"
+                  className="source-mini-slider"
                   min="1"
                   max="36"
                   value={delayPortail}
