@@ -188,18 +188,20 @@ const cssStyles = `
     cursor: pointer;
   }
   .source-row {
-    display: grid;
-    grid-template-columns: minmax(100px, auto) 90px 50px;
+    display: flex;
     align-items: center;
     gap: 8px;
   }
   .source-row .source-cb-label {
+    flex: 0 0 auto;
     padding: 0;
   }
   .source-row .source-mini-slider {
     -webkit-appearance: none;
     appearance: none;
-    width: 100%;
+    flex: 1 1 80px;
+    min-width: 0;
+    max-width: 90px;
     height: 3px;
     border-radius: 2px;
     background: #eee;
@@ -227,6 +229,8 @@ const cssStyles = `
     cursor: pointer;
   }
   .source-row .source-delay-value {
+    flex: 0 0 auto;
+    margin-left: auto;
     font-size: 10px;
     font-weight: 600;
     color: #46B962;
@@ -1827,7 +1831,7 @@ export default function Step3Comparables() {
 
         {/* Filter Grid */}
         <div className="filter-grid">
-          <div className="filter-item" style={{ gridColumn: 'span 2' }}>
+          <div className="filter-item">
             <div className="filter-item-label">Source &amp; anciennet&eacute; max <span className="chip-close">&times;</span></div>
             <div className="source-checkboxes">
               <div className={`source-row${sourceDvf ? '' : ' disabled'}`}>
