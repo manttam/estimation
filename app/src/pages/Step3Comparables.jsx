@@ -252,7 +252,7 @@ const cssStyles = `
   .dot-dvf { background: #4a6cf7; }
   .dot-ideeri { background: #46B962; }
   .dot-encours { background: #f5a623; }
-  .dot-portail { background: #e87722; }
+  .dot-portail { background: #e74c3c; }
   .source-cb-count {
     font-size: 10px;
     color: #888;
@@ -901,6 +901,84 @@ const cssStyles = `
     font-size: 10px;
     color: #888;
     font-weight: 500;
+  }
+
+  /* PERTINENCE DROPDOWN */
+  .pertinence-toggle {
+    flex: 1;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    transition: filter 0.15s, transform 0.15s;
+  }
+  .pertinence-toggle:hover { filter: brightness(0.97); }
+  .pertinence-chevron {
+    color: #555;
+    font-size: 10px;
+    transition: transform 0.18s ease;
+    margin-left: 4px;
+  }
+  .pertinence-chevron.open { transform: rotate(180deg); }
+  .pertinence-detail {
+    background: #fafafa;
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    margin-top: -2px;
+  }
+  .pertinence-detail-row {
+    margin-bottom: 12px;
+  }
+  .pertinence-detail-row:last-of-type { margin-bottom: 8px; }
+  .pertinence-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+  .pertinence-detail-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #333;
+  }
+  .pertinence-detail-value {
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .pertinence-detail-value.score-high { color: #2d8a47; }
+  .pertinence-detail-value.score-mid { color: #b45309; }
+  .pertinence-detail-value.score-low { color: #c0392b; }
+  .pertinence-detail-bar {
+    height: 5px;
+    border-radius: 3px;
+    background: rgba(0,0,0,0.06);
+    overflow: hidden;
+    margin-bottom: 4px;
+  }
+  .pertinence-detail-fill {
+    display: block;
+    height: 100%;
+    border-radius: 3px;
+  }
+  .pertinence-detail-fill.score-high { background: #46B962; }
+  .pertinence-detail-fill.score-mid { background: #d97706; }
+  .pertinence-detail-fill.score-low { background: #e74c3c; }
+  .pertinence-detail-hint {
+    font-size: 10px;
+    color: #888;
+    line-height: 1.3;
+  }
+  .pertinence-detail-formula {
+    font-size: 11px;
+    color: #555;
+    border-top: 1px dashed #d8d8d8;
+    padding-top: 8px;
+    margin-top: 6px;
+  }
+  .pertinence-detail-formula strong {
+    color: #2d8a47;
+    font-weight: 700;
   }
 
   /* COMP CARD CLICKABLE */
@@ -1594,6 +1672,9 @@ const INITIAL_OTHERS = [
 function SelectedCompCard({ comp, onRemove, onOpenDrawer, weight, onWeightChange }) {
   const pertinence = Math.round((comp.similarite || 0) * 0.6 + (comp.donnees || 0) * 0.4);
   const pertinenceClass = pertinence >= 80 ? 'score-high' : pertinence >= 60 ? 'score-mid' : 'score-low';
+  const simClass = comp.similarite >= 80 ? 'score-high' : comp.similarite >= 60 ? 'score-mid' : 'score-low';
+  const donClass = comp.donnees >= 80 ? 'score-high' : comp.donnees >= 40 ? 'score-mid' : 'score-low';
+  const [pertinenceOpen, setPertinenceOpen] = useState(false);
   const stop = (e) => e.stopPropagation();
   const openDrawer = () => onOpenDrawer && onOpenDrawer(comp);
   return (
@@ -1647,14 +1728,43 @@ function SelectedCompCard({ comp, onRemove, onOpenDrawer, weight, onWeightChange
       </div>
       <div className="comp-meta">{comp.meta}</div>
 
-      {/* Pertinence : score unique fusionnant similarit\u00e9 + donn\u00e9es */}
-      <div className="scoring-row">
-        <div className={`score-badge ${pertinenceClass}`} style={{ flex: 1 }} title={`Similarit\u00e9 ${comp.similarite}% \u00b7 Donn\u00e9es ${comp.donnees}%`}>
+      {/* Pertinence : score unique avec dropdown d\u00e9tail Similarit\u00e9 + Donn\u00e9es */}
+      <div className="scoring-row" onClick={stop}>
+        <button
+          type="button"
+          className={`score-badge pertinence-toggle ${pertinenceClass}`}
+          aria-expanded={pertinenceOpen}
+          onClick={(e) => { e.stopPropagation(); setPertinenceOpen((v) => !v); }}
+        >
           <span className="score-badge-label">Pertinence</span>
           <span className="score-badge-value">{pertinence}%</span>
           <span className="score-badge-bar"><span className="score-badge-fill" style={{ width: `${pertinence}%` }} /></span>
-        </div>
+          <span className={`pertinence-chevron ${pertinenceOpen ? 'open' : ''}`}>&#9662;</span>
+        </button>
       </div>
+      {pertinenceOpen && (
+        <div className="pertinence-detail" onClick={stop}>
+          <div className="pertinence-detail-row">
+            <div className="pertinence-detail-header">
+              <span className="pertinence-detail-label">Similarit&eacute;</span>
+              <span className={`pertinence-detail-value ${simClass}`}>{comp.similarite}%</span>
+            </div>
+            <div className="pertinence-detail-bar"><span className={`pertinence-detail-fill ${simClass}`} style={{ width: `${comp.similarite}%` }} /></div>
+            <div className="pertinence-detail-hint">Proximit&eacute; typologique &amp; g&eacute;ographique &mdash; pond&eacute;ration 60%</div>
+          </div>
+          <div className="pertinence-detail-row">
+            <div className="pertinence-detail-header">
+              <span className="pertinence-detail-label">Donn&eacute;es disponibles</span>
+              <span className={`pertinence-detail-value ${donClass}`}>{comp.donnees}%</span>
+            </div>
+            <div className="pertinence-detail-bar"><span className={`pertinence-detail-fill ${donClass}`} style={{ width: `${comp.donnees}%` }} /></div>
+            <div className="pertinence-detail-hint">{comp.donCount ? `${comp.donCount} champs renseign\u00e9s` : 'Compl\u00e9tude des champs renseign\u00e9s'} &mdash; pond&eacute;ration 40%</div>
+          </div>
+          <div className="pertinence-detail-formula">
+            Score Pertinence = Similarit&eacute; &times; 0,6 + Donn&eacute;es &times; 0,4 = <strong>{pertinence}%</strong>
+          </div>
+        </div>
+      )}
 
       {/* Pond\u00e9ration manuelle */}
       <div
@@ -1979,11 +2089,12 @@ export default function Step3Comparables() {
   const sliderPct = ((radius - 100) / (5000 - 100)) * 100;
 
   // Source → marker color mapping
+  // vert = Ideeri vendu (mandat) · bleu = DVF officiel · orange = Ideeri en cours · rouge = Portails
   const sourceMarkerColor = {
     dvf: '#4a6cf7',
     ideeri: '#46B962',
     encours: '#f5a623',
-    portail: '#e87722',
+    portail: '#e74c3c',
   };
 
   // Initialize Leaflet map with markers and draw tool
@@ -2531,10 +2642,10 @@ export default function Step3Comparables() {
               </div>
             </div>
             <div className="map-legend-inline">
+              <div className="map-legend-item"><span className="legend-dot" style={{ background: '#46B962' }} /> Ideeri vendu</div>
               <div className="map-legend-item"><span className="legend-dot" style={{ background: '#4a6cf7' }} /> DVF</div>
-              <div className="map-legend-item"><span className="legend-dot" style={{ background: '#46B962' }} /> Ideeri</div>
-              <div className="map-legend-item"><span className="legend-dot" style={{ background: '#f5a623' }} /> En cours</div>
-              <div className="map-legend-item"><span className="legend-dot" style={{ background: '#e87722' }} /> Portail</div>
+              <div className="map-legend-item"><span className="legend-dot" style={{ background: '#f5a623' }} /> Ideeri en cours</div>
+              <div className="map-legend-item"><span className="legend-dot" style={{ background: '#e74c3c' }} /> Portails</div>
             </div>
           </div>
         </div>
