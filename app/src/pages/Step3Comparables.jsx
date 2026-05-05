@@ -171,7 +171,7 @@ const cssStyles = `
   .source-checkboxes {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 8px;
   }
   .source-cb-label {
     display: flex;
@@ -186,6 +186,29 @@ const cssStyles = `
     width: 14px;
     height: 14px;
     cursor: pointer;
+  }
+  .source-row {
+    display: grid;
+    grid-template-columns: minmax(110px, auto) 1fr 56px;
+    align-items: center;
+    gap: 8px;
+  }
+  .source-row .source-cb-label {
+    padding: 0;
+  }
+  .source-row .filter-slider {
+    margin-top: 0;
+  }
+  .source-row .source-delay-value {
+    font-size: 11px;
+    font-weight: 600;
+    color: #46B962;
+    text-align: right;
+    white-space: nowrap;
+  }
+  .source-row.disabled .filter-slider,
+  .source-row.disabled .source-delay-value {
+    opacity: 0.4;
   }
   .source-dot {
     width: 8px;
@@ -1365,7 +1388,11 @@ export default function Step3Comparables() {
   const navigate = useNavigate();
   const [radius, setRadius] = useState(1000);
   const [mapStyle, setMapStyle] = useState('plan');
-  const [dateSlider, setDateSlider] = useState(12);
+  // Délai max par source (en mois) — 3 ans (36 mois) pour "En cours" et "Portail", 8 ans (96 mois) pour DVF et Ideeri/Bien vendus
+  const [delayDvf, setDelayDvf] = useState(36);
+  const [delayIdeeri, setDelayIdeeri] = useState(36);
+  const [delayEncours, setDelayEncours] = useState(12);
+  const [delayPortail, setDelayPortail] = useState(12);
   const [drawMode, setDrawMode] = useState(false);
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -1506,9 +1533,18 @@ export default function Step3Comparables() {
     // Source effect
     const sourcesOn = [sourceDvf, sourceIdeeri, sourceEncours, sourcePortail].filter(Boolean).length;
     if (sourcesOn < 4) count = Math.max(Math.round(count * (sourcesOn / 4)), 1);
-    // Date slider
-    if (dateSlider < 6) count = Math.max(Math.round(count * 0.5), 1);
-    else if (dateSlider < 9) count = Math.round(count * 0.75);
+    // Date slider — moyenne des délais des sources actives
+    const activeDelays = [
+      sourceDvf ? delayDvf : null,
+      sourceIdeeri ? delayIdeeri : null,
+      sourceEncours ? delayEncours : null,
+      sourcePortail ? delayPortail : null,
+    ].filter((v) => v !== null);
+    const avgDelay = activeDelays.length
+      ? activeDelays.reduce((a, b) => a + b, 0) / activeDelays.length
+      : 12;
+    if (avgDelay < 6) count = Math.max(Math.round(count * 0.5), 1);
+    else if (avgDelay < 9) count = Math.round(count * 0.75);
     // Type
     if (typeFilter === 'tous') count = Math.min(count + 8, 90);
     return Math.max(count, 1);
@@ -1763,13 +1799,73 @@ export default function Step3Comparables() {
 
         {/* Filter Grid */}
         <div className="filter-grid">
-          <div className="filter-item">
-            <div className="filter-item-label">Source <span className="chip-close">&times;</span></div>
+          <div className="filter-item" style={{ gridColumn: 'span 2' }}>
+            <div className="filter-item-label">Source &amp; anciennet&eacute; max <span className="chip-close">&times;</span></div>
             <div className="source-checkboxes">
-              <label className="source-cb-label"><input type="checkbox" checked={sourceDvf} onChange={() => setSourceDvf(!sourceDvf)} /> <span className="source-dot dot-dvf" /> DVF</label>
-              <label className="source-cb-label"><input type="checkbox" checked={sourceIdeeri} onChange={() => setSourceIdeeri(!sourceIdeeri)} /> <span className="source-dot dot-ideeri" /> Ideeri vendus</label>
-              <label className="source-cb-label"><input type="checkbox" checked={sourceEncours} onChange={() => setSourceEncours(!sourceEncours)} /> <span className="source-dot dot-encours" /> En cours</label>
-              <label className="source-cb-label"><input type="checkbox" checked={sourcePortail} onChange={() => setSourcePortail(!sourcePortail)} /> <span className="source-dot dot-portail" /> Portails</label>
+              <div className={`source-row${sourceDvf ? '' : ' disabled'}`}>
+                <label className="source-cb-label">
+                  <input type="checkbox" checked={sourceDvf} onChange={() => setSourceDvf(!sourceDvf)} />
+                  <span className="source-dot dot-dvf" /> DVF
+                </label>
+                <input
+                  type="range"
+                  className="filter-slider"
+                  min="1"
+                  max="96"
+                  value={delayDvf}
+                  disabled={!sourceDvf}
+                  onChange={(e) => setDelayDvf(Number(e.target.value))}
+                />
+                <span className="source-delay-value">{delayDvf} mois</span>
+              </div>
+              <div className={`source-row${sourceIdeeri ? '' : ' disabled'}`}>
+                <label className="source-cb-label">
+                  <input type="checkbox" checked={sourceIdeeri} onChange={() => setSourceIdeeri(!sourceIdeeri)} />
+                  <span className="source-dot dot-ideeri" /> Bien vendus
+                </label>
+                <input
+                  type="range"
+                  className="filter-slider"
+                  min="1"
+                  max="96"
+                  value={delayIdeeri}
+                  disabled={!sourceIdeeri}
+                  onChange={(e) => setDelayIdeeri(Number(e.target.value))}
+                />
+                <span className="source-delay-value">{delayIdeeri} mois</span>
+              </div>
+              <div className={`source-row${sourceEncours ? '' : ' disabled'}`}>
+                <label className="source-cb-label">
+                  <input type="checkbox" checked={sourceEncours} onChange={() => setSourceEncours(!sourceEncours)} />
+                  <span className="source-dot dot-encours" /> En cours
+                </label>
+                <input
+                  type="range"
+                  className="filter-slider"
+                  min="1"
+                  max="36"
+                  value={delayEncours}
+                  disabled={!sourceEncours}
+                  onChange={(e) => setDelayEncours(Number(e.target.value))}
+                />
+                <span className="source-delay-value">{delayEncours} mois</span>
+              </div>
+              <div className={`source-row${sourcePortail ? '' : ' disabled'}`}>
+                <label className="source-cb-label">
+                  <input type="checkbox" checked={sourcePortail} onChange={() => setSourcePortail(!sourcePortail)} />
+                  <span className="source-dot dot-portail" /> Portails
+                </label>
+                <input
+                  type="range"
+                  className="filter-slider"
+                  min="1"
+                  max="36"
+                  value={delayPortail}
+                  disabled={!sourcePortail}
+                  onChange={(e) => setDelayPortail(Number(e.target.value))}
+                />
+                <span className="source-delay-value">{delayPortail} mois</span>
+              </div>
             </div>
           </div>
           <div className="filter-item">
@@ -1873,21 +1969,6 @@ export default function Step3Comparables() {
                 </>
               );
             })()}
-          </div>
-          <div className="filter-item">
-            <div className="filter-item-label">Anciennet&eacute; max <span className="chip-close">&times;</span></div>
-            <div className="filter-range">
-              <input
-                type="range"
-                className="filter-slider"
-                min="1"
-                max="36"
-                value={dateSlider}
-                onChange={(e) => setDateSlider(Number(e.target.value))}
-              />
-              <span className="unit" style={{ minWidth: 55, textAlign: 'right', fontWeight: 600, color: '#46B962' }}>{dateSlider} mois</span>
-            </div>
-            <div className="filter-hint">Transactions ou mises en vente depuis &mdash; <strong style={{ color: '#46B962' }}>{filteredCount} biens</strong></div>
           </div>
           {/* Extra filters added dynamically */}
           {extraFilters.includes('dpe') && (
