@@ -2765,8 +2765,8 @@ export default function Step3Comparables() {
               const avgM2 = sumW > 0 ? Math.round(sumWP / sumW) : 0;
               return (
                 <tr className="t-avg">
-                  <td colSpan={6} style={{ textAlign: 'right', paddingRight: 12 }}><strong>Moyenne pond\u00e9r\u00e9e :</strong></td>
-                  <td className="t-price"><strong>{avgM2 ? `${avgM2.toLocaleString('fr-FR')} \u20ac/m\u00b2` : '\u2014'}</strong></td>
+                  <td colSpan={6} style={{ textAlign: 'right', paddingRight: 12 }}><strong>Moyenne pondérée :</strong></td>
+                  <td className="t-price"><strong>{avgM2 ? `${avgM2.toLocaleString('fr-FR')} €/m²` : '—'}</strong></td>
                   <td className="t-adj"><strong>{sumW}%</strong></td>
                   <td></td>
                 </tr>
