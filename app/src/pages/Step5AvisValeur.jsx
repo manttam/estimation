@@ -160,6 +160,18 @@ const cssStyles = `
     min-width: 80px;
     text-align: center;
   }
+  .demand-big-number.offers {
+    color: #4a6cf7;
+  }
+  .demand-vs {
+    font-size: 14px;
+    font-weight: 600;
+    color: #aaa;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    align-self: center;
+    margin-top: -10px;
+  }
   .demand-big-label {
     font-size: 11px;
     color: #666;
@@ -698,6 +710,74 @@ const cssStyles = `
     color: white;
   }
   .btn-primary:hover { background: #1aa564; }
+
+  /* RDV Eye toggle (masquer en RDV) */
+  .rdv-eye-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #666;
+    transition: all 0.15s;
+    z-index: 5;
+    padding: 0;
+  }
+  .rdv-eye-btn:hover {
+    border-color: #46B962;
+    color: #46B962;
+    background: #f6faf7;
+  }
+  .rdv-eye-btn.is-hidden {
+    background: #fff5f5;
+    color: #c0392b;
+    border-color: #f3d4d4;
+  }
+  .rdv-eye-btn.inline {
+    position: static;
+    width: 22px;
+    height: 22px;
+    margin-left: 8px;
+    vertical-align: middle;
+    display: inline-flex;
+  }
+  .confidence-wrap, .card.strategy {
+    position: relative;
+  }
+  .confidence-wrap.rdv-hidden, .card.strategy.rdv-hidden {
+    opacity: 0.45;
+    filter: grayscale(0.4);
+  }
+  .rdv-hidden-overlay {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(192, 57, 43, 0.92);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 12px;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    z-index: 4;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  .rdv-hidden-overlay.inline {
+    position: static;
+    transform: none;
+    display: inline-block;
+    margin: 4px 0 8px;
+  }
 `;
 
 /* ---------- helpers ---------- */
@@ -714,6 +794,10 @@ export default function Step5AvisValeur() {
   const [pointsForts, setPointsForts] = useState([...avisValeur.pointsForts]);
   const [pointsVigilance, setPointsVigilance] = useState([...avisValeur.pointsVigilance]);
   const [customPrice, setCustomPrice] = useState('300000');
+
+  // Visibilit\u00e9 des sections en RDV : true = masqu\u00e9 lors du RDV
+  const [hideConfiance, setHideConfiance] = useState(false);
+  const [hideStrategie, setHideStrategie] = useState(false);
 
   const surface = 72.5;
   const totalAcquereurs = 23;
@@ -756,6 +840,27 @@ export default function Step5AvisValeur() {
     if (a.dpe) dpeMatch++;
     if (passBudget && a.type && a.surface && a.loc && a.dpe) allMatch++;
   });
+
+  /* ---- Offres concurrentes : biens immo \u00e0 vendre actuellement dans la fourchette de prix ----
+     Simulation : distribution gaussienne centr\u00e9e sur 300k\u20ac (mode du march\u00e9 zone),
+     \u00e9cart-type 35k\u20ac. Le compteur affiche le nombre de biens \u00e9quivalents en concurrence
+     directe \u00e0 \u00b15% du prix s\u00e9lectionn\u00e9.
+  */
+  const offresImmo = (() => {
+    const center = 300000;
+    const sigma = 35000;
+    // densit\u00e9 gaussienne approxim\u00e9e
+    const peak = 14; // pic max ~14 offres
+    const lower = sliderValue * 0.95;
+    const upper = sliderValue * 1.05;
+    // somme discr\u00e8te de la densit\u00e9 sur la fourchette
+    let sum = 0;
+    for (let p = lower; p <= upper; p += 5000) {
+      const v = peak * Math.exp(-Math.pow(p - center, 2) / (2 * sigma * sigma));
+      sum += v;
+    }
+    return Math.max(1, Math.round(sum / 4));
+  })();
 
   const ppm = Math.round(sliderValue / surface);
   // Le hero affiche les acquéreurs budget-compatibles (seul critère impacté par le prix).
@@ -887,9 +992,27 @@ export default function Step5AvisValeur() {
           </div>
           <div className="price-meta">
             <span className="price-meta-item"><strong>{avisValeur.prixM2.toLocaleString('fr-FR')} &euro;/m&sup2;</strong></span>
-            <span className="price-meta-item">Amplitude: <strong>&plusmn;{avisValeur.amplitude}%</strong></span>
           </div>
-          <div className="confidence-wrap">
+          <div className={`confidence-wrap ${hideConfiance ? 'rdv-hidden' : ''}`}>
+            <button
+              type="button"
+              className={`rdv-eye-btn ${hideConfiance ? 'is-hidden' : ''}`}
+              onClick={() => setHideConfiance((v) => !v)}
+              title={hideConfiance ? 'Afficher en RDV' : 'Masquer en RDV'}
+              aria-label={hideConfiance ? 'Afficher en RDV' : 'Masquer en RDV'}
+            >
+              {hideConfiance ? (
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                  <line x1="1" y1="1" x2="23" y2="23"/>
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+              )}
+            </button>
             <svg className="confidence-gauge" viewBox="0 0 120 120" style={{ transform: 'rotate(-90deg)' }}>
               <circle cx="60" cy="60" r="50" fill="none" stroke="#eee" strokeWidth="10"/>
               <circle cx="60" cy="60" r="50" fill="none" stroke="#46B962" strokeWidth="10"
@@ -902,6 +1025,7 @@ export default function Step5AvisValeur() {
               <div className="confidence-label">Indice de confiance</div>
               <div className="confidence-details">Compl&eacute;tude 64% &times; Homog&eacute;n&eacute;it&eacute; 92% &times; Volume zone</div>
             </div>
+            {hideConfiance && <div className="rdv-hidden-overlay">Masqu&eacute; en RDV</div>}
           </div>
         </div>
 
@@ -918,6 +1042,11 @@ export default function Step5AvisValeur() {
             <div className="demand-big-wrap">
               <div className="demand-big-number" style={{ color: demandColor }}>{budgetMatch}</div>
               <div className="demand-big-label">projets<br/>d&apos;achat</div>
+            </div>
+            <div className="demand-vs">vs</div>
+            <div className="demand-big-wrap">
+              <div className="demand-big-number offers">{offresImmo}</div>
+              <div className="demand-big-label">offres<br/>concurrentes</div>
             </div>
             <div className="demand-gauge-wrap">
               <div className="demand-price-display">
@@ -1083,8 +1212,30 @@ export default function Step5AvisValeur() {
 
           {/* --- Column 3: Strategy + Actions --- */}
           <div className="content-grid-col">
-            <div className="card strategy">
-              <div className="card-title">Strat&eacute;gie de prix</div>
+            <div className={`card strategy ${hideStrategie ? 'rdv-hidden' : ''}`}>
+              <div className="card-title">
+                Strat&eacute;gie de prix
+                <button
+                  type="button"
+                  className={`rdv-eye-btn inline ${hideStrategie ? 'is-hidden' : ''}`}
+                  onClick={() => setHideStrategie((v) => !v)}
+                  title={hideStrategie ? 'Afficher en RDV' : 'Masquer en RDV'}
+                  aria-label={hideStrategie ? 'Afficher en RDV' : 'Masquer en RDV'}
+                >
+                  {hideStrategie ? (
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                      <line x1="1" y1="1" x2="23" y2="23"/>
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                      <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                  )}
+                </button>
+              </div>
+              {hideStrategie && <div className="rdv-hidden-overlay inline">Masqu&eacute; en RDV</div>}
               {strategies.map((s, i) => {
                 const isSelected = selectedStrategy === i;
                 return (
@@ -1103,7 +1254,9 @@ export default function Step5AvisValeur() {
                       <span className="strategy-name">{s.label} &mdash; {formatPrice(s.prix)}</span>
                     </div>
                     <div className="strategy-desc">{s.description}</div>
-                    <div className="strategy-duration">&#128197; {s.duration}</div>
+                    {avisValeur.confiance >= 90 && (
+                      <div className="strategy-duration">&#128197; {s.duration}</div>
+                    )}
                     {s.recommended && <div className="badge-rec">&#10003; Recommand&eacute;</div>}
                   </div>
                 );
