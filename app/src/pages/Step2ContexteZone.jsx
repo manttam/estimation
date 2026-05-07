@@ -441,8 +441,13 @@ const CADASTRE_TILE_URL =
   '&LAYER=CADASTRALPARCELS.PARCELS&TILEMATRIX={z}&TILEMATRIXSET=PM' +
   '&TILECOL={x}&TILEROW={y}&FORMAT=image/png&STYLE=normal';
 
-/* ─── Overpass API — POI réels OSM ─── */
-const OVERPASS_ENDPOINT = 'https://overpass-api.de/api/interpreter';
+/* ─── Overpass API — POI réels OSM (avec mirrors de secours) ─── */
+const OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+];
+const OVERPASS_TIMEOUT = 25;          // secondes côté serveur Overpass
 const OVERPASS_QUERIES = {
   transports: (lat, lon, r) => `(
     node["railway"="station"](around:${r},${lat},${lon});
@@ -493,19 +498,31 @@ function buildPoiDetail(tags, distance) {
   return parts.join(' — ');
 }
 
-/* Fetch Overpass pour une catégorie (gère erreurs / timeout) */
+/* Fetch Overpass pour une catégorie — essaie les mirrors en cascade */
 async function fetchOverpassCategory(cat, coords, radius, signal) {
   const [lat, lon] = coords;
-  const body = `[out:json][timeout:10];${OVERPASS_QUERIES[cat](lat, lon, radius)}`;
-  const res = await fetch(OVERPASS_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: `data=${encodeURIComponent(body)}`,
-    signal,
-  });
-  if (!res.ok) throw new Error(`Overpass ${cat} ${res.status}`);
-  const json = await res.json();
-  if (!json || !Array.isArray(json.elements)) return [];
+  const body = `[out:json][timeout:${OVERPASS_TIMEOUT}];${OVERPASS_QUERIES[cat](lat, lon, radius)}`;
+  let lastErr = null;
+  let json = null;
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `data=${encodeURIComponent(body)}`,
+        signal,
+      });
+      if (!res.ok) { lastErr = new Error(`${endpoint} ${res.status}`); continue; }
+      json = await res.json();
+      break;
+    } catch (err) {
+      if (err.name === 'AbortError') throw err;
+      lastErr = err;
+      continue;
+    }
+  }
+  if (!json) throw lastErr || new Error('Overpass : tous les mirrors KO');
+  if (!Array.isArray(json.elements)) return [];
   return json.elements
     .map((el) => {
       const c = el.type === 'node'
@@ -668,42 +685,76 @@ function buildRisquesSection(risques) {
   };
 }
 
+/* Section "live indisponible" pour une catégorie POI : signale clairement
+   à l'utilisateur que les données ne sont pas dispos plutôt que d'afficher
+   des POI démo qui ne correspondraient pas à sa localité. */
+function buildEmptyPoiSection(cat) {
+  return {
+    title: POI_SECTION_TITLES[cat] || cat,
+    summary: 'Données live indisponibles pour cette zone',
+    rows: [
+      { lbl: 'Source', val: 'OpenStreetMap / Overpass' },
+      { lbl: 'Statut', val: 'Indisponible — réessayer plus tard' },
+    ],
+    dotColor: '',
+  };
+}
+
+function buildEmptyRisquesSection() {
+  return {
+    title: RISQUES_TITLE,
+    summary: 'Données live indisponibles pour cette zone',
+    rows: [
+      { lbl: 'Source', val: 'Géorisques (data.gouv.fr)' },
+      { lbl: 'Statut', val: 'Indisponible — réessayer plus tard' },
+    ],
+    dotColor: '',
+  };
+}
+
 /* Compose le tableau final de sections (POI + Risques) à passer au rendu.
-   Stratégie : pour chaque catégorie POI, on prend le live si dispo, sinon
-   on retombe sur la section démo correspondante du fallback. Idem Risques.
-   Les sections du fallback n'ayant pas d'équivalent live (ex: INSEE) sont
-   conservées à la fin. Garantie : on a toujours toutes les sections. */
-function buildDynamicSections({ realPoi, risques }, fallback) {
+   - Si le bien a une vraie localité (citycode) : pas de fallback démo Lyon 3
+     trompeur. À la place on affiche une section "live indispo" explicite.
+   - Sinon (mode démo / pas d'activeBien) : retombe sur contexteZone.sections. */
+function buildDynamicSections({ realPoi, risques, hasRealLocation }, fallback) {
   const out = [];
   const order = ['transports', 'commerces', 'education', 'sante', 'environnement'];
   const fb = Array.isArray(fallback) ? fallback : [];
   const findFb = (title) => fb.find((s) => s.title === title);
 
-  /* 1. Sections POI : live > démo */
+  /* 1. Sections POI : live > (démo si pas de vraie loc) > placeholder */
   order.forEach((cat) => {
     const live = realPoi ? buildPoiSection(cat, realPoi[cat]) : null;
     if (live) {
       out.push(live);
+    } else if (hasRealLocation) {
+      out.push(buildEmptyPoiSection(cat));
     } else {
       const demo = findFb(POI_SECTION_TITLES[cat]);
       if (demo) out.push(demo);
     }
   });
 
-  /* 2. Section Risques : live > démo */
+  /* 2. Section Risques : live > (démo si pas de vraie loc) > placeholder */
   const risk = buildRisquesSection(risques);
   if (risk) {
     out.push(risk);
+  } else if (hasRealLocation) {
+    out.push(buildEmptyRisquesSection());
   } else {
     const demo = findFb(RISQUES_TITLE);
     if (demo) out.push(demo);
   }
 
-  /* 3. Sections additionnelles du fallback (ex: INSEE) — pas d'équivalent live */
-  const knownTitles = new Set([...Object.values(POI_SECTION_TITLES), RISQUES_TITLE]);
-  fb.forEach((s) => {
-    if (!knownTitles.has(s.title)) out.push(s);
-  });
+  /* 3. Sections additionnelles du fallback (INSEE, etc.) :
+        on les garde uniquement en mode démo sans vraie localité,
+        sinon elles seraient trompeuses (chiffres Lyon 3). */
+  if (!hasRealLocation) {
+    const knownTitles = new Set([...Object.values(POI_SECTION_TITLES), RISQUES_TITLE]);
+    fb.forEach((s) => {
+      if (!knownTitles.has(s.title)) out.push(s);
+    });
+  }
 
   if (out.length === 0) return fallback;
   return out;
@@ -812,14 +863,19 @@ export default function Step2ContexteZone() {
     : 'https://www.geoportail-urbanisme.gouv.fr/';
 
   /* ─── Construction des sections déroulables ─────────────────────────── */
-  /* Si on a au moins realPoi OU risques, on construit dynamiquement,    */
-  /* sinon on tombe sur contexteZone.sections (mode démo).                */
+  /* Mode démo (pas de bien actif) → contexteZone.sections inchangé.       */
+  /* Mode réel (citycode présent) → on construit dynamiquement, sans       */
+  /* retomber sur les données démo Lyon 3 qui seraient trompeuses.          */
   const sections = useMemo(() => {
-    if (!realPoi && !risques) {
+    const hasRealLocation = !!activeBien?.adresse?.citycode;
+    if (!hasRealLocation && !realPoi && !risques) {
       return contexteZone.sections;
     }
-    return buildDynamicSections({ realPoi, risques }, contexteZone.sections);
-  }, [realPoi, risques]);
+    return buildDynamicSections(
+      { realPoi, risques, hasRealLocation },
+      contexteZone.sections
+    );
+  }, [realPoi, risques, activeBien]);
 
   // Radius presets → meters
   const RADIUS_PRESETS = [
@@ -1001,7 +1057,10 @@ export default function Step2ContexteZone() {
     const L = window.L;
     if (!L) return;
 
-    const sourceData = realPoi || POI_DATA;
+    /* Si on a une vraie localité mais pas de POI live → on n'affiche RIEN
+       sur la map (les markers démo Lyon 3 seraient trompeurs). */
+    const hasRealLocation = !!activeBien?.adresse?.citycode;
+    const sourceData = realPoi || (hasRealLocation ? {} : POI_DATA);
 
     Object.entries(POI_STYLES).forEach(([cat, style]) => {
       const group = poiLayersRef.current[cat];
@@ -1023,7 +1082,7 @@ export default function Step2ContexteZone() {
       // (Re)attache le groupe à la carte si la catégorie est active
       if (activeLayers[cat] && !map.hasLayer(group)) group.addTo(map);
     });
-  }, [realPoi, activeLayers]);
+  }, [realPoi, activeLayers, activeBien]);
 
   return (
     <div className="step2-page">
