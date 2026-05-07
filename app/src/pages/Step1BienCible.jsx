@@ -6,6 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import PropertyCard from '../components/PropertyCard';
 import Stepper from '../components/Stepper';
 import { bienCibleCategories } from '../data/propertyData';
+import CadastrePLUCards from '../components/CadastrePLUCards';
 
 // Fix default Leaflet marker icon issue in React
 delete L.Icon.Default.prototype._getIconUrl;
@@ -1184,52 +1185,8 @@ export default function Step1BienCible() {
               </div>
             </div>
 
-            {/* Cadastre + Plan de zone */}
-            <div className="docs-locality">
-              <button
-                type="button"
-                className="doc-card"
-                onClick={() => openMediaModal({
-                  title: 'Cadastre',
-                  url: 'https://images.unsplash.com/photo-1524813686514-a57563d77965?w=1600&q=80',
-                  caption: 'Parcelle cadastrale - 12 rue des Lilas, 69003 Lyon',
-                })}
-              >
-                <div className="doc-thumb">
-                  <img
-                    src="https://images.unsplash.com/photo-1524813686514-a57563d77965?w=600&q=80"
-                    alt="Cadastre"
-                  />
-                  <span className="doc-zoom">&#x2922;</span>
-                </div>
-                <div className="doc-meta">
-                  <div className="doc-title">Cadastre</div>
-                  <div className="doc-sub">Parcelle &amp; limites</div>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                className="doc-card"
-                onClick={() => openMediaModal({
-                  title: 'Plan de zone',
-                  url: 'https://images.unsplash.com/photo-1569336415962-a4bd9f69cd83?w=1600&q=80',
-                  caption: 'Plan de zone urbanistique - PLU Lyon 3e',
-                })}
-              >
-                <div className="doc-thumb">
-                  <img
-                    src="https://images.unsplash.com/photo-1569336415962-a4bd9f69cd83?w=600&q=80"
-                    alt="Plan de zone"
-                  />
-                  <span className="doc-zoom">&#x2922;</span>
-                </div>
-                <div className="doc-meta">
-                  <div className="doc-title">Plan de zone</div>
-                  <div className="doc-sub">PLU &amp; zonage</div>
-                </div>
-              </button>
-            </div>
+            {/* Cadastre + Plan de zone (data.gouv / IGN) */}
+            <CadastrePLUCards lat={45.758} lon={4.859} address="12 rue des Lilas, 69003 Lyon" />
 
             {/* Critical Fields */}
             <div className="critical-section">
