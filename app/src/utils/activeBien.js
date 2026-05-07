@@ -194,24 +194,38 @@ export function buildBienCibleCategories(base, active) {
   // Deep-clone via JSON pour ne jamais muter le module statique original.
   const cats = JSON.parse(JSON.stringify(base));
   if (!active || !active.bien || !active.adresse) {
+    // Pas de bien actif : on garde les valeurs demo (12 rue des Lilas etc.)
+    // pour ne pas casser la visite vide / le mode preview.
     return cats;
   }
+
+  // Bien actif : on vide TOUS les champs du releve d'information avant
+  // d'appliquer les overrides. Manon saisira elle-meme les champs non
+  // pre-remplis depuis /nouveau-bien.
+  cats.forEach((cat) => {
+    cat.fields.forEach((f) => {
+      if (f.type === 'toggle') {
+        f.on = false;
+      } else {
+        // text / number / select : valeur vide
+        f.value = '';
+      }
+      // On preserve volontairement : label, type, options, placeholder,
+      // isImpact... seules `value` et `on` sont remises a zero.
+      if (f.error) delete f.error; // on enleve les flags d'erreur statiques du demo
+    });
+  });
 
   const b = active.bien;
   const adr = active.adresse;
 
   // ---- Section 1 : Identification ----
+  // (le reste des champs - cadastre, lot, regime, etc. - est deja vide par
+  // le clearAll en amont, Manon les saisira elle-meme)
   const sec1 = cats.find((c) => c.title === 'Identification et Statut Juridique');
   if (sec1) {
     setField(sec1, 'Adresse compl\u00e8te', adr.label);
     setField(sec1, 'Type de bien', TYPE_TO_LABEL[b.type]);
-    // On vide les autres champs (lot, cadastre, servitudes) pour eviter de
-    // garder les valeurs du bien demo qui n'ont rien a voir avec l'adresse saisie.
-    ['R\u00e9f\u00e9rence cadastrale', 'Num\u00e9ro de lot', 'Quote-part (milli\u00e8mes)', 'Servitudes']
-      .forEach((lbl) => {
-        const f = sec1.fields.find((x) => x.label === lbl);
-        if (f) f.value = '';
-      });
   }
 
   // ---- Section 2 : Caracteristiques Generales ----
@@ -236,22 +250,16 @@ export function buildBienCibleCategories(base, active) {
 
     setToggle(sec2, 'Ascenseur', b.ascenseur);
 
-    // Exterieur : balcon / terrasse / jardin (m2 = on connait pas, on met juste 1
-    // pour signaler la presence ; l'utilisateur ajustera).
-    const balcon = sec2.fields.find((x) => x.label === 'Balcon (m\u00b2)');
-    const terrasse = sec2.fields.find((x) => x.label === 'Terrasse (m\u00b2)');
-    const jardin = sec2.fields.find((x) => x.label === 'Jardin privatif (m\u00b2)');
-    if (balcon) balcon.value = b.exterieur === 'balcon' ? '1' : '0';
-    if (terrasse) terrasse.value = b.exterieur === 'terrasse' ? '1' : '0';
-    if (jardin) jardin.value = b.exterieur === 'jardin' ? '1' : '0';
+    // Exterieur : balcon / terrasse / jardin. On ne met "1" que pour celui
+    // saisi sur /nouveau-bien (signal de presence) - Manon ajustera la m2 reelle.
+    // Les autres restent vides pour saisie manuelle.
+    if (b.exterieur === 'balcon') setField(sec2, 'Balcon (m\u00b2)', '1');
+    else if (b.exterieur === 'terrasse') setField(sec2, 'Terrasse (m\u00b2)', '1');
+    else if (b.exterieur === 'jardin') setField(sec2, 'Jardin privatif (m\u00b2)', '1');
 
-    // Parking
-    const garage = sec2.fields.find((x) => x.label === 'Garage / Box ferm\u00e9');
-    if (garage) {
-      garage.value = b.parking === 'box' ? '1' : '0';
-      delete garage.error;
-    }
-    setToggle(sec2, 'Parking ext\u00e9rieur', b.parking === 'place');
+    // Parking : meme logique. On ne touche que si saisi.
+    if (b.parking === 'box') setField(sec2, 'Garage / Box ferm\u00e9', '1');
+    if (b.parking === 'place') setToggle(sec2, 'Parking ext\u00e9rieur', true);
   }
 
   // ---- Section 3 : Structure et Gros Oeuvre (annee + epoque) ----
@@ -263,10 +271,12 @@ export function buildBienCibleCategories(base, active) {
   }
 
   // ---- Recalcul du progress de chaque categorie ----
+  // Toggle off = non rempli (pour ne pas gonfler artificiellement le compteur
+  // sur un formulaire vide).
   cats.forEach((cat) => {
     const total = cat.fields.length;
     const filled = cat.fields.filter((f) => {
-      if (f.type === 'toggle') return true; // toggle = toujours un etat (on/off)
+      if (f.type === 'toggle') return f.on === true;
       return f.value !== undefined && f.value !== null && f.value !== '';
     }).length;
     cat.progress = `${filled}/${total}`;
