@@ -539,13 +539,15 @@ function dotFromAvgDist(avgDist) {
   return 'red';
 }
 
-const POI_SECTION_LABELS = {
-  transports:    'Transports',
-  commerces:     'Commerces',
+/* Titres EXACTS utilisés dans contexteZone.sections (matching fallback) */
+const POI_SECTION_TITLES = {
+  transports:    'Transports & Accessibilité',
+  commerces:     'Commerces & Services',
   education:     'Éducation',
   sante:         'Santé',
-  environnement: 'Environnement',
+  environnement: 'Environnement & Cadre de vie',
 };
+const RISQUES_TITLE = 'Risques & Aléas';
 
 /* Construit une section "POI" pour une catégorie donnée */
 function buildPoiSection(cat, items) {
@@ -556,7 +558,7 @@ function buildPoiSection(cat, items) {
     .join(' · ');
   const avg = top.reduce((s, p) => s + (p.distance || 0), 0) / top.length;
   return {
-    title:   POI_SECTION_LABELS[cat] || cat,
+    title:   POI_SECTION_TITLES[cat] || cat,
     summary,
     rows: top.map((p) => ({
       lbl:  p.name,
@@ -666,22 +668,43 @@ function buildRisquesSection(risques) {
   };
 }
 
-/* Compose le tableau final de sections (POI + Risques) à passer au rendu */
+/* Compose le tableau final de sections (POI + Risques) à passer au rendu.
+   Stratégie : pour chaque catégorie POI, on prend le live si dispo, sinon
+   on retombe sur la section démo correspondante du fallback. Idem Risques.
+   Les sections du fallback n'ayant pas d'équivalent live (ex: INSEE) sont
+   conservées à la fin. Garantie : on a toujours toutes les sections. */
 function buildDynamicSections({ realPoi, risques }, fallback) {
   const out = [];
   const order = ['transports', 'commerces', 'education', 'sante', 'environnement'];
+  const fb = Array.isArray(fallback) ? fallback : [];
+  const findFb = (title) => fb.find((s) => s.title === title);
 
-  if (realPoi) {
-    order.forEach((cat) => {
-      const sec = buildPoiSection(cat, realPoi[cat]);
-      if (sec) out.push(sec);
-    });
+  /* 1. Sections POI : live > démo */
+  order.forEach((cat) => {
+    const live = realPoi ? buildPoiSection(cat, realPoi[cat]) : null;
+    if (live) {
+      out.push(live);
+    } else {
+      const demo = findFb(POI_SECTION_TITLES[cat]);
+      if (demo) out.push(demo);
+    }
+  });
+
+  /* 2. Section Risques : live > démo */
+  const risk = buildRisquesSection(risques);
+  if (risk) {
+    out.push(risk);
+  } else {
+    const demo = findFb(RISQUES_TITLE);
+    if (demo) out.push(demo);
   }
 
-  const risk = buildRisquesSection(risques);
-  if (risk) out.push(risk);
+  /* 3. Sections additionnelles du fallback (ex: INSEE) — pas d'équivalent live */
+  const knownTitles = new Set([...Object.values(POI_SECTION_TITLES), RISQUES_TITLE]);
+  fb.forEach((s) => {
+    if (!knownTitles.has(s.title)) out.push(s);
+  });
 
-  /* Si on n'a rien construit du tout, on retombe sur le démo. */
   if (out.length === 0) return fallback;
   return out;
 }
