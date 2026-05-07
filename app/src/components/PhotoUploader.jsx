@@ -49,6 +49,11 @@ const styles = `
   .photo-uploader-clear:hover { color: #d33; }
 
   .photo-dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
     border: 2px dashed #d5d5d5;
     background: #fafafa;
     border-radius: 10px;
@@ -59,6 +64,8 @@ const styles = `
     font-size: 12px;
     color: #666;
     user-select: none;
+    box-sizing: border-box;
+    width: 100%;
   }
   .photo-dropzone:hover,
   .photo-dropzone.is-dragover {
@@ -328,13 +335,15 @@ export default function PhotoUploader({ onChange }) {
         onDragLeave={onDragLeave}
       >
         <span className="photo-dropzone-icon" aria-hidden="true">
-          {busy ? '\u23f3' : '\u2795'}
+          {busy ? '\u23f3' : '+'}
         </span>
-        {busy
-          ? 'Compression et enregistrement\u2026'
-          : 'D\u00e9poser des images ou cliquer'}
+        <span className="photo-dropzone-text">
+          {busy
+            ? 'Compression et enregistrement\u2026'
+            : 'D\u00e9poser des images ou cliquer'}
+        </span>
         <span className="photo-dropzone-hint">
-          JPG, PNG, WebP - compress\u00e9es localement (max 1600px)
+          {'JPG, PNG, WebP \u2014 compress\u00e9es localement (max 1600px)'}
         </span>
         <input
           ref={inputRef}
