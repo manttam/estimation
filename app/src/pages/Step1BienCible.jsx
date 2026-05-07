@@ -42,6 +42,63 @@ const PROPERTY_PHOTOS = [
   { id: 12, type: 'autre',     label: 'Entr\u00e9e / couloir',          url: 'https://images.unsplash.com/photo-1503602642458-232111445657?w=1400&q=80&auto=format&fit=crop' },
 ];
 
+// Photos custom du bien actif : Vite scanne le dossier au build et inclut
+// chaque image dans le bundle (avec hash de cache busting). Pour ajouter des
+// photos, il suffit de les deposer dans app/src/photos-bien-actif/ avec le
+// nom <type>-<XX>-<label>.<ext>. Voir le README dans ce dossier.
+const PHOTO_TYPE_VALUES = ['salon', 'cuisine', 'chambre', 'sdb', 'wc', 'bureau', 'exterieur', 'autre'];
+
+// `eager: true` => les URLs sont resolues au build, pas de fetch runtime.
+const customPhotoModules = import.meta.glob(
+  '../photos-bien-actif/*.{jpg,jpeg,png,webp,JPG,JPEG,PNG,WEBP}',
+  { eager: true, import: 'default' }
+);
+
+function parsePhotoFilename(filename) {
+  // ex: "salon-01-vue-cheminee.jpg" -> type="salon", order=1, label="Vue Cheminee"
+  const name = filename.replace(/\.[^.]+$/, '');
+  const parts = name.split('-');
+  let type = 'autre';
+  let order = 999;
+  let labelParts = parts;
+
+  if (parts.length > 0 && PHOTO_TYPE_VALUES.includes(parts[0].toLowerCase())) {
+    type = parts[0].toLowerCase();
+    labelParts = parts.slice(1);
+  }
+  if (labelParts.length > 0 && /^\d+$/.test(labelParts[0])) {
+    order = parseInt(labelParts[0], 10);
+    labelParts = labelParts.slice(1);
+  }
+
+  let label;
+  if (labelParts.length > 0) {
+    label = labelParts.join(' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  } else {
+    label = `${type.charAt(0).toUpperCase() + type.slice(1)} ${String(order).padStart(2, '0')}`;
+  }
+  return { type, order, label };
+}
+
+const CUSTOM_PHOTOS = Object.entries(customPhotoModules)
+  .map(([path, url]) => {
+    const filename = path.split('/').pop();
+    const parsed = parsePhotoFilename(filename);
+    return { ...parsed, url, filename };
+  })
+  .sort((a, b) => {
+    const ta = PHOTO_TYPE_VALUES.indexOf(a.type);
+    const tb = PHOTO_TYPE_VALUES.indexOf(b.type);
+    if (ta !== tb) return ta - tb;
+    return a.order - b.order;
+  })
+  .map((p, i) => ({
+    id: `custom-${i + 1}`,
+    type: p.type,
+    label: p.label,
+    url: p.url,
+  }));
+
 const PHOTO_TYPES = [
   { value: 'all',       label: 'Toutes',        icon: '\ud83d\udcf8' },
   { value: 'salon',     label: 'Salon/S\u00e9jour',  icon: '\ud83d\udecb\ufe0f' },
@@ -865,6 +922,10 @@ export default function Step1BienCible() {
   // demo (12 rue des Lilas, Lyon 3eme).
   const [activeBien] = useState(() => getActiveBien());
 
+  // Catalogue effectif : si bien actif + photos deposees dans
+  // app/src/photos-bien-actif/, on bascule dessus. Sinon demo Unsplash.
+  const photoCatalog = activeBien && CUSTOM_PHOTOS.length > 0 ? CUSTOM_PHOTOS : PROPERTY_PHOTOS;
+
   // Categories pre-remplies dynamiquement a partir du bien actif. Si aucun
   // bien actif, retombe sur le bien demo statique.
   const [bienCibleCategories] = useState(() => {
@@ -912,12 +973,12 @@ export default function Step1BienCible() {
   const [lightboxIndex, setLightboxIndex] = useState(null); // null = ferm\u00e9
 
   const filteredPhotos = photoFilter === 'all'
-    ? PROPERTY_PHOTOS
-    : PROPERTY_PHOTOS.filter((p) => p.type === photoFilter);
+    ? photoCatalog
+    : photoCatalog.filter((p) => p.type === photoFilter);
 
-  const photoCountsByType = PROPERTY_PHOTOS.reduce(
+  const photoCountsByType = photoCatalog.reduce(
     (acc, p) => { acc[p.type] = (acc[p.type] || 0) + 1; return acc; },
-    { all: PROPERTY_PHOTOS.length }
+    { all: photoCatalog.length }
   );
 
   const openLightbox = (idx) => setLightboxIndex(idx);
@@ -1092,7 +1153,7 @@ export default function Step1BienCible() {
             <div className="photos-section">
               <div className="photos-header">
                 <span>Photos du bien</span>
-                <span className="photos-count-inline">{PROPERTY_PHOTOS.length}</span>
+                <span className="photos-count-inline">{photoCatalog.length}</span>
               </div>
 
               {/* Filtres par type de pi\u00e8ce */}
