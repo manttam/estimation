@@ -95,18 +95,6 @@
         /* INFO BANNER */
         .info-banner { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; margin-bottom: 14px; font-size: 11px; display: flex; align-items: center; gap: 8px; color: var(--muted); }
 
-        /* SCORE CARDS */
-        .scores-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 14px; }
-        .score-card { background: var(--white); border-radius: 8px; padding: 10px; text-align: center; border: 1px solid var(--border); border-top: 3px solid var(--border); position: relative; }
-        .score-card.green { border-top-color: var(--green); }
-        .score-card.orange { border-top-color: var(--orange); }
-        .score-card.red { border-top-color: var(--red); }
-        .score-label { font-size: 10px; color: var(--label); font-weight: 500; margin-bottom: 2px; }
-        .score-num { font-size: 18px; font-weight: 700; }
-        .score-num.green { color: var(--green); }
-        .score-num.orange { color: var(--orange); }
-        .score-num.red { color: var(--red); }
-
         /* MAIN GRID: map + market */
         .grid-top { display: grid; grid-template-columns: 1fr 300px; gap: 12px; margin-bottom: 14px; }
 
@@ -139,17 +127,9 @@
         .collapse-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; cursor: pointer; user-select: none; transition: background 0.15s; }
         .collapse-header:hover { background: #f8f8f8; }
         .collapse-header-left { display: flex; align-items: center; gap: 10px; }
-        .collapse-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
-        .collapse-dot.green { background: var(--green); }
-        .collapse-dot.orange { background: var(--orange); }
-        .collapse-dot.red { background: var(--red); }
         .collapse-title { font-size: 12px; font-weight: 500; color: var(--text); }
         .collapse-summary { font-size: 11px; color: var(--label); }
         .collapse-header-right { display: flex; align-items: center; gap: 10px; }
-        .collapse-score { font-size: 11px; font-weight: 600; color: var(--muted); }
-        .collapse-score.green { color: var(--green); }
-        .collapse-score.orange { color: var(--orange); }
-        .collapse-score.red { color: var(--red); }
         .collapse-arrow { font-size: 10px; color: #bbb; transition: transform 0.2s; }
         .collapse-card.open .collapse-arrow { transform: rotate(180deg); }
 
@@ -174,7 +154,7 @@
         .pdf-toggle input:checked + label { color: var(--blue); background: #eef2ff; border-color: #c7d2fe; }
         .pdf-icon { font-size: 11px; opacity: 0.4; }
         .pdf-toggle input:checked + label .pdf-icon { opacity: 1; }
-        .score-card, .map-card, .market-card { position: relative; }
+        .map-card, .market-card { position: relative; }
 
         /* FOOTER */
         .footer-buttons { display: flex; justify-content: space-between; padding: 14px 0; margin-top: 8px; }
@@ -358,35 +338,6 @@
                     <span>Données enrichies automatiquement · 33 sources data.gouv / INSEE · MAJ : 25 mars 2026</span>
                 </div>
 
-                <!-- SCORE CARDS -->
-                <div class="scores-row">
-                    <div class="score-card green">
-                        <div class="pdf-toggle"><input type="checkbox" id="pdf-score-access" class="pdf-cb" checked><label for="pdf-score-access"><span class="pdf-icon">&#128196;</span></label></div>
-                        <div class="score-label">Accessibilité</div>
-                        <div class="score-num green">82</div>
-                    </div>
-                    <div class="score-card green">
-                        <div class="pdf-toggle"><input type="checkbox" id="pdf-score-services" class="pdf-cb" checked><label for="pdf-score-services"><span class="pdf-icon">&#128196;</span></label></div>
-                        <div class="score-label">Services</div>
-                        <div class="score-num green">71</div>
-                    </div>
-                    <div class="score-card orange">
-                        <div class="pdf-toggle"><input type="checkbox" id="pdf-score-enviro" class="pdf-cb" checked><label for="pdf-score-enviro"><span class="pdf-icon">&#128196;</span></label></div>
-                        <div class="score-label">Environnement</div>
-                        <div class="score-num orange">58</div>
-                    </div>
-                    <div class="score-card red">
-                        <div class="pdf-toggle"><input type="checkbox" id="pdf-score-risques" class="pdf-cb" checked><label for="pdf-score-risques"><span class="pdf-icon">&#128196;</span></label></div>
-                        <div class="score-label">Risques</div>
-                        <div class="score-num red">34</div>
-                    </div>
-                    <div class="score-card green">
-                        <div class="pdf-toggle"><input type="checkbox" id="pdf-score-socio" class="pdf-cb" checked><label for="pdf-score-socio"><span class="pdf-icon">&#128196;</span></label></div>
-                        <div class="score-label">Socio-éco</div>
-                        <div class="score-num green">76</div>
-                    </div>
-                </div>
-
                 <!-- MAP + MARCHÉ -->
                 <div class="grid-top">
                     <div class="map-card">
@@ -439,22 +390,19 @@
                     <div class="collapse-card">
                         <div class="collapse-header" onclick="toggleCollapse(this)">
                             <div class="collapse-header-left">
-                                <span class="collapse-dot green"></span>
                                 <span class="collapse-title">Transports & Accessibilité</span>
-                                <span class="collapse-summary">Métro 350m · Walkscore 87/100</span>
+                                <span class="collapse-summary">Bus 120m · Métro 350m · Gare 1.2km</span>
                             </div>
                             <div class="collapse-header-right">
-                                <span class="collapse-score green">82/100</span>
                                 <span class="collapse-arrow">&#9662;</span>
                             </div>
                         </div>
                         <div class="collapse-body">
+                            <div class="d-row"><span class="lbl">Bus C3, C9</span><span class="val dist">120m</span></div>
                             <div class="d-row"><span class="lbl">Métro D — Garibaldi</span><span class="val dist">350m</span></div>
                             <div class="d-row"><span class="lbl">Tram T3 — Part-Dieu</span><span class="val dist">600m</span></div>
-                            <div class="d-row"><span class="lbl">Bus C3, C9</span><span class="val dist">120m</span></div>
                             <div class="d-row"><span class="lbl">Gare Part-Dieu</span><span class="val dist">1.2km</span></div>
                             <div class="d-row"><span class="lbl">Centre Bellecour (TC)</span><span class="val dist">12 min</span></div>
-                            <div class="d-row"><span class="lbl">Walkscore</span><span class="val" style="color:var(--green);font-weight:700;">87/100</span></div>
                         </div>
                     </div>
 
@@ -462,22 +410,20 @@
                     <div class="collapse-card">
                         <div class="collapse-header" onclick="toggleCollapse(this)">
                             <div class="collapse-header-left">
-                                <span class="collapse-dot green"></span>
                                 <span class="collapse-title">Commerces & Services</span>
-                                <span class="collapse-summary">Monoprix 200m · 8 restaurants</span>
+                                <span class="collapse-summary">Boulangerie 50m · Monoprix 200m</span>
                             </div>
                             <div class="collapse-header-right">
-                                <span class="collapse-score green">71/100</span>
                                 <span class="collapse-arrow">&#9662;</span>
                             </div>
                         </div>
                         <div class="collapse-body">
-                            <div class="d-row"><span class="lbl">Supermarché (Monoprix)</span><span class="val dist">200m</span></div>
                             <div class="d-row"><span class="lbl">Boulangerie</span><span class="val dist">50m</span></div>
                             <div class="d-row"><span class="lbl">Pharmacie</span><span class="val dist">180m</span></div>
+                            <div class="d-row"><span class="lbl">Supermarché (Monoprix)</span><span class="val dist">200m</span></div>
+                            <div class="d-row"><span class="lbl">Marché Place Guichard</span><span class="val dist">400m</span></div>
                             <div class="d-row"><span class="lbl">Bureau de poste</span><span class="val dist">450m</span></div>
                             <div class="d-row"><span class="lbl">Restaurants &lt; 300m</span><span class="val">8 étab.</span></div>
-                            <div class="d-row"><span class="lbl">Marché Place Guichard</span><span class="val dist">400m</span></div>
                         </div>
                     </div>
 
@@ -485,12 +431,10 @@
                     <div class="collapse-card">
                         <div class="collapse-header" onclick="toggleCollapse(this)">
                             <div class="collapse-header-left">
-                                <span class="collapse-dot green"></span>
                                 <span class="collapse-title">Éducation</span>
                                 <span class="collapse-summary">Maternelle 250m · Lycée 1.2km</span>
                             </div>
                             <div class="collapse-header-right">
-                                <span class="collapse-score green">Complet</span>
                                 <span class="collapse-arrow">&#9662;</span>
                             </div>
                         </div>
@@ -507,21 +451,19 @@
                     <div class="collapse-card">
                         <div class="collapse-header" onclick="toggleCollapse(this)">
                             <div class="collapse-header-left">
-                                <span class="collapse-dot green"></span>
                                 <span class="collapse-title">Santé</span>
-                                <span class="collapse-summary">3 médecins dans 500m · Hôpital 1.5km</span>
+                                <span class="collapse-summary">Pharmacie 180m · Hôpital 1.5km</span>
                             </div>
                             <div class="collapse-header-right">
-                                <span class="collapse-score green">Bon</span>
                                 <span class="collapse-arrow">&#9662;</span>
                             </div>
                         </div>
                         <div class="collapse-body">
-                            <div class="d-row"><span class="lbl">Médecins généralistes</span><span class="val">3 dans 500m</span></div>
                             <div class="d-row"><span class="lbl">Pharmacie de garde</span><span class="val dist">180m</span></div>
-                            <div class="d-row"><span class="lbl">Hôpital Ed. Herriot</span><span class="val dist">1.5km</span></div>
-                            <div class="d-row"><span class="lbl">Dentiste</span><span class="val dist">300m</span></div>
                             <div class="d-row"><span class="lbl">Kinésithérapeute</span><span class="val dist">200m</span></div>
+                            <div class="d-row"><span class="lbl">Dentiste</span><span class="val dist">300m</span></div>
+                            <div class="d-row"><span class="lbl">Hôpital Ed. Herriot</span><span class="val dist">1.5km</span></div>
+                            <div class="d-row"><span class="lbl">Médecins généralistes</span><span class="val">3 dans 500m</span></div>
                         </div>
                     </div>
 
@@ -529,12 +471,10 @@
                     <div class="collapse-card">
                         <div class="collapse-header" onclick="toggleCollapse(this)">
                             <div class="collapse-header-left">
-                                <span class="collapse-dot orange"></span>
                                 <span class="collapse-title">Environnement & Cadre de vie</span>
-                                <span class="collapse-summary">Air moyenne · Bruit 65dB</span>
+                                <span class="collapse-summary">Air moyenne · Bruit 65 dB</span>
                             </div>
                             <div class="collapse-header-right">
-                                <span class="collapse-score orange">58/100</span>
                                 <span class="collapse-arrow">&#9662;</span>
                             </div>
                         </div>
@@ -542,8 +482,8 @@
                             <div class="d-row"><span class="lbl">Qualité air</span><span class="val">Moyenne</span></div>
                             <div class="d-row"><span class="lbl">Indice ATMO</span><span class="val">3/6</span></div>
                             <div class="d-row"><span class="lbl">Bruit routier</span><span class="val">65 dB (cl. 3)</span></div>
-                            <div class="d-row"><span class="lbl">Parc Bazin</span><span class="val dist">400m</span></div>
                             <div class="d-row"><span class="lbl">Jardin Place Guichard</span><span class="val dist">350m</span></div>
+                            <div class="d-row"><span class="lbl">Parc Bazin</span><span class="val dist">400m</span></div>
                             <div class="d-row"><span class="lbl">Sols pollués (BASIAS)</span><span class="val risk-ok">Aucun &lt; 500m</span></div>
                         </div>
                     </div>
@@ -552,12 +492,10 @@
                     <div class="collapse-card">
                         <div class="collapse-header" onclick="toggleCollapse(this)">
                             <div class="collapse-header-left">
-                                <span class="collapse-dot red"></span>
                                 <span class="collapse-title">Risques & Aléas</span>
                                 <span class="collapse-summary">Inondation modérée · Décote -3 à -5%</span>
                             </div>
                             <div class="collapse-header-right">
-                                <span class="collapse-score red">34/100</span>
                                 <span class="collapse-arrow">&#9662;</span>
                             </div>
                         </div>
@@ -575,12 +513,10 @@
                     <div class="collapse-card">
                         <div class="collapse-header" onclick="toggleCollapse(this)">
                             <div class="collapse-header-left">
-                                <span class="collapse-dot green"></span>
                                 <span class="collapse-title">Données socio-économiques (INSEE)</span>
                                 <span class="collapse-summary">Revenu médian 28 400&#8364; · Chômage 9.2%</span>
                             </div>
                             <div class="collapse-header-right">
-                                <span class="collapse-score green">76/100</span>
                                 <span class="collapse-arrow">&#9662;</span>
                             </div>
                         </div>

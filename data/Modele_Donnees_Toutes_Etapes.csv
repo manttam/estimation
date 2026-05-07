@@ -1,0 +1,401 @@
+﻿Entite;Categorie;Champ;Type;Obligatoire;Source;Etape_UI;Exemple;Description_Metier
+Bien_Cible;(racine);id;string;O;Saisie agent;Étape 1 — Bien Cible;bien_2026_00142;
+Bien_Cible;(racine);agent_id;string;O;Saisie agent;Étape 1 — Bien Cible;agent_vca_001;
+Bien_Cible;(racine);statut;string;O;Saisie agent;Étape 1 — Bien Cible;estimation_en_cours;
+Bien_Cible;(racine);date_creation;datetime;O;Saisie agent;Étape 1 — Bien Cible;2026-03-24T10:30:00Z;
+Bien_Cible;localisation;adresse_complete;string;O;Saisie agent + enrichissement BAN/cadastre;Étape 1 — Bien Cible;12 rue des Lilas, 69003 Lyon;
+Bien_Cible;localisation;code_postal;string;O;Saisie agent + enrichissement BAN/cadastre;Étape 1 — Bien Cible;69003;
+Bien_Cible;localisation;commune;string;O;Saisie agent + enrichissement BAN/cadastre;Étape 1 — Bien Cible;Lyon 3ème;
+Bien_Cible;localisation;code_insee;string;N;Saisie agent + enrichissement BAN/cadastre;Étape 1 — Bien Cible;69383;
+Bien_Cible;localisation;code_iris;string;O;Saisie agent + enrichissement BAN/cadastre;Étape 1 — Bien Cible;693830107;
+Bien_Cible;localisation;lat;float;O;Saisie agent + enrichissement BAN/cadastre;Étape 1 — Bien Cible;45.7578;
+Bien_Cible;localisation;lng;float;O;Saisie agent + enrichissement BAN/cadastre;Étape 1 — Bien Cible;4.8567;
+Bien_Cible;localisation;reference_cadastrale;string;N;Saisie agent + enrichissement BAN/cadastre;Étape 1 — Bien Cible;69383000AB0125;
+Bien_Cible;identification;type_bien;string;O;Saisie agent;Étape 1 — Bien Cible;Appartement;
+Bien_Cible;identification;regime_propriete;string;N;Saisie agent;Étape 1 — Bien Cible;Copropriété;
+Bien_Cible;identification;numero_lot;string;N;Saisie agent;Étape 1 — Bien Cible;42;
+Bien_Cible;identification;quote_part_milliemes;integer;N;Saisie agent;Étape 1 — Bien Cible;85;
+Bien_Cible;identification;bail_en_cours;nullable;N;Saisie agent;Étape 1 — Bien Cible;;
+Bien_Cible;identification;servitudes;string;N;Saisie agent;Étape 1 — Bien Cible;Aucune;
+Bien_Cible;identification;droits_preemption;boolean;N;Saisie agent;Étape 1 — Bien Cible;false;
+Bien_Cible;caracteristiques_principales;surface_carrez_m2;float;O;Saisie agent;Étape 1 — Bien Cible;72.5;
+Bien_Cible;caracteristiques_principales;surface_shab_m2;float;N;Saisie agent;Étape 1 — Bien Cible;70.1;
+Bien_Cible;caracteristiques_principales;nb_pieces_principales;integer;O;Saisie agent;Étape 1 — Bien Cible;3;
+Bien_Cible;caracteristiques_principales;nb_chambres;integer;N;Saisie agent;Étape 1 — Bien Cible;2;
+Bien_Cible;caracteristiques_principales;nb_sdb;integer;N;Saisie agent;Étape 1 — Bien Cible;1;
+Bien_Cible;caracteristiques_principales;nb_wc;integer;N;Saisie agent;Étape 1 — Bien Cible;1;
+Bien_Cible;caracteristiques_principales;etage;integer;N;Saisie agent;Étape 1 — Bien Cible;4;
+Bien_Cible;caracteristiques_principales;nb_etages_immeuble;integer;N;Saisie agent;Étape 1 — Bien Cible;6;
+Bien_Cible;caracteristiques_principales;orientation_principale;string;N;Saisie agent;Étape 1 — Bien Cible;Sud-Est;
+Bien_Cible;caracteristiques_principales;ascenseur;boolean;N;Saisie agent;Étape 1 — Bien Cible;true;
+Bien_Cible;caracteristiques_principales;hauteur_sous_plafond_cm;integer;N;Saisie agent;Étape 1 — Bien Cible;265;
+Bien_Cible;annexes;cave_m2;float;N;Saisie agent;Étape 1 — Bien Cible;4.5;
+Bien_Cible;annexes;garage_box;boolean;N;Saisie agent;Étape 1 — Bien Cible;false;
+Bien_Cible;annexes;parking_exterieur;boolean;N;Saisie agent;Étape 1 — Bien Cible;true;
+Bien_Cible;annexes;terrasse_m2;integer;N;Saisie agent;Étape 1 — Bien Cible;0;
+Bien_Cible;annexes;balcon_m2;float;N;Saisie agent;Étape 1 — Bien Cible;5.2;
+Bien_Cible;annexes;jardin_m2;integer;N;Saisie agent;Étape 1 — Bien Cible;0;
+Bien_Cible;annexes;piscine;boolean;N;Saisie agent;Étape 1 — Bien Cible;false;
+Bien_Cible;annexes;dependances;string;N;Saisie agent;Étape 1 — Bien Cible;Cellier 2m²;
+Bien_Cible;etat_et_travaux;annee_construction;integer;N;Saisie agent;Étape 1 — Bien Cible;1972;
+Bien_Cible;etat_et_travaux;epoque;string;N;Saisie agent;Étape 1 — Bien Cible;1948-1975;
+Bien_Cible;etat_et_travaux;etat_general;string;N;Saisie agent;Étape 1 — Bien Cible;Bon — rafraîchissement prévu;
+Bien_Cible;etat_et_travaux;toiture_etat;string;N;Saisie agent;Étape 1 — Bien Cible;Bon;
+Bien_Cible;etat_et_travaux;facade_etat;string;N;Saisie agent;Étape 1 — Bien Cible;Ravalement 2022;
+Bien_Cible;etat_et_travaux;fissures_structurelles;boolean;N;Saisie agent;Étape 1 — Bien Cible;false;
+Bien_Cible;etat_et_travaux;amiante;string;N;Saisie agent;Étape 1 — Bien Cible;Non détecté;
+Bien_Cible;etat_et_travaux;plomb;string;N;Saisie agent;Étape 1 — Bien Cible;Absent;
+Bien_Cible;etat_et_travaux;merule;boolean;N;Saisie agent;Étape 1 — Bien Cible;false;
+Bien_Cible;energie;dpe_etiquette;string;O;Saisie agent;Étape 1 — Bien Cible;D;
+Bien_Cible;energie;dpe_kwh_m2_an;integer;N;Saisie agent;Étape 1 — Bien Cible;215;
+Bien_Cible;energie;dpe_ges;string;N;Saisie agent;Étape 1 — Bien Cible;D;
+Bien_Cible;energie;type_chauffage;string;N;Saisie agent;Étape 1 — Bien Cible;Collectif;
+Bien_Cible;energie;energie_principale;string;N;Saisie agent;Étape 1 — Bien Cible;Gaz;
+Bien_Cible;energie;type_vitrage;string;N;Saisie agent;Étape 1 — Bien Cible;Double vitrage;
+Bien_Cible;energie;isolation_murs;string;N;Saisie agent;Étape 1 — Bien Cible;Intérieure laine de verre 8cm;
+Bien_Cible;energie;ventilation;string;N;Saisie agent;Étape 1 — Bien Cible;VMC simple flux;
+Bien_Cible;energie;dpe_atteignable_post_travaux;string;N;Saisie agent;Étape 1 — Bien Cible;C;
+Bien_Cible;copropriete;charges_mensuelles_euros;integer;N;Saisie agent;Étape 1 — Bien Cible;180;
+Bien_Cible;copropriete;fonds_travaux_alur_euros;integer;N;Saisie agent;Étape 1 — Bien Cible;2400;
+Bien_Cible;copropriete;travaux_votes;string;N;Saisie agent;Étape 1 — Bien Cible;Ravalement façade arrière — 15 000€ quote-part;
+Bien_Cible;copropriete;taux_impayes_pct;float;N;Saisie agent;Étape 1 — Bien Cible;3.2;
+Bien_Cible;copropriete;nb_lots_copro;integer;N;Saisie agent;Étape 1 — Bien Cible;48;
+Bien_Cible;equipements;cuisine_equipee;boolean;N;Saisie agent;Étape 1 — Bien Cible;true;
+Bien_Cible;equipements;fibre_optique;boolean;N;Saisie agent;Étape 1 — Bien Cible;true;
+Bien_Cible;equipements;debit_internet_mbit;integer;N;Saisie agent;Étape 1 — Bien Cible;920;
+Bien_Cible;equipements;borne_recharge_ve;boolean;N;Saisie agent;Étape 1 — Bien Cible;false;
+Bien_Cible;equipements;panneaux_solaires;boolean;N;Saisie agent;Étape 1 — Bien Cible;false;
+Bien_Cible;equipements;domotique;nullable;N;Saisie agent;Étape 1 — Bien Cible;;
+Bien_Cible;(racine);donnees_intrinseques_completes;string;N;Saisie agent;Étape 1 — Bien Cible;→ Réfère au CSV des 202 champs renseignés pour ce bien;
+Bien_Cible;completude;champs_renseignes;integer;N;Calculé (qualité données saisies);Étape 1 — Bien Cible;156;
+Bien_Cible;completude;champs_applicables;integer;N;Calculé (qualité données saisies);Étape 1 — Bien Cible;178;
+Bien_Cible;completude;champs_non_applicables;integer;N;Calculé (qualité données saisies);Étape 1 — Bien Cible;24;
+Bien_Cible;completude;taux_completude_brut_pct;float;N;Calculé (qualité données saisies);Étape 1 — Bien Cible;87.6;
+Bien_Cible;completude;taux_completude_pondere_pct;float;N;Calculé (qualité données saisies);Étape 1 — Bien Cible;91.2;
+Bien_Cible;completude;nb_champs_critiques_renseignes;integer;N;Calculé (qualité données saisies);Étape 1 — Bien Cible;18;
+Bien_Cible;completude;nb_champs_critiques_total;integer;N;Calculé (qualité données saisies);Étape 1 — Bien Cible;19;
+Bien_Cible;completude;score_fiabilite_donnees;integer;N;Calculé (qualité données saisies);Étape 1 — Bien Cible;93;
+Bien_Cible;completude.completude_par_categorie.identification_juridique;renseignes;integer;N;Saisie agent;Étape 1 — Bien Cible;8;
+Bien_Cible;completude.completude_par_categorie.identification_juridique;applicables;integer;N;Saisie agent;Étape 1 — Bien Cible;10;
+Bien_Cible;completude.completude_par_categorie.identification_juridique;pct;integer;N;Saisie agent;Étape 1 — Bien Cible;80;
+Bien_Cible;completude.completude_par_categorie.identification_juridique;pct_pondere;integer;N;Saisie agent;Étape 1 — Bien Cible;85;
+Bien_Cible;completude.completude_par_categorie.caracteristiques_generales;renseignes;integer;N;Saisie agent;Étape 1 — Bien Cible;21;
+Bien_Cible;completude.completude_par_categorie.caracteristiques_generales;applicables;integer;N;Saisie agent;Étape 1 — Bien Cible;23;
+Bien_Cible;completude.completude_par_categorie.caracteristiques_generales;pct;float;N;Saisie agent;Étape 1 — Bien Cible;91.3;
+Bien_Cible;completude.completude_par_categorie.caracteristiques_generales;pct_pondere;float;N;Saisie agent;Étape 1 — Bien Cible;94.5;
+Bien_Cible;completude.completude_par_categorie.structure_gros_oeuvre;renseignes;integer;N;Saisie agent;Étape 1 — Bien Cible;16;
+Bien_Cible;completude.completude_par_categorie.structure_gros_oeuvre;applicables;integer;N;Saisie agent;Étape 1 — Bien Cible;21;
+Bien_Cible;completude.completude_par_categorie.structure_gros_oeuvre;pct;float;N;Saisie agent;Étape 1 — Bien Cible;76.2;
+Bien_Cible;completude.completude_par_categorie.structure_gros_oeuvre;pct_pondere;integer;N;Saisie agent;Étape 1 — Bien Cible;82;
+Bien_Cible;completude.completude_par_categorie.revetements_muraux;renseignes;integer;N;Saisie agent;Étape 1 — Bien Cible;8;
+Bien_Cible;completude.completude_par_categorie.revetements_muraux;applicables;integer;N;Saisie agent;Étape 1 — Bien Cible;10;
+Bien_Cible;completude.completude_par_categorie.revetements_muraux;pct;integer;N;Saisie agent;Étape 1 — Bien Cible;80;
+Bien_Cible;completude.completude_par_categorie.revetements_muraux;pct_pondere;integer;N;Saisie agent;Étape 1 — Bien Cible;78;
+Bien_Cible;completude.completude_par_categorie.revetements_sols;renseignes;integer;N;Saisie agent;Étape 1 — Bien Cible;6;
+Bien_Cible;completude.completude_par_categorie.revetements_sols;applicables;integer;N;Saisie agent;Étape 1 — Bien Cible;7;
+Bien_Cible;completude.completude_par_categorie.revetements_sols;pct;float;N;Saisie agent;Étape 1 — Bien Cible;85.7;
+Bien_Cible;completude.completude_par_categorie.revetements_sols;pct_pondere;integer;N;Saisie agent;Étape 1 — Bien Cible;83;
+Bien_Cible;completude.completude_par_categorie.menuiseries_fenetres;renseignes;integer;N;Saisie agent;Étape 1 — Bien Cible;7;
+Bien_Cible;completude.completude_par_categorie.menuiseries_fenetres;applicables;integer;N;Saisie agent;Étape 1 — Bien Cible;8;
+Bien_Cible;completude.completude_par_categorie.menuiseries_fenetres;pct;float;N;Saisie agent;Étape 1 — Bien Cible;87.5;
+Bien_Cible;completude.completude_par_categorie.menuiseries_fenetres;pct_pondere;integer;N;Saisie agent;Étape 1 — Bien Cible;90;
+Bien_Cible;completude.completude_par_categorie.portes_acces;renseignes;integer;N;Saisie agent;Étape 1 — Bien Cible;5;
+Bien_Cible;completude.completude_par_categorie.portes_acces;applicables;integer;N;Saisie agent;Étape 1 — Bien Cible;7;
+Bien_Cible;completude.completude_par_categorie.portes_acces;pct;float;N;Saisie agent;Étape 1 — Bien Cible;71.4;
+Bien_Cible;completude.completude_par_categorie.portes_acces;pct_pondere;integer;N;Saisie agent;Étape 1 — Bien Cible;68;
+Bien_Cible;completude.completude_par_categorie.installations_electriques;renseignes;integer;N;Saisie agent;Étape 1 — Bien Cible;8;
+Bien_Cible;completude.completude_par_categorie.installations_electriques;applicables;integer;N;Saisie agent;Étape 1 — Bien Cible;11;
+Bien_Cible;completude.completude_par_categorie.installations_electriques;pct;float;N;Saisie agent;Étape 1 — Bien Cible;72.7;
+Bien_Cible;completude.completude_par_categorie.installations_electriques;pct_pondere;integer;N;Saisie agent;Étape 1 — Bien Cible;75;
+Bien_Cible;completude.completude_par_categorie.plomberie;renseignes;integer;N;Saisie agent;Étape 1 — Bien Cible;6;
+Bien_Cible;completude.completude_par_categorie.plomberie;applicables;integer;N;Saisie agent;Étape 1 — Bien Cible;8;
+Bien_Cible;completude.completude_par_categorie.plomberie;pct;integer;N;Saisie agent;Étape 1 — Bien Cible;75;
+Bien_Cible;completude.completude_par_categorie.plomberie;pct_pondere;integer;N;Saisie agent;Étape 1 — Bien Cible;78;
+Bien_Cible;completude.completude_par_categorie.chauffage;renseignes;integer;N;Saisie agent;Étape 1 — Bien Cible;9;
+Bien_Cible;completude.completude_par_categorie.chauffage;applicables;integer;N;Saisie agent;Étape 1 — Bien Cible;11;
+Bien_Cible;completude.completude_par_categorie.chauffage;pct;float;N;Saisie agent;Étape 1 — Bien Cible;81.8;
+Bien_Cible;completude.completude_par_categorie.chauffage;pct_pondere;integer;N;Saisie agent;Étape 1 — Bien Cible;88;
+Bien_Cible;completude.completude_par_categorie.climatisation;renseignes;integer;N;Saisie agent;Étape 1 — Bien Cible;0;
+Bien_Cible;completude.completude_par_categorie.climatisation;applicables;integer;N;Saisie agent;Étape 1 — Bien Cible;0;
+Bien_Cible;completude.completude_par_categorie.climatisation;pct;nullable;N;Saisie agent;Étape 1 — Bien Cible;;
+Bien_Cible;completude.completude_par_categorie.climatisation;pct_pondere;nullable;N;Saisie agent;Étape 1 — Bien Cible;;
+Bien_Cible;completude.completude_par_categorie.ventilation;renseignes;integer;N;Saisie agent;Étape 1 — Bien Cible;4;
+Bien_Cible;completude.completude_par_categorie.ventilation;applicables;integer;N;Saisie agent;Étape 1 — Bien Cible;7;
+Bien_Cible;completude.completude_par_categorie.ventilation;pct;float;N;Saisie agent;Étape 1 — Bien Cible;57.1;
+Bien_Cible;completude.completude_par_categorie.ventilation;pct_pondere;integer;N;Saisie agent;Étape 1 — Bien Cible;65;
+Bien_Cible;completude.completude_par_categorie.isolation_performance;renseignes;integer;N;Saisie agent;Étape 1 — Bien Cible;10;
+Bien_Cible;completude.completude_par_categorie.isolation_performance;applicables;integer;N;Saisie agent;Étape 1 — Bien Cible;12;
+Bien_Cible;completude.completude_par_categorie.isolation_performance;pct;float;N;Saisie agent;Étape 1 — Bien Cible;83.3;
+Bien_Cible;completude.completude_par_categorie.isolation_performance;pct_pondere;integer;N;Saisie agent;Étape 1 — Bien Cible;88;
+Bien_Cible;completude.completude_par_categorie.humidite_pathologies;renseignes;integer;N;Saisie agent;Étape 1 — Bien Cible;7;
+Bien_Cible;completude.completude_par_categorie.humidite_pathologies;applicables;integer;N;Saisie agent;Étape 1 — Bien Cible;9;
+Bien_Cible;completude.completude_par_categorie.humidite_pathologies;pct;float;N;Saisie agent;Étape 1 — Bien Cible;77.8;
+Bien_Cible;completude.completude_par_categorie.humidite_pathologies;pct_pondere;integer;N;Saisie agent;Étape 1 — Bien Cible;80;
+Bien_Cible;completude.completude_par_categorie.cuisine;renseignes;integer;N;Saisie agent;Étape 1 — Bien Cible;7;
+Bien_Cible;completude.completude_par_categorie.cuisine;applicables;integer;N;Saisie agent;Étape 1 — Bien Cible;9;
+Bien_Cible;completude.completude_par_categorie.cuisine;pct;float;N;Saisie agent;Étape 1 — Bien Cible;77.8;
+Bien_Cible;completude.completude_par_categorie.cuisine;pct_pondere;integer;N;Saisie agent;Étape 1 — Bien Cible;75;
+Bien_Cible;completude.completude_par_categorie.salles_de_bain;renseignes;integer;N;Saisie agent;Étape 1 — Bien Cible;8;
+Bien_Cible;completude.completude_par_categorie.salles_de_bain;applicables;integer;N;Saisie agent;Étape 1 — Bien Cible;10;
+Bien_Cible;completude.completude_par_categorie.salles_de_bain;pct;integer;N;Saisie agent;Étape 1 — Bien Cible;80;
+Bien_Cible;completude.completude_par_categorie.salles_de_bain;pct_pondere;integer;N;Saisie agent;Étape 1 — Bien Cible;78;
+Bien_Cible;completude.completude_par_categorie.parties_communes;renseignes;integer;N;Saisie agent;Étape 1 — Bien Cible;8;
+Bien_Cible;completude.completude_par_categorie.parties_communes;applicables;integer;N;Saisie agent;Étape 1 — Bien Cible;8;
+Bien_Cible;completude.completude_par_categorie.parties_communes;pct;integer;N;Saisie agent;Étape 1 — Bien Cible;100;
+Bien_Cible;completude.completude_par_categorie.parties_communes;pct_pondere;integer;N;Saisie agent;Étape 1 — Bien Cible;100;
+Bien_Cible;completude.completude_par_categorie.diagnostics_obligatoires;renseignes;integer;N;Saisie agent;Étape 1 — Bien Cible;11;
+Bien_Cible;completude.completude_par_categorie.diagnostics_obligatoires;applicables;integer;N;Saisie agent;Étape 1 — Bien Cible;12;
+Bien_Cible;completude.completude_par_categorie.diagnostics_obligatoires;pct;float;N;Saisie agent;Étape 1 — Bien Cible;91.7;
+Bien_Cible;completude.completude_par_categorie.diagnostics_obligatoires;pct_pondere;integer;N;Saisie agent;Étape 1 — Bien Cible;93;
+Bien_Cible;completude.completude_par_categorie.equipements_tech_durables;renseignes;integer;N;Saisie agent;Étape 1 — Bien Cible;6;
+Bien_Cible;completude.completude_par_categorie.equipements_tech_durables;applicables;integer;N;Saisie agent;Étape 1 — Bien Cible;10;
+Bien_Cible;completude.completude_par_categorie.equipements_tech_durables;pct;integer;N;Saisie agent;Étape 1 — Bien Cible;60;
+Bien_Cible;completude.completude_par_categorie.equipements_tech_durables;pct_pondere;integer;N;Saisie agent;Étape 1 — Bien Cible;65;
+Bien_Comparable;(racine);id;string;O;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;comp_2026_00891;
+Bien_Comparable;(racine);bien_cible_id;string;O;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;bien_2026_00142;
+Bien_Comparable;(racine);source;string;O;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;IDEERI_VENTE;
+Bien_Comparable;(racine);fiabilite_prix;string;O;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;transaction_reelle;
+Bien_Comparable;(racine);statut;string;O;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;vendu;
+Bien_Comparable;localisation;adresse;string;N;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;8 rue Victor Hugo, 69003 Lyon;
+Bien_Comparable;localisation;lat;float;O;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;45.7582;
+Bien_Comparable;localisation;lng;float;O;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;4.859;
+Bien_Comparable;localisation;distance_bien_cible_m;integer;N;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;280;
+Bien_Comparable;localisation;code_iris;string;O;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;693830107;
+Bien_Comparable;localisation;meme_iris;boolean;N;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;true;
+Bien_Comparable;donnees_comparables;type_bien;string;O;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;Appartement;
+Bien_Comparable;donnees_comparables;surface_m2;integer;N;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;68;
+Bien_Comparable;donnees_comparables;nb_pieces;integer;N;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;3;
+Bien_Comparable;donnees_comparables;nb_chambres;integer;N;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;2;
+Bien_Comparable;donnees_comparables;etage;integer;N;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;3;
+Bien_Comparable;donnees_comparables;ascenseur;boolean;N;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;true;
+Bien_Comparable;donnees_comparables;dpe;string;N;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;D;
+Bien_Comparable;donnees_comparables;annee_construction;integer;N;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;1968;
+Bien_Comparable;donnees_comparables;balcon_m2;float;N;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;3.5;
+Bien_Comparable;donnees_comparables;garage;boolean;N;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;false;
+Bien_Comparable;donnees_comparables;parking;boolean;N;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;true;
+Bien_Comparable;donnees_comparables;charges_mensuelles;integer;N;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;165;
+Bien_Comparable;prix;prix_vente;integer;O;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;225000;
+Bien_Comparable;prix;prix_m2;integer;O;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;3309;
+Bien_Comparable;prix;date_vente;date;O;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;2025-11-15;
+Bien_Comparable;prix;duree_en_vente_jours;integer;N;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;62;
+Bien_Comparable;prix;prix_initial_affiche;integer;N;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;239000;
+Bien_Comparable;prix;ecart_prix_initial_pct;float;N;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;-5.9;
+Bien_Comparable;prix;negociation_pct;float;N;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;5.9;
+Bien_Comparable;ajustements_vs_bien_cible.surface;ecart_m2;float;N;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;-4.5;
+Bien_Comparable;ajustements_vs_bien_cible.surface;ajustement_pct;float;N;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;-2.1;
+Bien_Comparable;ajustements_vs_bien_cible.surface;methode;string;N;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;proportionnel;
+Bien_Comparable;ajustements_vs_bien_cible.etage;ecart;integer;N;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;-1;
+Bien_Comparable;ajustements_vs_bien_cible.etage;ajustement_pct;float;N;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;-1.5;
+Bien_Comparable;ajustements_vs_bien_cible.etage;methode;string;N;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;barème étage;
+Bien_Comparable;ajustements_vs_bien_cible.balcon;ecart_m2;float;N;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;-1.7;
+Bien_Comparable;ajustements_vs_bien_cible.balcon;ajustement_pct;float;N;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;-0.5;
+Bien_Comparable;ajustements_vs_bien_cible.balcon;methode;string;N;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;prix m² extérieur;
+Bien_Comparable;ajustements_vs_bien_cible.travaux_copro;ajustement_pct;float;N;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;3.2;
+Bien_Comparable;ajustements_vs_bien_cible.travaux_copro;methode;string;N;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;quote-part travaux bien cible;
+Bien_Comparable;ajustements_vs_bien_cible;total_ajustement_pct;float;N;Calculé;Étape 3 — Comparables + Étape 5 — Avis de Valeur;-0.9;
+Bien_Comparable;ajustements_vs_bien_cible;prix_ajuste;integer;N;Calculé;Étape 3 — Comparables + Étape 5 — Avis de Valeur;222975;
+Bien_Comparable;ajustements_vs_bien_cible;prix_m2_ajuste;integer;N;Calculé;Étape 3 — Comparables + Étape 5 — Avis de Valeur;3075;
+Bien_Comparable;completude;taux_completude_brut_pct;float;N;Calculé (qualité données);Étape 3 — Comparables + Étape 5 — Avis de Valeur;85.4;
+Bien_Comparable;completude;taux_completude_pondere_pct;float;N;Calculé (qualité données);Étape 3 — Comparables + Étape 5 — Avis de Valeur;89.1;
+Bien_Comparable;completude;nb_champs_critiques_renseignes;integer;N;Calculé (qualité données);Étape 3 — Comparables + Étape 5 — Avis de Valeur;18;
+Bien_Comparable;completude;score_fiabilite;integer;N;Calculé (qualité données);Étape 3 — Comparables + Étape 5 — Avis de Valeur;91;
+Bien_Comparable;(racine);selectionne_par_agent;boolean;N;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;true;
+Bien_Comparable;(racine);poids_dans_estimation;float;N;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;0.3;
+Bien_Comparable;(racine);commentaire_agent;string;N;DVF / Ideeri CRM / Portail (selon source);Étape 3 — Comparables + Étape 5 — Avis de Valeur;Même copropriété, vendu il y a 4 mois. Très bon comparable.;
+Contexte_Zone;(racine);id;string;O;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;ctx_693830107_2026;
+Contexte_Zone;(racine);bien_id;string;O;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;bien_2026_00142;
+Contexte_Zone;(racine);lat;float;O;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;45.7578;
+Contexte_Zone;(racine);lng;float;O;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;4.8567;
+Contexte_Zone;(racine);code_iris;string;O;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;693830107;
+Contexte_Zone;(racine);commune;string;O;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;Lyon 3ème;
+Contexte_Zone;(racine);date_enrichissement;datetime;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;2026-03-24T10:31:00Z;
+Contexte_Zone;risques;source;string;O;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;georisques.gouv.fr;
+Contexte_Zone;risques;ppri_inondation;boolean;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;false;
+Contexte_Zone;risques;zone_sismique;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;2;
+Contexte_Zone;risques;zone_radon;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;1;
+Contexte_Zone;risques;seveso;boolean;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;false;
+Contexte_Zone;risques;cavites_souterraines;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;0;
+Contexte_Zone;risques;retrait_gonflement_argiles;string;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;faible;
+Contexte_Zone;environnement.qualite_air;source;string;O;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;atmo-france.org;
+Contexte_Zone;environnement.qualite_air;indice_atmo_moyen;string;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;Bon;
+Contexte_Zone;environnement.qualite_air;no2_moyenne_annuelle_ug_m3;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;28;
+Contexte_Zone;environnement.qualite_air;pm25_moyenne_annuelle_ug_m3;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;12;
+Contexte_Zone;environnement.bruit;source;string;O;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;cartes-bruit.gouv.fr;
+Contexte_Zone;environnement.bruit;lden_route_db;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;62;
+Contexte_Zone;environnement.bruit;lden_fer_db;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;45;
+Contexte_Zone;environnement.bruit;zone_peb_aeroport;nullable;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;;
+Contexte_Zone;environnement.sols;source;string;O;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;georisques.gouv.fr;
+Contexte_Zone;environnement.sols;sites_basol_500m;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;0;
+Contexte_Zone;environnement.sols;sites_basias_500m;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;2;
+Contexte_Zone;socio_economique;source;string;O;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;INSEE Filosofi + Emploi;
+Contexte_Zone;socio_economique;annee_reference;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;2023;
+Contexte_Zone;socio_economique;revenu_median_iris;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;24800;
+Contexte_Zone;socio_economique;taux_pauvrete_iris_pct;float;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;14.2;
+Contexte_Zone;socio_economique;taux_chomage_commune_pct;float;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;8.1;
+Contexte_Zone;socio_economique;part_diplomes_sup_pct;float;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;52.3;
+Contexte_Zone;socio_economique;population_iris;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;3200;
+Contexte_Zone;socio_economique;densite_hab_km2;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;12500;
+Contexte_Zone;socio_economique;part_proprietaires_pct;float;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;38.5;
+Contexte_Zone;accessibilite.transports;source;string;O;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;transport.data.gouv.fr;
+Contexte_Zone;accessibilite.transports.metro_station_plus_proche;nom;string;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;Place Guichard;
+Contexte_Zone;accessibilite.transports.metro_station_plus_proche;distance_m;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;180;
+Contexte_Zone;accessibilite.transports.metro_station_plus_proche;lignes;array;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;"[""B""]";
+Contexte_Zone;accessibilite.transports.tram_station_plus_proche;nom;string;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;Part-Dieu Servient;
+Contexte_Zone;accessibilite.transports.tram_station_plus_proche;distance_m;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;350;
+Contexte_Zone;accessibilite.transports.tram_station_plus_proche;lignes;array;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;"[""T1"",""T4""]";
+Contexte_Zone;accessibilite.transports;bus_arrets_500m;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;6;
+Contexte_Zone;accessibilite.transports;gare_sncf_distance_m;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;800;
+Contexte_Zone;accessibilite.commerces;source;string;O;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;OpenStreetMap + BPE INSEE;
+Contexte_Zone;accessibilite.commerces;boulangeries_500m;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;4;
+Contexte_Zone;accessibilite.commerces;supermarches_1km;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;3;
+Contexte_Zone;accessibilite.commerces;pharmacies_500m;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;2;
+Contexte_Zone;accessibilite.commerces;restaurants_500m;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;18;
+Contexte_Zone;services.education;source;string;O;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;education.gouv.fr;
+Contexte_Zone;services.education;ecoles_maternelles_1km;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;3;
+Contexte_Zone;services.education;ecoles_primaires_1km;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;4;
+Contexte_Zone;services.education;colleges_2km;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;2;
+Contexte_Zone;services.education;lycees_3km;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;3;
+Contexte_Zone;services.sante;source;string;O;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;data.ameli.fr;
+Contexte_Zone;services.sante;medecins_generalistes_1km;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;12;
+Contexte_Zone;services.sante;dentistes_1km;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;5;
+Contexte_Zone;services.sante;pharmacies_500m;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;2;
+Contexte_Zone;services.sante;hopital_distance_m;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;2100;
+Contexte_Zone;urbanisme;source;string;O;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;geoportail-urbanisme.gouv.fr;
+Contexte_Zone;urbanisme;zone_plu;string;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;UA;
+Contexte_Zone;urbanisme;type_zone;string;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;Urbaine dense;
+Contexte_Zone;urbanisme;hauteur_max_m;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;25;
+Contexte_Zone;urbanisme;cos_ces_applicable;string;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;CES 0.8;
+Contexte_Zone;urbanisme;servitudes_utlite_publique;array;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;[];
+Contexte_Zone;marche_local;source;string;O;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;DVF Etalab + données internes Ideeri;
+Contexte_Zone;marche_local;prix_m2_median_iris_12_mois;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;3280;
+Contexte_Zone;marche_local;evolution_prix_m2_12_mois_pct;float;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;2.4;
+Contexte_Zone;marche_local;nb_transactions_iris_12_mois;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;87;
+Contexte_Zone;marche_local;delai_vente_median_jours;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;58;
+Contexte_Zone;marche_local;volume_offre_actuel;integer;N;API externe (voir _sources_api);Étape 2 — Contexte Zone + Étape 5 — Avis de Valeur;34;
+Tension_Marche;(racine);id;string;O;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;tension_2026_00142;
+Tension_Marche;(racine);bien_cible_id;string;O;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;bien_2026_00142;
+Tension_Marche;(racine);date_calcul;datetime;O;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;2026-03-24T10:35:00Z;
+Tension_Marche;parametres_calcul;rayon_recherche_km;integer;N;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;3;
+Tension_Marche;parametres_calcul;seuil_matching_minimum;float;N;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;0.5;
+Tension_Marche;parametres_calcul;scoring_utilise;string;N;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;radar_31_criteres_v1;
+Tension_Marche;demande;nb_acquereurs_actifs_zone;integer;N;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;48;
+Tension_Marche;demande;nb_acquereurs_matches;integer;N;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;12;
+Tension_Marche;demande;nb_forte_compatibilite;integer;N;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;5;
+Tension_Marche;demande;score_matching_moyen;float;N;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;0.72;
+Tension_Marche;demande;score_matching_median;float;N;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;0.68;
+Tension_Marche;demande;budget_moyen_matches;integer;N;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;245000;
+Tension_Marche;demande;budget_median_matches;integer;N;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;235000;
+Tension_Marche;demande.distribution_scores;0.50_0.59;integer;N;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;2;
+Tension_Marche;demande.distribution_scores;0.60_0.69;integer;N;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;3;
+Tension_Marche;demande.distribution_scores;0.70_0.79;integer;N;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;4;
+Tension_Marche;demande.distribution_scores;0.80_0.89;integer;N;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;2;
+Tension_Marche;demande.distribution_scores;0.90_1.00;integer;N;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;1;
+Tension_Marche;demande;top_acquereurs;array;N;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;"[{""id"":""acq_0087"",""score"":0.94,""budget_max"":260000,""critere_fort"":""Télétravail + 2 chambres + balcon"",""delai_achat"":""urgent""},{""id"":""acq_0134"",""score"":0.88,""budget_max"":250000,""critere_fort"":""Proximit";
+Tension_Marche;offre;nb_biens_similaires_en_vente;integer;N;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;8;
+Tension_Marche;offre;prix_m2_moyen_concurrents;integer;N;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;3450;
+Tension_Marche;offre;prix_m2_median_concurrents;integer;N;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;3380;
+Tension_Marche;offre;duree_moyenne_en_vente_jours;integer;N;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;65;
+Tension_Marche;offre;biens_avec_baisse_prix_pct;float;N;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;37.5;
+Tension_Marche;offre.sources_biens;ideeri_encours;integer;N;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;2;
+Tension_Marche;offre.sources_biens;portail;integer;N;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;6;
+Tension_Marche;indicateurs_tension;ratio_demande_offre;float;N;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;1.5;
+Tension_Marche;indicateurs_tension;tension;string;N;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;moderee_favorable;
+Tension_Marche;indicateurs_tension;interpretation;string;N;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;12 acquéreurs pour 8 biens similaires — marché légèrement favorable au vendeur;
+Tension_Marche;indicateurs_tension;duree_vente_estimee_jours;integer;N;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;52;
+Tension_Marche;indicateurs_tension;indice_liquidite;float;N;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;0.72;
+Tension_Marche;indicateurs_tension.fourchette_negociation_estimee_pct;min;integer;N;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;-3;
+Tension_Marche;indicateurs_tension.fourchette_negociation_estimee_pct;max;integer;N;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;-7;
+Tension_Marche;indicateurs_tension;confiance_estimation_tension;integer;N;Calculé (croisement Bien_Cible × Profil_Acquereur × Offre);Étape 4 — Tension Marché;78;
+Avis_Valeur;(racine);id;string;O;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;avis_2026_00142;
+Avis_Valeur;(racine);bien_cible_id;string;O;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;bien_2026_00142;
+Avis_Valeur;(racine);agent_id;string;O;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;agent_vca_001;
+Avis_Valeur;(racine);date_creation;datetime;O;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;2026-03-24T11:00:00Z;
+Avis_Valeur;(racine);statut;string;O;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;brouillon;
+Avis_Valeur;estimation;prix_estime_bas;integer;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;225000;
+Avis_Valeur;estimation;prix_estime_haut;integer;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;248000;
+Avis_Valeur;estimation;prix_estime_median;integer;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;236000;
+Avis_Valeur;estimation;prix_m2_estime;integer;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;3255;
+Avis_Valeur;estimation;amplitude_fourchette_pct;float;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;9.7;
+Avis_Valeur;estimation;strategie_recommandee;string;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;marche;
+Avis_Valeur;estimation;prix_affichage_suggere;integer;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;245000;
+Avis_Valeur;indice_confiance;score_global;integer;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;82;
+Avis_Valeur;indice_confiance.facteurs.completude_bien_cible;valeur;float;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;91.2;
+Avis_Valeur;indice_confiance.facteurs.completude_bien_cible;impact;string;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;positif;
+Avis_Valeur;indice_confiance.facteurs.completude_moyenne_comparables;valeur;float;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;62.3;
+Avis_Valeur;indice_confiance.facteurs.completude_moyenne_comparables;impact;string;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;modere;
+Avis_Valeur;indice_confiance.facteurs.nb_comparables_ideeri;valeur;integer;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;2;
+Avis_Valeur;indice_confiance.facteurs.nb_comparables_ideeri;impact;string;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;positif;
+Avis_Valeur;indice_confiance.facteurs.nb_comparables_total;valeur;integer;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;5;
+Avis_Valeur;indice_confiance.facteurs.nb_comparables_total;impact;string;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;suffisant;
+Avis_Valeur;indice_confiance.facteurs.anciennete_comparables_mois;valeur;float;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;5.2;
+Avis_Valeur;indice_confiance.facteurs.anciennete_comparables_mois;impact;string;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;bon;
+Avis_Valeur;indice_confiance.facteurs.homogeneite_prix_m2;valeur;float;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;0.85;
+Avis_Valeur;indice_confiance.facteurs.homogeneite_prix_m2;impact;string;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;bon;
+Avis_Valeur;indice_confiance.facteurs.couverture_champs_critiques;valeur;float;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;0.95;
+Avis_Valeur;indice_confiance.facteurs.couverture_champs_critiques;impact;string;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;excellent;
+Avis_Valeur;(racine);comparables_utilises;array;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;"[{""id"":""comp_2026_00891"",""source"":""IDEERI_VENTE"",""prix_m2_ajuste"":3075,""poids"":0.3,""score_fiabilite"":91,""ajustement_total_pct"":-0.9},{""id"":""comp_2026_00765"",""source"":""IDEERI_VENTE"",""prix_m2_ajuste"":31";
+Avis_Valeur;prix_m2_pondere;valeur;integer;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;3191;
+Avis_Valeur;prix_m2_pondere;methode;string;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;Moyenne pondérée par (poids_agent × score_fiabilite);
+Avis_Valeur;prix_m2_pondere;ecart_type;integer;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;215;
+Avis_Valeur;prix_m2_pondere;coeff_variation_pct;float;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;6.7;
+Avis_Valeur;ajustements_extrinseques.travaux_copro_en_cours;montant_quote_part;integer;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;15000;
+Avis_Valeur;ajustements_extrinseques.travaux_copro_en_cours;ajustement_euros;integer;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;-15000;
+Avis_Valeur;ajustements_extrinseques.travaux_copro_en_cours;justification;string;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;Travaux votés — quote-part à déduire du prix estimé;
+Avis_Valeur;impact_tension_marche;ratio_demande_offre;float;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;1.5;
+Avis_Valeur;impact_tension_marche;tension;string;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;moderee_favorable;
+Avis_Valeur;impact_tension_marche;ajustement_prix_pct;integer;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;2;
+Avis_Valeur;impact_tension_marche;duree_vente_estimee_jours;integer;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;52;
+Avis_Valeur;impact_tension_marche;justification;string;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;12 acquéreurs matchés dont 5 à forte compatibilité — justifie positionnement haut de fourchette;
+Avis_Valeur;argumentaire_vendeur;points_forts;array;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;"[""5 acquéreurs actifs à forte compatibilité (score > 0.80) dont 1 en recherche urgente"",""Localisation premium : métro Garibaldi à 350m, bus à 120m, commerces de proximité (boulangerie 50m, pharmacie 1";
+Avis_Valeur;argumentaire_vendeur;points_vigilance;array;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;"[""Travaux de ravalement votés : 15 000€ de quote-part à intégrer dans le prix"",""8 biens concurrents similaires actuellement en vente, 37.5% ont déjà baissé leur prix"",""Copropriété avec 3.2% d'impayés ";
+Avis_Valeur;argumentaire_vendeur;positionnement_vs_marche;string;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;Prix/m² estimé à 3 255€ vs 3 280€ médian IRIS — cohérent avec le marché, légèrement en-dessous pour absorber les travaux copro;
+Avis_Valeur;(racine);historique_versions;array;N;Calculé (agrégation Comparables + Contexte + Tension);Étape 5 — Avis de Valeur;"[{""version"":1,""date"":""2026-03-24T11:00:00Z"",""prix_median"":236000,""agent"":""agent_vca_001"",""action"":""Création brouillon""}]";
+Profil_Acquereur;identification;id;string;O;Base CRM Ideeri — saisi découverte projet;Étape 4 — Tension Marché (modal projet);acq_0087;Identifiant unique du profil acquéreur (anonymisé côté UI en ex. #F047)
+Profil_Acquereur;identification;agent_referent_id;string;N;Base CRM Ideeri — saisi découverte projet;Étape 4 — Tension Marché (modal projet);agent_vca_001;Agent Ideeri qui a découvert le projet
+Profil_Acquereur;identification;persona;enum;O;Base CRM Ideeri — saisi découverte projet;Étape 4 — Tension Marché (modal projet);Familles;Type : Familles / Investisseurs / Primo-accédants / Retraités / Mono-parentaux
+Profil_Acquereur;identification;etat;enum;O;Base CRM Ideeri — saisi découverte projet;Étape 4 — Tension Marché (modal projet);Recherche active;Recherche active / Simulation prêt / Prêt validé / PTZ en cours / Cash
+Profil_Acquereur;identification;date_creation;datetime;N;Base CRM Ideeri — saisi découverte projet;Étape 4 — Tension Marché (modal projet);2026-02-14T09:12:00Z;Date d'entrée en recherche — sert à filtrer projets < 1 an
+Profil_Acquereur;identification;last_seen;datetime;N;Base CRM Ideeri — saisi découverte projet;Étape 4 — Tension Marché (modal projet);2026-04-21T18:03:00Z;Dernière activité (login / ajout favori / visite)
+Profil_Acquereur;budget;budget_valide;boolean;N;Base CRM Ideeri — saisi découverte projet;Étape 4 — Tension Marché (modal projet);true;True si financement bancaire validé (affichage montant ferme)
+Profil_Acquereur;budget;budget_fixed;integer;N;Base CRM Ideeri — saisi découverte projet;Étape 4 — Tension Marché (modal projet);310;Montant du prêt accordé (en k€) — présent si budget_valide=true
+Profil_Acquereur;budget;budget_min;integer;N;Base CRM Ideeri — saisi découverte projet;Étape 4 — Tension Marché (modal projet);0;Plancher budget saisi à la découverte (0 si aucun plancher)
+Profil_Acquereur;budget;budget_med;integer;N;Base CRM Ideeri — saisi découverte projet;Étape 4 — Tension Marché (modal projet);305;Budget médian recherché (point central)
+Profil_Acquereur;budget;budget_max;integer;O;Base CRM Ideeri — saisi découverte projet;Étape 4 — Tension Marché (modal projet);345;Plafond budget saisi à la découverte (= budget_fixed si validé)
+Profil_Acquereur;budget;apport_personnel;integer;N;Base CRM Ideeri — saisi découverte projet;Étape 4 — Tension Marché (modal projet);60;Apport en k€ (optionnel)
+Profil_Acquereur;budget;mensualite_max;integer;N;Base CRM Ideeri — saisi découverte projet;Étape 4 — Tension Marché (modal projet);1500;Mensualité max tolérée (optionnel)
+Profil_Acquereur;budget;ptz_eligible;boolean;N;Base CRM Ideeri — saisi découverte projet;Étape 4 — Tension Marché (modal projet);false;Éligibilité PTZ (primo-accédants)
+Profil_Acquereur;criteres_durs;localisation_zones;array;O;Base CRM Ideeri — saisi découverte projet;Étape 4 — Tension Marché (modal projet);"[""Lyon 3e"",""Lyon 6e""]";Zones acceptables (villes / arrondissements / rayon)
+Profil_Acquereur;criteres_durs;rayon_km;float;N;Base CRM Ideeri — saisi découverte projet;Étape 4 — Tension Marché (modal projet);1;Rayon de recherche autour du point d'ancrage
+Profil_Acquereur;criteres_durs;surface_min_m2;integer;O;Base CRM Ideeri — saisi découverte projet;Étape 4 — Tension Marché (modal projet);65;Surface minimum non négociable
+Profil_Acquereur;criteres_durs;typologie;enum;O;Base CRM Ideeri — saisi découverte projet;Étape 4 — Tension Marché (modal projet);T3;T2 / T3 / T4 / T5+ / Maison
+Profil_Acquereur;criteres_durs;dpe_min;enum;N;Base CRM Ideeri — saisi découverte projet;Étape 4 — Tension Marché (modal projet);D;Lettre DPE minimale acceptée (A à G)
+Profil_Acquereur;criteres_durs;type_bien;enum;N;Base CRM Ideeri — saisi découverte projet;Étape 4 — Tension Marché (modal projet);Appartement;Appartement / Maison / Les deux
+Profil_Acquereur;souhaits;balcon_terrasse;boolean;N;Base CRM Ideeri — saisi découverte projet;Étape 4 — Tension Marché (modal projet);true;Souhait balcon ou terrasse
+Profil_Acquereur;souhaits;parking;boolean;N;Base CRM Ideeri — saisi découverte projet;Étape 4 — Tension Marché (modal projet);true;Souhait parking / garage
+Profil_Acquereur;souhaits;quartier_calme;boolean;N;Base CRM Ideeri — saisi découverte projet;Étape 4 — Tension Marché (modal projet);true;Recherche quartier calme
+Profil_Acquereur;souhaits;ecole_primaire_proche;boolean;N;Base CRM Ideeri — saisi découverte projet;Étape 4 — Tension Marché (modal projet);true;École primaire < 500m
+Profil_Acquereur;souhaits;ascenseur;boolean;N;Base CRM Ideeri — saisi découverte projet;Étape 4 — Tension Marché (modal projet);true;Souhait ascenseur (étage élevé)
+Profil_Acquereur;souhaits;cave;boolean;N;Base CRM Ideeri — saisi découverte projet;Étape 4 — Tension Marché (modal projet);false;Souhait cave / annexe
+Profil_Acquereur;souhaits;etage_min;integer;N;Base CRM Ideeri — saisi découverte projet;Étape 4 — Tension Marché (modal projet);2;Étage minimum (0 = pas de préférence)
+Profil_Acquereur;souhaits;luminosite;enum;N;Base CRM Ideeri — saisi découverte projet;Étape 4 — Tension Marché (modal projet);traversant;traversant / très lumineux / indifférent
+Profil_Acquereur;projet;delai_achat;enum;N;Base CRM Ideeri — saisi découverte projet;Étape 4 — Tension Marché (modal projet);3 mois;urgent / 3 mois / 6 mois / flexible
+Profil_Acquereur;projet;nb_personnes_foyer;integer;N;Base CRM Ideeri — saisi découverte projet;Étape 4 — Tension Marché (modal projet);4;Taille du foyer acquéreur
+Profil_Acquereur;projet;motif_achat;enum;N;Base CRM Ideeri — saisi découverte projet;Étape 4 — Tension Marché (modal projet);residence_principale;residence_principale / secondaire / investissement_locatif
+Profil_Acquereur;projet;revenu_foyer_annuel;integer;N;Base CRM Ideeri — saisi découverte projet;Étape 4 — Tension Marché (modal projet);72000;Revenus annuels cumulés foyer (en €)
+Profil_Acquereur;projet;situation_pro;enum;N;Base CRM Ideeri — saisi découverte projet;Étape 4 — Tension Marché (modal projet);CDI;CDI / CDD / indépendant / retraité
+Profil_Acquereur;activite;biens_vus;integer;N;Tracking Ideeri (events);Étape 4 — Tension Marché (modal projet);12;Nombre de biens consultés sur Ideeri
+Profil_Acquereur;activite;biens_favoris;integer;N;Tracking Ideeri (events);Étape 4 — Tension Marché (modal projet);3;Nombre de biens mis en favori
+Profil_Acquereur;activite;visites_effectuees;integer;N;Tracking Ideeri (events);Étape 4 — Tension Marché (modal projet);2;Nombre de visites physiques
+Profil_Acquereur;activite;offres_formulees;integer;N;Tracking Ideeri (events);Étape 4 — Tension Marché (modal projet);0;Nombre d'offres d'achat déposées
+Profil_Acquereur;matching;score_matching;float;N;Calculé (scoring radar 31 critères);Étape 4 — Tension Marché (modal projet);0.72;Score 0-1 calculé vs. bien cible courant (radar 31 critères)
+Profil_Acquereur;matching;forte_compatibilite;boolean;N;Calculé (scoring radar 31 critères);Étape 4 — Tension Marché (modal projet);true;score_matching ≥ 0.80
+Profil_Acquereur;matching;critere_fort;string;N;Calculé (scoring radar 31 critères);Étape 4 — Tension Marché (modal projet);T3 + ascenseur + cave;Critère le plus déterminant dans le match
+Module_Completude;(transverse);champs_renseignes;integer;O;Calculé à partir de Bien_Cible;Étape 1 — Bien Cible (indicateur) + Étape 5 — Avis de Valeur (facteur confiance);156;Nombre de champs remplis par l'agent
+Module_Completude;(transverse);champs_applicables;integer;O;Calculé à partir de Bien_Cible;Étape 1 — Bien Cible (indicateur) + Étape 5 — Avis de Valeur (facteur confiance);178;Nombre de champs applicables au bien (hors N/A)
+Module_Completude;(transverse);champs_non_applicables;integer;O;Calculé à partir de Bien_Cible;Étape 1 — Bien Cible (indicateur) + Étape 5 — Avis de Valeur (facteur confiance);24;Champs marqués N/A (ex. climatisation absente)
+Module_Completude;(transverse);taux_completude_brut_pct;float;O;Calculé à partir de Bien_Cible;Étape 1 — Bien Cible (indicateur) + Étape 5 — Avis de Valeur (facteur confiance);87.6;renseignés / applicables × 100
+Module_Completude;(transverse);taux_completude_pondere_pct;float;O;Calculé à partir de Bien_Cible;Étape 1 — Bien Cible (indicateur) + Étape 5 — Avis de Valeur (facteur confiance);91.2;Pondéré par la criticité de chaque champ
+Module_Completude;(transverse);nb_champs_critiques_renseignes;integer;O;Calculé à partir de Bien_Cible;Étape 1 — Bien Cible (indicateur) + Étape 5 — Avis de Valeur (facteur confiance);18;Champs bloquants pour estimation fiable
+Module_Completude;(transverse);nb_champs_critiques_total;integer;O;Calculé à partir de Bien_Cible;Étape 1 — Bien Cible (indicateur) + Étape 5 — Avis de Valeur (facteur confiance);19;Total des champs critiques attendus
+Module_Completude;(transverse);score_fiabilite_donnees;integer;O;Calculé à partir de Bien_Cible;Étape 1 — Bien Cible (indicateur) + Étape 5 — Avis de Valeur (facteur confiance);93;Score 0-100 pondéré
+Module_Completude;(transverse);completude_par_categorie;object (json);O;Calculé à partir de Bien_Cible;Étape 1 — Bien Cible (indicateur) + Étape 5 — Avis de Valeur (facteur confiance);{identification_juridique:{...}};19 catégories pondérées (cf. scoring_radar_matching.csv)

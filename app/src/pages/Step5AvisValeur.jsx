@@ -160,6 +160,18 @@ const cssStyles = `
     min-width: 80px;
     text-align: center;
   }
+  .demand-big-number.offers {
+    color: #4a6cf7;
+  }
+  .demand-vs {
+    font-size: 14px;
+    font-weight: 600;
+    color: #aaa;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    align-self: center;
+    margin-top: -10px;
+  }
   .demand-big-label {
     font-size: 11px;
     color: #666;
@@ -698,6 +710,70 @@ const cssStyles = `
     color: white;
   }
   .btn-primary:hover { background: #1aa564; }
+
+  /* RDV Eye toggle (masquer en RDV) */
+  .rdv-eye-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #666;
+    transition: all 0.15s;
+    z-index: 5;
+    padding: 0;
+  }
+  .rdv-eye-btn:hover {
+    border-color: #46B962;
+    color: #46B962;
+    background: #f6faf7;
+  }
+  .rdv-eye-btn.is-hidden {
+    background: #fff5f5;
+    color: #c0392b;
+    border-color: #f3d4d4;
+  }
+  .rdv-eye-btn.inline {
+    position: static;
+    width: 22px;
+    height: 22px;
+    margin-left: 8px;
+    vertical-align: middle;
+    display: inline-flex;
+  }
+  .confidence-wrap, .card.strategy {
+    position: relative;
+  }
+  /* Section enti\u00e8rement repli\u00e9e en mode RDV : ne reste que l'\u0153il + label discret */
+  .rdv-collapsed {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: #fafafa;
+    border: 1px dashed #d8d8d8;
+    border-radius: 10px;
+    margin: 12px 0;
+  }
+  .rdv-collapsed.card-collapsed {
+    margin: 0;
+  }
+  .rdv-collapsed .rdv-eye-btn {
+    position: static;
+    flex-shrink: 0;
+  }
+  .rdv-collapsed-label {
+    font-size: 11px;
+    color: #888;
+    font-style: italic;
+  }
 `;
 
 /* ---------- helpers ---------- */
@@ -713,7 +789,11 @@ export default function Step5AvisValeur() {
   const [selectedStrategy, setSelectedStrategy] = useState(1);
   const [pointsForts, setPointsForts] = useState([...avisValeur.pointsForts]);
   const [pointsVigilance, setPointsVigilance] = useState([...avisValeur.pointsVigilance]);
-  const [customPrice, setCustomPrice] = useState('305000');
+  const [customPrice, setCustomPrice] = useState('300000');
+
+  // Visibilit\u00e9 des sections en RDV : true = masqu\u00e9 lors du RDV
+  const [hideConfiance, setHideConfiance] = useState(false);
+  const [hideStrategie, setHideStrategie] = useState(false);
 
   const surface = 72.5;
   const totalAcquereurs = 23;
@@ -756,6 +836,27 @@ export default function Step5AvisValeur() {
     if (a.dpe) dpeMatch++;
     if (passBudget && a.type && a.surface && a.loc && a.dpe) allMatch++;
   });
+
+  /* ---- Offres concurrentes : biens immo \u00e0 vendre actuellement dans la fourchette de prix ----
+     Simulation : distribution gaussienne centr\u00e9e sur 300k\u20ac (mode du march\u00e9 zone),
+     \u00e9cart-type 35k\u20ac. Le compteur affiche le nombre de biens \u00e9quivalents en concurrence
+     directe \u00e0 \u00b15% du prix s\u00e9lectionn\u00e9.
+  */
+  const offresImmo = (() => {
+    const center = 300000;
+    const sigma = 35000;
+    // densit\u00e9 gaussienne approxim\u00e9e
+    const peak = 14; // pic max ~14 offres
+    const lower = sliderValue * 0.95;
+    const upper = sliderValue * 1.05;
+    // somme discr\u00e8te de la densit\u00e9 sur la fourchette
+    let sum = 0;
+    for (let p = lower; p <= upper; p += 5000) {
+      const v = peak * Math.exp(-Math.pow(p - center, 2) / (2 * sigma * sigma));
+      sum += v;
+    }
+    return Math.max(1, Math.round(sum / 4));
+  })();
 
   const ppm = Math.round(sliderValue / surface);
   // Le hero affiche les acquéreurs budget-compatibles (seul critère impacté par le prix).
@@ -836,12 +937,12 @@ export default function Step5AvisValeur() {
 
   /* ---- Strategy pricing ---- */
   const strategies = [
-    { label: 'Agressif', prix: 315000, description: 'Haut de fourchette. Capitalise sur la tension forte.', duration: 'Dur\u00E9e estim\u00E9e: 35-50 jours' },
-    { label: 'March\u00E9', prix: 305000, description: '\u00C9quilibre valorisation et liquidit\u00E9.', duration: 'Dur\u00E9e estim\u00E9e: 40-55 jours', recommended: true },
-    { label: 'Prudent', prix: 290000, description: 'Bas de fourchette. Maximise la rapidit\u00E9.', duration: 'Dur\u00E9e estim\u00E9e: 25-35 jours' },
+    { label: 'Agressif', prix: 310000, description: 'Haut de fourchette. Capitalise sur la tension forte.', duration: 'Dur\u00E9e estim\u00E9e: 35-50 jours' },
+    { label: 'March\u00E9', prix: 300000, description: '\u00C9quilibre valorisation et liquidit\u00E9.', duration: 'Dur\u00E9e estim\u00E9e: 40-55 jours', recommended: true },
+    { label: 'Prudent', prix: 285000, description: 'Bas de fourchette. Maximise la rapidit\u00E9.', duration: 'Dur\u00E9e estim\u00E9e: 25-35 jours' },
   ];
 
-  const estimation = 305000;
+  const estimation = 300000;
   const customVal = parseInt((customPrice || '').replace(/\s/g, ''), 10);
   const deltaValid = !isNaN(customVal) && customVal > 0;
   const deltaPct = deltaValid ? (((customVal - estimation) / estimation) * 100).toFixed(1) : null;
@@ -887,22 +988,51 @@ export default function Step5AvisValeur() {
           </div>
           <div className="price-meta">
             <span className="price-meta-item"><strong>{avisValeur.prixM2.toLocaleString('fr-FR')} &euro;/m&sup2;</strong></span>
-            <span className="price-meta-item">Amplitude: <strong>&plusmn;{avisValeur.amplitude}%</strong></span>
           </div>
-          <div className="confidence-wrap">
-            <svg className="confidence-gauge" viewBox="0 0 120 120" style={{ transform: 'rotate(-90deg)' }}>
-              <circle cx="60" cy="60" r="50" fill="none" stroke="#eee" strokeWidth="10"/>
-              <circle cx="60" cy="60" r="50" fill="none" stroke="#46B962" strokeWidth="10"
-                strokeDasharray="245" strokeDashoffset="54"
-                strokeLinecap="round"/>
-              <circle cx="60" cy="60" r="38" fill="white"/>
-            </svg>
-            <div className="confidence-text">
-              <div className="confidence-number">{avisValeur.confiance}</div>
-              <div className="confidence-label">Indice de confiance</div>
-              <div className="confidence-details">Compl&eacute;tude 64% &times; Homog&eacute;n&eacute;it&eacute; 92% &times; Volume zone</div>
+          {hideConfiance ? (
+            <div className="rdv-collapsed">
+              <button
+                type="button"
+                className="rdv-eye-btn is-hidden"
+                onClick={() => setHideConfiance(false)}
+                title="Afficher en RDV"
+                aria-label="Afficher en RDV"
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                  <line x1="1" y1="1" x2="23" y2="23"/>
+                </svg>
+              </button>
+              <span className="rdv-collapsed-label">Indice de confiance &mdash; masqu&eacute; en RDV</span>
             </div>
-          </div>
+          ) : (
+            <div className="confidence-wrap">
+              <button
+                type="button"
+                className="rdv-eye-btn"
+                onClick={() => setHideConfiance(true)}
+                title="Masquer en RDV"
+                aria-label="Masquer en RDV"
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+              </button>
+              <svg className="confidence-gauge" viewBox="0 0 120 120" style={{ transform: 'rotate(-90deg)' }}>
+                <circle cx="60" cy="60" r="50" fill="none" stroke="#eee" strokeWidth="10"/>
+                <circle cx="60" cy="60" r="50" fill="none" stroke="#46B962" strokeWidth="10"
+                  strokeDasharray="245" strokeDashoffset="54"
+                  strokeLinecap="round"/>
+                <circle cx="60" cy="60" r="38" fill="white"/>
+              </svg>
+              <div className="confidence-text">
+                <div className="confidence-number">{avisValeur.confiance}</div>
+                <div className="confidence-label">Indice de confiance</div>
+                <div className="confidence-details">Compl&eacute;tude 64% &times; Homog&eacute;n&eacute;it&eacute; 92% &times; Volume zone</div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ============ DEMAND vs PRICE SLIDER ============ */}
@@ -918,6 +1048,11 @@ export default function Step5AvisValeur() {
             <div className="demand-big-wrap">
               <div className="demand-big-number" style={{ color: demandColor }}>{budgetMatch}</div>
               <div className="demand-big-label">projets<br/>d&apos;achat</div>
+            </div>
+            <div className="demand-vs">vs</div>
+            <div className="demand-big-wrap">
+              <div className="demand-big-number offers">{offresImmo}</div>
+              <div className="demand-big-label">offres<br/>concurrentes</div>
             </div>
             <div className="demand-gauge-wrap">
               <div className="demand-price-display">
@@ -936,7 +1071,7 @@ export default function Step5AvisValeur() {
                 />
                 <div className="demand-slider-labels">
                   <span>250 000 &euro;</span>
-                  <span className="estimation-marker">&#9660; Estimation 305k</span>
+                  <span className="estimation-marker">&#9660; Estimation 300k</span>
                   <span>380 000 &euro;</span>
                 </div>
               </div>
@@ -981,23 +1116,14 @@ export default function Step5AvisValeur() {
               </div>
               <div className="decomp-detail">&times; 72.5m&sup2; = 302 470 &euro;</div>
               <div className="decomp-step">
-                <span className="decomp-label">2. Ajustement zone</span>
-                <span className="decomp-value pos">+1.2%</span>
-              </div>
-              <div className="decomp-detail">Accessibilit&eacute; transports +0.8%</div>
-              <div className="decomp-detail">Risque inondation PPRI &minus;0.5%</div>
-              <div className="decomp-detail">Score socio-&eacute;co +0.4%</div>
-              <div className="decomp-detail">March&eacute; en hausse +0.5%</div>
-              <div className="decomp-detail">&rarr; <strong style={{ color: '#46B962' }}>+3 630 &euro;</strong></div>
-              <div className="decomp-step">
-                <span className="decomp-label">3. Impact tension march&eacute;</span>
+                <span className="decomp-label">2. Impact tension march&eacute;</span>
                 <span className="decomp-value pos">+0.7%</span>
               </div>
               <div className="decomp-detail">Ratio demande/offre 3.2x +0.5%</div>
               <div className="decomp-detail">7 acqu&eacute;reurs forte compatibilit&eacute; +0.2%</div>
               <div className="decomp-detail">&rarr; <strong style={{ color: '#46B962' }}>+2 117 &euro;</strong></div>
               <div className="decomp-step">
-                <span className="decomp-label">4. Corrections sp&eacute;cifiques</span>
+                <span className="decomp-label">3. Corrections sp&eacute;cifiques</span>
                 <span className="decomp-value neg">&minus;1.5%</span>
               </div>
               <div className="decomp-detail">DPE D (passoire thermique 2028) &minus;2.0%</div>
@@ -1007,9 +1133,9 @@ export default function Step5AvisValeur() {
               <div className="decomp-divider" />
               <div className="decomp-step">
                 <span className="decomp-label decomp-final">AVIS DE VALEUR</span>
-                <span className="decomp-value decomp-final-value">305 000 &euro;</span>
+                <span className="decomp-value decomp-final-value">300 000 &euro;</span>
               </div>
-              <div className="decomp-range">Fourchette: 285 000 &euro; &mdash; 320 000 &euro;</div>
+              <div className="decomp-range">Fourchette: 280 000 &euro; &mdash; 315 000 &euro;</div>
             </div>
 
             <div className="card">
@@ -1092,8 +1218,39 @@ export default function Step5AvisValeur() {
 
           {/* --- Column 3: Strategy + Actions --- */}
           <div className="content-grid-col">
+            {hideStrategie ? (
+              <div className="rdv-collapsed card-collapsed">
+                <button
+                  type="button"
+                  className="rdv-eye-btn is-hidden"
+                  onClick={() => setHideStrategie(false)}
+                  title="Afficher en RDV"
+                  aria-label="Afficher en RDV"
+                >
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                    <line x1="1" y1="1" x2="23" y2="23"/>
+                  </svg>
+                </button>
+                <span className="rdv-collapsed-label">Strat&eacute;gie de prix &mdash; masqu&eacute;e en RDV</span>
+              </div>
+            ) : (
             <div className="card strategy">
-              <div className="card-title">Strat&eacute;gie de prix</div>
+              <div className="card-title">
+                Strat&eacute;gie de prix
+                <button
+                  type="button"
+                  className="rdv-eye-btn inline"
+                  onClick={() => setHideStrategie(true)}
+                  title="Masquer en RDV"
+                  aria-label="Masquer en RDV"
+                >
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                </button>
+              </div>
               {strategies.map((s, i) => {
                 const isSelected = selectedStrategy === i;
                 return (
@@ -1112,7 +1269,9 @@ export default function Step5AvisValeur() {
                       <span className="strategy-name">{s.label} &mdash; {formatPrice(s.prix)}</span>
                     </div>
                     <div className="strategy-desc">{s.description}</div>
-                    <div className="strategy-duration">&#128197; {s.duration}</div>
+                    {avisValeur.confiance >= 90 && (
+                      <div className="strategy-duration">&#128197; {s.duration}</div>
+                    )}
                     {s.recommended && <div className="badge-rec">&#10003; Recommand&eacute;</div>}
                   </div>
                 );
@@ -1133,6 +1292,7 @@ export default function Step5AvisValeur() {
                 )}
               </div>
             </div>
+            )}
 
             <div className="card">
               <div className="card-title">Actions</div>
@@ -1150,7 +1310,7 @@ export default function Step5AvisValeur() {
                       date: new Date().toLocaleDateString('fr-FR'),
                       heure: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
                       statut: 'sauvegarde',
-                      prix: '305 000 \u20ac',
+                      prix: '300 000 \u20ac',
                     });
                   } else {
                     exists.date = new Date().toLocaleDateString('fr-FR');

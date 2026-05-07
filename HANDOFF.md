@@ -75,7 +75,7 @@ Les calculs actuels sont des approximations visuelles :
 - [ ] **Scoring matching bien ↔ acquéreur** : implémenter les 7 axes du
       `scoring_radar_matching.csv` (actuellement simulé)
 - [ ] **Décomposition du prix** en Step 5 : brancher les vraies valeurs
-      (comparables, ajustement zone, tension marché, corrections DPE etc.)
+      (prix médian comparables, impact tension marché, corrections spécifiques DPE/travaux/balcon etc.)
 - [ ] **Distribution des plafonds de budget** en Step 4 : calculer à partir
       des vrais projets d'achat (actuellement sur les 23 fictifs)
 - [ ] **Durées de vente estimées** (Step 5, stratégies) : modèle à définir

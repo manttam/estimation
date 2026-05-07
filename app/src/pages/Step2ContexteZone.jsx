@@ -444,7 +444,7 @@ export default function Step2ContexteZone() {
     setOpenSections((prev) => ({ ...prev, [idx]: !prev[idx] }));
   };
 
-  const { scores, market, sections } = contexteZone;
+  const { market, sections } = contexteZone;
 
   // Radius presets → meters
   const RADIUS_PRESETS = [
@@ -564,16 +564,6 @@ export default function Step2ContexteZone() {
         <span>Donn&eacute;es enrichies automatiquement &middot; 33 sources data.gouv / INSEE &middot; MAJ : 25 mars 2026</span>
       </div>
 
-      {/* Score Cards */}
-      <div className="scores-row">
-        {scores.map((s) => (
-          <div key={s.label} className={`score-card ${s.color}`}>
-            <div className="score-label">{s.label}</div>
-            <div className={`score-num ${s.color}`}>{s.value}</div>
-          </div>
-        ))}
-      </div>
-
       {/* Map + Market Card */}
       <div className="grid-top">
         <div className="map-card">
@@ -674,12 +664,10 @@ export default function Step2ContexteZone() {
             <div key={idx} className="collapse-card">
               <div className="collapse-header" onClick={() => toggleSection(idx)}>
                 <div className="collapse-header-left">
-                  <span className={`collapse-dot ${section.color}`} />
                   <span className="collapse-title">{section.title}</span>
                   <span className="collapse-summary">{section.summary}</span>
                 </div>
                 <div className="collapse-header-right">
-                  <span className={`collapse-score ${section.color}`}>{section.score}</span>
                   <span className={`collapse-arrow ${isOpen ? 'open' : ''}`}>&#9662;</span>
                 </div>
               </div>

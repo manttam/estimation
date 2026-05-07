@@ -32,8 +32,8 @@ const INITIAL_VERSIONS = [
     date: '25/03/2026',
     heure: '14:15',
     agent: 'Marie Dupont',
-    prix: '305 000 \u20ac',
-    prixM2: '4 207 \u20ac/m\u00b2',
+    prix: '300 000 \u20ac',
+    prixM2: '4 138 \u20ac/m\u00b2',
     statut: 'en_cours',
     note: '',
   },
@@ -357,16 +357,12 @@ export default function Dashboard() {
                         <button className="tl-btn" onClick={() => navigate('/step/1')}>
                           Consulter
                         </button>
-                        {(v.statut === 'avis_valeur' || v.statut === 'compte_rendu') && (
-                          <button className="tl-btn" onClick={() => navigate('/avis-valeur')}>
-                            Avis de valeur
-                          </button>
-                        )}
-                        {v.statut === 'compte_rendu' && (
-                          <button className="tl-btn primary" onClick={() => navigate('/report')}>
-                            Compte rendu
-                          </button>
-                        )}
+                        <button className="tl-btn" onClick={() => navigate('/avis-valeur')}>
+                          Avis de valeur
+                        </button>
+                        <button className="tl-btn" onClick={() => navigate('/report')}>
+                          Compte rendu
+                        </button>
                       </>
                     )}
                   </div>

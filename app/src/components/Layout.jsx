@@ -117,6 +117,18 @@ export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
 
+  // /report est un document commercial : on masque le chrome de l'app (sidebar + topbar)
+  // et on laisse le rapport prendre toute la largeur.
+  const isReport = location.pathname.startsWith('/report');
+
+  if (isReport) {
+    return (
+      <main style={{ minHeight: '100vh', background: '#fafafa' }}>
+        <Outlet />
+      </main>
+    );
+  }
+
   return (
     <div style={styles.wrapper}>
       {/* Sidebar — logo only, no navigation icons */}
