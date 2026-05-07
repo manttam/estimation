@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import { searchAddresses } from '../utils/banClient';
 import { fetchDvfByCommune, statsDvf, sortByDistance, filterByRecent } from '../utils/dvfClient';
 import { estimerBien, formatPrixM2 } from '../utils/estimationCalculator';
+import { setActiveBien } from '../utils/activeBien';
 
 const css = `
   .creation-page {
@@ -453,7 +454,8 @@ export default function CreationBien() {
 
     const result = estimerBien(bien, dvfStats);
 
-    // Stocke en sessionStorage pour la page Resultat
+    // Sauvegarde le bien actif (localStorage) -> consomme par PropertyCard
+    // et l'ensemble du flow Step1 -> Step5.
     const payload = {
       bien,
       adresse: selectedAddr,
@@ -462,8 +464,9 @@ export default function CreationBien() {
       dvfTopComparables: dvfData.slice(0, 10),
       createdAt: new Date().toISOString(),
     };
-    sessionStorage.setItem('ideeri_pending_estimation', JSON.stringify(payload));
-    navigate('/resultat');
+    setActiveBien(payload);
+    // On entre dans le flow d'estimation step par step.
+    navigate('/step/1');
   };
 
   return (
