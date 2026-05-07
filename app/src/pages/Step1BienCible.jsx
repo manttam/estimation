@@ -8,7 +8,7 @@ import Stepper from '../components/Stepper';
 import PhotoUploader from '../components/PhotoUploader';
 import { bienCibleCategories as bienCibleCategoriesBase } from '../data/propertyData';
 import { getActiveBien, buildBienCibleCategories } from '../utils/activeBien';
-import { getAllPhotos } from '../utils/photosStore';
+import { getAllPhotos, deletePhoto } from '../utils/photosStore';
 import CadastrePLUCards from '../components/CadastrePLUCards';
 
 // Fix default Leaflet marker icon issue in React
@@ -424,8 +424,15 @@ const cssStyles = `
     gap: 8px;
   }
 
+  .photo-thumb-wrapper {
+    position: relative;
+    aspect-ratio: 1;
+  }
+
   .photo-thumb {
     position: relative;
+    width: 100%;
+    height: 100%;
     aspect-ratio: 1;
     background: #f0f0f0;
     border: none;
@@ -440,6 +447,37 @@ const cssStyles = `
   .photo-thumb:hover {
     transform: scale(1.02);
     box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  }
+
+  .photo-thumb-delete {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 2;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    font-family: inherit;
+    transition: background 0.15s, transform 0.1s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  }
+  .photo-thumb-delete:hover {
+    background: #d33;
+    transform: scale(1.1);
+  }
+  .photo-thumb-delete:focus-visible {
+    outline: 2px solid #4a6cf7;
+    outline-offset: 2px;
   }
 
   .photo-thumb img {
@@ -983,6 +1021,25 @@ export default function Step1BienCible() {
     };
   }, []);
 
+  // Cle forcant le remount du PhotoUploader quand une photo est supprimee
+  // depuis le carrousel principal (sinon son state interne reste obsolete).
+  const [uploaderKey, setUploaderKey] = useState(0);
+
+  // Suppression d'une photo uploadee depuis le carrousel principal.
+  const handleDeleteUploaded = async (rawId) => {
+    if (!rawId) return;
+    try {
+      await deletePhoto(rawId);
+      const fresh = await getAllPhotos();
+      setUploadedPhotos(buildUploadedFromRaw(fresh));
+      setUploaderKey((k) => k + 1); // resync l'uploader
+      // Si l'index lightbox courant n'existe plus, on ferme.
+      if (lightboxIndex !== null) setLightboxIndex(null);
+    } catch (err) {
+      console.error('[Step1] handleDeleteUploaded', err);
+    }
+  };
+
   // Catalogue effectif : priorite aux photos uploadees > photos dossier
   // (app/src/photos-bien-actif/) > demo Unsplash.
   // On ne bascule sur les sources "bien actif" que s'il y a un bien actif
@@ -1246,15 +1303,29 @@ export default function Step1BienCible() {
               {filteredPhotos.length > 0 ? (
                 <div className="photos-grid">
                   {filteredPhotos.map((p, idx) => (
-                    <button
-                      key={p.id}
-                      className="photo-thumb"
-                      onClick={() => openLightbox(idx)}
-                      aria-label={`Ouvrir ${p.label} en grand`}
-                    >
-                      <img src={p.url} alt={p.label} loading="lazy" />
-                      <span className="photo-thumb-label">{p.label}</span>
-                    </button>
+                    <div key={p.id} className="photo-thumb-wrapper">
+                      <button
+                        type="button"
+                        className="photo-thumb"
+                        onClick={() => openLightbox(idx)}
+                        aria-label={`Ouvrir ${p.label} en grand`}
+                      >
+                        <img src={p.url} alt={p.label} loading="lazy" />
+                        <span className="photo-thumb-label">{p.label}</span>
+                      </button>
+                      {p.rawId && (
+                        <button
+                          type="button"
+                          className="photo-thumb-delete"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteUploaded(p.rawId);
+                          }}
+                          aria-label={`Supprimer ${p.label}`}
+                          title="Supprimer cette photo"
+                        >&times;</button>
+                      )}
+                    </div>
                   ))}
                 </div>
               ) : (
@@ -1264,6 +1335,7 @@ export default function Step1BienCible() {
               {/* Uploader : disponible des qu'il y a un bien actif. */}
               {activeBien && (
                 <PhotoUploader
+                  key={uploaderKey}
                   onChange={(raw) => setUploadedPhotos(buildUploadedFromRaw(raw))}
                 />
               )}

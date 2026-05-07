@@ -152,26 +152,22 @@ const styles = `
     position: absolute;
     top: 4px;
     right: 4px;
-    background: rgba(0,0,0,0.55);
+    background: rgba(0,0,0,0.7);
     color: white;
     border: none;
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
     border-radius: 50%;
-    font-size: 13px;
+    font-size: 14px;
     line-height: 1;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    opacity: 0;
-    transition: opacity 0.15s;
+    padding: 0;
+    transition: background 0.15s, transform 0.1s;
   }
-  .uploaded-item:hover .uploaded-item-delete,
-  .uploaded-item:focus-within .uploaded-item-delete {
-    opacity: 1;
-  }
-  .uploaded-item-delete:hover { background: #d33; }
+  .uploaded-item-delete:hover { background: #d33; transform: scale(1.1); }
 `;
 
 /**
