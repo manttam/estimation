@@ -4,6 +4,7 @@ import PropertyCard from '../components/PropertyCard';
 import Stepper from '../components/Stepper';
 import { contexteZone } from '../data/propertyData';
 import { getActiveBien } from '../utils/activeBien';
+import { getRisquesSynthese } from '../utils/georisquesClient';
 
 const COLOR_MAP = {
   green: '#46B962',
@@ -461,6 +462,10 @@ const OVERPASS_QUERIES = {
     node["amenity"~"hospital|clinic|doctors|dentist"](around:${r},${lat},${lon});
     way["amenity"~"hospital|clinic"](around:${r},${lat},${lon});
   );out center 10;`,
+  environnement: (lat, lon, r) => `(
+    way["leisure"~"park|garden|nature_reserve"](around:${r},${lat},${lon});
+    node["leisure"~"park|garden|playground"](around:${r},${lat},${lon});
+  );out center 10;`,
 };
 
 /* Distance approx (m) entre deux paires lat/lon - haversine */
@@ -518,6 +523,169 @@ async function fetchOverpassCategory(cat, coords, radius, signal) {
     .slice(0, 8);
 }
 
+/* ─── Helpers : construction des sections déroulables dynamiques ─────── */
+
+/* Format distance lisible : "350m" ou "1.2km" */
+function fmtDist(d) {
+  if (d == null || Number.isNaN(d)) return '—';
+  return d < 1000 ? `${d}m` : `${(d / 1000).toFixed(1)}km`;
+}
+
+/* Couleur du dot d'en-tête selon la distance moyenne POI */
+function dotFromAvgDist(avgDist) {
+  if (avgDist == null) return '';
+  if (avgDist < 500) return 'green';
+  if (avgDist < 1000) return 'orange';
+  return 'red';
+}
+
+const POI_SECTION_LABELS = {
+  transports:    'Transports',
+  commerces:     'Commerces',
+  education:     'Éducation',
+  sante:         'Santé',
+  environnement: 'Environnement',
+};
+
+/* Construit une section "POI" pour une catégorie donnée */
+function buildPoiSection(cat, items) {
+  if (!Array.isArray(items) || items.length === 0) return null;
+  const top = items.slice(0, 5);
+  const summary = top.slice(0, 2)
+    .map((p) => `${p.name} ${fmtDist(p.distance)}`)
+    .join(' · ');
+  const avg = top.reduce((s, p) => s + (p.distance || 0), 0) / top.length;
+  return {
+    title:   POI_SECTION_LABELS[cat] || cat,
+    summary,
+    rows: top.map((p) => ({
+      lbl:  p.name,
+      val:  fmtDist(p.distance),
+      type: 'dist',
+    })),
+    dotColor: dotFromAvgDist(avg),
+  };
+}
+
+/* Construit la section "Risques & Aléas" depuis la synthèse Géorisques */
+function buildRisquesSection(risques) {
+  if (!risques) return null;
+  const rows = [];
+  let warnCount = 0;
+  let badCount = 0;
+
+  /* Inondation (PPRI) */
+  if (risques.inondation) {
+    if (risques.inondation.present) {
+      rows.push({
+        lbl: 'Inondation (PPRI)',
+        val: risques.inondation.niveau || 'Présent',
+        type: 'risk-warn',
+      });
+      warnCount++;
+    } else {
+      rows.push({ lbl: 'Inondation (PPRI)', val: 'Aucun', type: 'risk-ok' });
+    }
+  }
+
+  /* Retrait-gonflement argiles */
+  if (risques.argile && risques.argile.niveau) {
+    const niv = String(risques.argile.niveau).toLowerCase();
+    const isBad  = /fort|élev/.test(niv);
+    const isWarn = /moy/.test(niv);
+    rows.push({
+      lbl:  'Retrait-gonflement argiles',
+      val:  risques.argile.niveau,
+      type: isBad ? 'risk-bad' : isWarn ? 'risk-warn' : 'risk-ok',
+      isImpact: isBad,
+    });
+    if (isBad) badCount++;
+    else if (isWarn) warnCount++;
+  }
+
+  /* Sismicité */
+  if (risques.sismique && risques.sismique.niveau) {
+    const z = parseInt(risques.sismique.zone, 10);
+    const isBad  = z >= 4;
+    const isWarn = z === 3;
+    rows.push({
+      lbl:  `Sismicité (zone ${risques.sismique.zone})`,
+      val:  risques.sismique.niveau,
+      type: isBad ? 'risk-bad' : isWarn ? 'risk-warn' : 'risk-ok',
+    });
+    if (isBad) badCount++;
+    else if (isWarn) warnCount++;
+  }
+
+  /* Potentiel radon */
+  if (risques.radon && risques.radon.potentiel) {
+    const niv = risques.radon.potentiel;
+    const isBad  = niv === 'Élevé';
+    const isWarn = niv === 'Moyen';
+    rows.push({
+      lbl:  'Potentiel radon',
+      val:  niv,
+      type: isBad ? 'risk-bad' : isWarn ? 'risk-warn' : 'risk-ok',
+    });
+    if (isBad) badCount++;
+    else if (isWarn) warnCount++;
+  }
+
+  /* Mouvements de terrain (rayon 500m) */
+  if (risques.mouvement) {
+    rows.push({
+      lbl:  'Mouvements de terrain (500m)',
+      val:  risques.mouvement.present ? `${risques.mouvement.count} signalé(s)` : 'Aucun',
+      type: risques.mouvement.present ? 'risk-warn' : 'risk-ok',
+    });
+    if (risques.mouvement.present) warnCount++;
+  }
+
+  /* BASIAS / installations classées (rayon 500m) */
+  if (risques.basias) {
+    rows.push({
+      lbl:  'Sites BASIAS (500m)',
+      val:  risques.basias.present ? `${risques.basias.count} signalé(s)` : 'Aucun',
+      type: risques.basias.present ? 'risk-warn' : 'risk-ok',
+    });
+    if (risques.basias.present) warnCount++;
+  }
+
+  if (rows.length === 0) return null;
+
+  let summary;
+  if (badCount > 0)       summary = `${badCount} alerte(s) majeure(s)`;
+  else if (warnCount > 0) summary = `${warnCount} point(s) de vigilance`;
+  else                    summary = 'Aucun risque majeur signalé';
+
+  return {
+    title: 'Risques & Aléas',
+    summary,
+    rows,
+    dotColor: badCount > 0 ? 'red' : warnCount > 0 ? 'orange' : 'green',
+  };
+}
+
+/* Compose le tableau final de sections (POI + Risques) à passer au rendu */
+function buildDynamicSections({ realPoi, risques }, fallback) {
+  const out = [];
+  const order = ['transports', 'commerces', 'education', 'sante', 'environnement'];
+
+  if (realPoi) {
+    order.forEach((cat) => {
+      const sec = buildPoiSection(cat, realPoi[cat]);
+      if (sec) out.push(sec);
+    });
+  }
+
+  const risk = buildRisquesSection(risques);
+  if (risk) out.push(risk);
+
+  /* Si on n'a rien construit du tout, on retombe sur le démo. */
+  if (out.length === 0) return fallback;
+  return out;
+}
+
 /* ─── POI simulés autour du bien cible ─── */
 const POI_DATA = {
   transports: [
@@ -566,6 +734,8 @@ export default function Step2ContexteZone() {
   const [realPoi, setRealPoi] = useState(null);     // { transports: [...], commerces: [...], ... } | null
   const [poiLoading, setPoiLoading] = useState(false);
   const [poiError, setPoiError] = useState(null);
+  const [risques, setRisques] = useState(null);     // synthèse Géorisques | null
+  const [risquesLoading, setRisquesLoading] = useState(false);
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const circleRef = useRef(null);
@@ -618,7 +788,15 @@ export default function Step2ContexteZone() {
     ? `https://www.geoportail-urbanisme.gouv.fr/map/#tile=1&lon=${targetCoords[1]}&lat=${targetCoords[0]}&zoom=17`
     : 'https://www.geoportail-urbanisme.gouv.fr/';
 
-  const { sections } = contexteZone;
+  /* ─── Construction des sections déroulables ─────────────────────────── */
+  /* Si on a au moins realPoi OU risques, on construit dynamiquement,    */
+  /* sinon on tombe sur contexteZone.sections (mode démo).                */
+  const sections = useMemo(() => {
+    if (!realPoi && !risques) {
+      return contexteZone.sections;
+    }
+    return buildDynamicSections({ realPoi, risques }, contexteZone.sections);
+  }, [realPoi, risques]);
 
   // Radius presets → meters
   const RADIUS_PRESETS = [
@@ -771,6 +949,28 @@ export default function Step2ContexteZone() {
     };
   }, [targetCoords, radiusMeters]);
 
+  /* ─── Fetch synthèse risques Géorisques ─────────────────────────────── */
+  useEffect(() => {
+    const citycode = activeBien?.adresse?.citycode;
+    if (!citycode || !targetCoords) {
+      setRisques(null);
+      return undefined;
+    }
+    const ctrl = new AbortController();
+    setRisquesLoading(true);
+    getRisquesSynthese(citycode, targetCoords, ctrl.signal)
+      .then((data) => {
+        if (!ctrl.signal.aborted) setRisques(data);
+      })
+      .catch((err) => {
+        if (err.name !== 'AbortError') console.warn('[Géorisques]', err);
+      })
+      .finally(() => {
+        if (!ctrl.signal.aborted) setRisquesLoading(false);
+      });
+    return () => ctrl.abort();
+  }, [activeBien, targetCoords]);
+
   /* ─── Repeupler les layerGroups POI quand realPoi change ────────────── */
   useEffect(() => {
     const map = mapInstanceRef.current;
@@ -904,6 +1104,8 @@ export default function Step2ContexteZone() {
                   : realPoi
                   ? `POI : OSM (${Object.values(realPoi).reduce((s, a) => s + a.length, 0)})`
                   : 'POI : démo'}
+                {risquesLoading && ' · Risques : chargement…'}
+                {!risquesLoading && risques && ' · Risques : Géorisques'}
               </span>
             </div>
           </div>
@@ -949,6 +1151,9 @@ export default function Step2ContexteZone() {
             <div key={idx} className="collapse-card">
               <div className="collapse-header" onClick={() => toggleSection(idx)}>
                 <div className="collapse-header-left">
+                  {section.dotColor && (
+                    <span className={`collapse-dot ${section.dotColor}`} />
+                  )}
                   <span className="collapse-title">{section.title}</span>
                   <span className="collapse-summary">{section.summary}</span>
                 </div>
