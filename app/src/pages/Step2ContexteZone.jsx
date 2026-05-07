@@ -810,6 +810,8 @@ export default function Step2ContexteZone() {
   const [poiError, setPoiError] = useState(null);
   const [risques, setRisques] = useState(null);     // synthèse Géorisques | null
   const [risquesLoading, setRisquesLoading] = useState(false);
+  const [refetchTick, setRefetchTick] = useState(0);
+  const [debugOn, setDebugOn] = useState(false);
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const circleRef = useRef(null);
@@ -1026,7 +1028,7 @@ export default function Step2ContexteZone() {
       ctrl.abort();
       clearTimeout(debounce);
     };
-  }, [targetCoords, radiusMeters]);
+  }, [targetCoords, radiusMeters, refetchTick]);
 
   /* ─── Fetch synthèse risques Géorisques ─────────────────────────────── */
   useEffect(() => {
@@ -1190,6 +1192,79 @@ export default function Step2ContexteZone() {
                 {!risquesLoading && risques && ' · Risques : Géorisques'}
               </span>
             </div>
+            {/* Ligne 4 : actions debug — bouton recharger + toggle panneau debug */}
+            <div className="map-controls-row">
+              <button
+                type="button"
+                className="radius-btn"
+                onClick={() => setRefetchTick((t) => t + 1)}
+                disabled={poiLoading}
+                title="Forcer un nouveau fetch Overpass"
+                style={{ fontSize: 11 }}
+              >
+                {poiLoading ? '↻ chargement…' : '↻ Recharger POI'}
+              </button>
+              <label style={{ color: debugOn ? '#393939' : '#949494' }}>
+                <input
+                  type="checkbox"
+                  checked={debugOn}
+                  onChange={(e) => setDebugOn(e.target.checked)}
+                />
+                🐞 Debug
+              </label>
+            </div>
+            {/* Panneau debug — visible uniquement si toggle activé */}
+            {debugOn && (
+              <div
+                style={{
+                  padding: '10px 12px',
+                  borderTop: '1px solid #f0f0f0',
+                  fontSize: 11,
+                  fontFamily: 'monospace',
+                  background: '#fafafa',
+                  color: '#393939',
+                  lineHeight: 1.5,
+                }}
+              >
+                <div style={{ fontWeight: 700, marginBottom: 4, color: '#666' }}>
+                  Diagnostic
+                </div>
+                <div>
+                  <strong>activeBien.label</strong> : {activeBien?.adresse?.label || '(aucun)'}
+                </div>
+                <div>
+                  <strong>activeBien.citycode</strong> : {activeBien?.adresse?.citycode || '(aucun)'}
+                </div>
+                <div>
+                  <strong>targetCoords</strong> : [
+                  {Array.isArray(targetCoords) ? targetCoords.map((n) => Number(n).toFixed(5)).join(', ') : '?'}
+                  ]
+                </div>
+                <div>
+                  <strong>radiusMeters</strong> : {radiusMeters}m · <strong>refetchTick</strong> : {refetchTick}
+                </div>
+                <div>
+                  <strong>poiLoading</strong> : {String(poiLoading)} ·{' '}
+                  <strong>poiError</strong> : {poiError || 'null'}
+                </div>
+                <div>
+                  <strong>realPoi</strong> :{' '}
+                  {realPoi
+                    ? Object.entries(realPoi)
+                        .map(([k, v]) => `${k}=${Array.isArray(v) ? v.length : '?'}`)
+                        .join(' · ')
+                    : 'null'}
+                </div>
+                <div>
+                  <strong>risquesLoading</strong> : {String(risquesLoading)} ·{' '}
+                  <strong>risques</strong> :{' '}
+                  {risques ? Object.keys(risques).join(', ') : 'null'}
+                </div>
+                <div style={{ marginTop: 6, color: '#949494', fontStyle: 'italic' }}>
+                  Ouvre la console (F12) pour voir les logs [Overpass] / [Géorisques].
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
