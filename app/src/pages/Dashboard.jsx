@@ -357,16 +357,12 @@ export default function Dashboard() {
                         <button className="tl-btn" onClick={() => navigate('/step/1')}>
                           Consulter
                         </button>
-                        {(v.statut === 'avis_valeur' || v.statut === 'compte_rendu') && (
-                          <button className="tl-btn" onClick={() => navigate('/avis-valeur')}>
-                            Avis de valeur
-                          </button>
-                        )}
-                        {v.statut === 'compte_rendu' && (
-                          <button className="tl-btn primary" onClick={() => navigate('/report')}>
-                            Compte rendu
-                          </button>
-                        )}
+                        <button className="tl-btn" onClick={() => navigate('/avis-valeur')}>
+                          Avis de valeur
+                        </button>
+                        <button className="tl-btn" onClick={() => navigate('/report')}>
+                          Compte rendu
+                        </button>
                       </>
                     )}
                   </div>
