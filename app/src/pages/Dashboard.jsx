@@ -285,7 +285,7 @@ export default function Dashboard() {
             Historique des estimations
             <span className="hist-count">{versions.length} version{versions.length > 1 ? 's' : ''}</span>
           </div>
-          <button className="btn-new-est" onClick={() => navigate('/step/1')}>
+          <button className="btn-new-est" onClick={() => navigate('/nouveau-bien')}>
             + Nouvelle estimation
           </button>
         </div>

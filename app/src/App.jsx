@@ -8,14 +8,18 @@ import Step5AvisValeur from './pages/Step5AvisValeur';
 import CompteRendu from './pages/CompteRendu';
 import AvisValeurDoc from './pages/AvisValeurDoc';
 import Dashboard from './pages/Dashboard';
+import CreationBien from './pages/CreationBien';
+import ResultatEstimation from './pages/ResultatEstimation';
 
 export default function App() {
   return (
     <HashRouter>
       <Routes>
-        <Route path="/new" element={<Navigate to="/step/1" replace />} />
+        <Route path="/new" element={<Navigate to="/nouveau-bien" replace />} />
         <Route element={<Layout />}>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/nouveau-bien" element={<CreationBien />} />
+          <Route path="/resultat" element={<ResultatEstimation />} />
           <Route path="/step/1" element={<Step1BienCible />} />
           <Route path="/step/2" element={<Step2ContexteZone />} />
           <Route path="/step/3" element={<Step3Comparables />} />
