@@ -118,3 +118,160 @@ export function getActiveBienAsProperty() {
     prix_m2_estime: r.prixM2 || 0,
   };
 }
+
+// ============================================================================
+// Mappings : convertir les valeurs internes (CreationBien) en libelles UI
+// (ceux affiches dans les <select> de bienCibleCategories).
+// ============================================================================
+
+const TYPE_TO_LABEL = {
+  appartement: 'Appartement',
+  maison: 'Maison individuelle',
+};
+
+const EXPOSITION_TO_LABEL = {
+  sud: 'Sud',
+  sud_est: 'Sud-Est',
+  sud_ouest: 'Sud-Ouest',
+  est: 'Est',
+  ouest: 'Ouest',
+  nord_est: 'Nord-Est',
+  nord_ouest: 'Nord-Ouest',
+  nord: 'Nord',
+};
+
+function etageToLabel(e) {
+  if (e == null || e === '') return null;
+  const n = parseInt(e, 10);
+  if (Number.isNaN(n)) return null;
+  if (n === 0) return 'Rez-de-chauss\u00e9e';
+  if (n === 1) return '1er \u00e9tage';
+  if (n >= 7) return '7\u00e8me \u00e9tage et +';
+  return `${n}\u00e8me \u00e9tage`;
+}
+
+function anneeToEpoque(a) {
+  if (!a) return null;
+  if (a < 1850) return 'Avant 1850';
+  if (a < 1948) return '1850-1948';
+  if (a < 1975) return '1948-1975';
+  if (a < 2000) return '1975-2000';
+  return 'Post-2000';
+}
+
+/**
+ * Helper : trouve un field par label dans une categorie et override sa value.
+ * Mute la categorie pour eviter une recopie complete couteuse.
+ */
+function setField(category, label, newValue, opts = {}) {
+  const f = category.fields.find((x) => x.label === label);
+  if (!f) return;
+  if (newValue !== undefined && newValue !== null && newValue !== '') {
+    f.value = String(newValue);
+    if (opts.clearError) delete f.error;
+  }
+}
+
+function setToggle(category, label, on) {
+  const f = category.fields.find((x) => x.label === label);
+  if (!f) return;
+  f.on = !!on;
+}
+
+/**
+ * Reconstruit bienCibleCategories en injectant les valeurs du bien actif.
+ *
+ * - base : tableau statique exporte par data/propertyData.js
+ * - active : bien actif (resultat de getActiveBien()), peut etre null
+ *
+ * Si active est null, renvoie une COPIE du base (sans modifications).
+ * Sinon, override les champs connus (adresse, type, surface, pieces, etage,
+ * orientation, ascenseur, exterieur, parking, annee, epoque).
+ *
+ * Recalcule aussi le `progress` de chaque categorie en comptant les champs remplis.
+ */
+export function buildBienCibleCategories(base, active) {
+  // Deep-clone via JSON pour ne jamais muter le module statique original.
+  const cats = JSON.parse(JSON.stringify(base));
+  if (!active || !active.bien || !active.adresse) {
+    return cats;
+  }
+
+  const b = active.bien;
+  const adr = active.adresse;
+
+  // ---- Section 1 : Identification ----
+  const sec1 = cats.find((c) => c.title === 'Identification et Statut Juridique');
+  if (sec1) {
+    setField(sec1, 'Adresse compl\u00e8te', adr.label);
+    setField(sec1, 'Type de bien', TYPE_TO_LABEL[b.type]);
+    // On vide les autres champs (lot, cadastre, servitudes) pour eviter de
+    // garder les valeurs du bien demo qui n'ont rien a voir avec l'adresse saisie.
+    ['R\u00e9f\u00e9rence cadastrale', 'Num\u00e9ro de lot', 'Quote-part (milli\u00e8mes)', 'Servitudes']
+      .forEach((lbl) => {
+        const f = sec1.fields.find((x) => x.label === lbl);
+        if (f) f.value = '';
+      });
+  }
+
+  // ---- Section 2 : Caracteristiques Generales ----
+  const sec2 = cats.find((c) => c.title === 'Caract\u00e9ristiques G\u00e9n\u00e9rales');
+  if (sec2) {
+    setField(sec2, 'Surface Carrez (m\u00b2)', b.surface);
+    setField(sec2, 'Nombre de pi\u00e8ces', b.pieces);
+    setField(sec2, 'Nombre de chambres', b.chambres);
+
+    const etgLabel = etageToLabel(b.etage);
+    if (etgLabel) {
+      const f = sec2.fields.find((x) => x.label === '\u00c9tage du bien');
+      if (f) {
+        f.value = etgLabel;
+        // On s'assure que le label saisi est bien dans les options pour le rendu.
+        if (f.options && !f.options.includes(etgLabel)) f.options.unshift(etgLabel);
+      }
+    }
+
+    const expoLabel = EXPOSITION_TO_LABEL[b.exposition];
+    if (expoLabel) setField(sec2, 'Orientation', expoLabel);
+
+    setToggle(sec2, 'Ascenseur', b.ascenseur);
+
+    // Exterieur : balcon / terrasse / jardin (m2 = on connait pas, on met juste 1
+    // pour signaler la presence ; l'utilisateur ajustera).
+    const balcon = sec2.fields.find((x) => x.label === 'Balcon (m\u00b2)');
+    const terrasse = sec2.fields.find((x) => x.label === 'Terrasse (m\u00b2)');
+    const jardin = sec2.fields.find((x) => x.label === 'Jardin privatif (m\u00b2)');
+    if (balcon) balcon.value = b.exterieur === 'balcon' ? '1' : '0';
+    if (terrasse) terrasse.value = b.exterieur === 'terrasse' ? '1' : '0';
+    if (jardin) jardin.value = b.exterieur === 'jardin' ? '1' : '0';
+
+    // Parking
+    const garage = sec2.fields.find((x) => x.label === 'Garage / Box ferm\u00e9');
+    if (garage) {
+      garage.value = b.parking === 'box' ? '1' : '0';
+      delete garage.error;
+    }
+    setToggle(sec2, 'Parking ext\u00e9rieur', b.parking === 'place');
+  }
+
+  // ---- Section 3 : Structure et Gros Oeuvre (annee + epoque) ----
+  const sec3 = cats.find((c) => c.title === 'Structure et Gros \u0152uvre');
+  if (sec3 && b.annee) {
+    setField(sec3, 'Ann\u00e9e de construction', b.annee);
+    const epoque = anneeToEpoque(b.annee);
+    if (epoque) setField(sec3, '\u00c9poque de construction', epoque);
+  }
+
+  // ---- Recalcul du progress de chaque categorie ----
+  cats.forEach((cat) => {
+    const total = cat.fields.length;
+    const filled = cat.fields.filter((f) => {
+      if (f.type === 'toggle') return true; // toggle = toujours un etat (on/off)
+      return f.value !== undefined && f.value !== null && f.value !== '';
+    }).length;
+    cat.progress = `${filled}/${total}`;
+    cat.low = filled / total < 0.4;
+  });
+
+  return cats;
+}

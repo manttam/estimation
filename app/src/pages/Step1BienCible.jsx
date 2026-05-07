@@ -5,7 +5,8 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import PropertyCard from '../components/PropertyCard';
 import Stepper from '../components/Stepper';
-import { bienCibleCategories } from '../data/propertyData';
+import { bienCibleCategories as bienCibleCategoriesBase } from '../data/propertyData';
+import { getActiveBien, buildBienCibleCategories } from '../utils/activeBien';
 import CadastrePLUCards from '../components/CadastrePLUCards';
 
 // Fix default Leaflet marker icon issue in React
@@ -860,6 +861,46 @@ function parseProgress(progress) {
 }
 
 export default function Step1BienCible() {
+  // Bien actif (saisi via /nouveau-bien). Si null, on retombe sur les valeurs
+  // demo (12 rue des Lilas, Lyon 3eme).
+  const [activeBien] = useState(() => getActiveBien());
+
+  // Categories pre-remplies dynamiquement a partir du bien actif. Si aucun
+  // bien actif, retombe sur le bien demo statique.
+  const [bienCibleCategories] = useState(() => {
+    return buildBienCibleCategories(bienCibleCategoriesBase, activeBien);
+  });
+
+  // Mini-carte + adresse + CadastrePLU : derivees du bien actif (ou demo).
+  const DEMO_COORDS = [45.758, 4.859];
+  const DEMO_ADDRESS_LINE1 = '12 rue des Lilas';
+  const DEMO_ADDRESS_LINE2 = '69003 Lyon';
+
+  const mapCenter = activeBien?.adresse?.coords || DEMO_COORDS;
+  const cadastreLat = mapCenter[0];
+  const cadastreLon = mapCenter[1];
+
+  // Adresse en deux lignes : "{numero rue}" / "{cp ville}". On essaie d'extraire
+  // a partir du label BAN ; sinon on retombe sur postcode + city ou demo.
+  let addressLine1 = DEMO_ADDRESS_LINE1;
+  let addressLine2 = DEMO_ADDRESS_LINE2;
+  let cadastreAddress = `${DEMO_ADDRESS_LINE1}, ${DEMO_ADDRESS_LINE2}`;
+  if (activeBien?.adresse?.label) {
+    const label = activeBien.adresse.label;
+    const postcode = activeBien.adresse.postcode || '';
+    const city = activeBien.adresse.city || '';
+    const tail = `${postcode} ${city}`.trim();
+    // Le label BAN est souvent du type "12 rue des Lilas 69003 Lyon".
+    // On retire la fin (cp + ville) pour garder la rue seule.
+    if (tail && label.endsWith(tail)) {
+      addressLine1 = label.slice(0, label.length - tail.length).trim();
+    } else {
+      addressLine1 = label;
+    }
+    addressLine2 = tail || addressLine2;
+    cadastreAddress = label;
+  }
+
   // Find the index with defaultOpen, fallback to index 1
   const defaultOpenIdx = bienCibleCategories.findIndex((c) => c.defaultOpen);
   const initialOpen = defaultOpenIdx >= 0 ? defaultOpenIdx : 1;
@@ -1164,7 +1205,8 @@ export default function Step1BienCible() {
             {/* Map */}
             <div className="map-section">
               <MapContainer
-                center={[45.758, 4.859]}
+                key={`${mapCenter[0]}-${mapCenter[1]}`}
+                center={mapCenter}
                 zoom={16}
                 zoomControl={false}
                 scrollWheelZoom={false}
@@ -1174,19 +1216,19 @@ export default function Step1BienCible() {
                   attribution="&copy; OpenStreetMap"
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
-                <Marker position={[45.758, 4.859]}>
+                <Marker position={mapCenter}>
                   <Popup>
-                    <strong>12 rue des Lilas</strong><br />69003 Lyon
+                    <strong>{addressLine1}</strong><br />{addressLine2}
                   </Popup>
                 </Marker>
               </MapContainer>
               <div className="map-address">
-                <strong>12 rue des Lilas</strong><br />69003 Lyon
+                <strong>{addressLine1}</strong><br />{addressLine2}
               </div>
             </div>
 
             {/* Cadastre + Plan de zone (data.gouv / IGN) */}
-            <CadastrePLUCards lat={45.758} lon={4.859} address="12 rue des Lilas, 69003 Lyon" />
+            <CadastrePLUCards lat={cadastreLat} lon={cadastreLon} address={cadastreAddress} />
 
             {/* Critical Fields */}
             <div className="critical-section">
