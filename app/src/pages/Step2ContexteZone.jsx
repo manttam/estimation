@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PropertyCard from '../components/PropertyCard';
 import Stepper from '../components/Stepper';
 import { contexteZone } from '../data/propertyData';
+import { getActiveBien } from '../utils/activeBien';
 
 const COLOR_MAP = {
   green: '#46B962',
@@ -181,6 +182,25 @@ const cssStyles = `
     box-shadow: 0 1px 4px rgba(0,0,0,0.2);
     cursor: pointer;
   }
+  .plu-link {
+    font-size: 11px;
+    color: #4a6cf7;
+    text-decoration: none;
+    font-weight: 500;
+    padding: 3px 6px;
+    border-radius: 4px;
+    transition: background 0.15s;
+  }
+  .plu-link:hover {
+    background: #eef1ff;
+    text-decoration: underline;
+  }
+  .poi-status {
+    font-size: 10px;
+    color: #949494;
+    margin-left: auto;
+    font-style: italic;
+  }
 
   /* MARKET CARD */
   .market-card {
@@ -197,6 +217,26 @@ const cssStyles = `
     font-weight: 600;
     margin-bottom: 6px;
     color: #393939;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .market-source {
+    font-size: 8px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    padding: 2px 5px;
+    border-radius: 3px;
+  }
+  .market-source.DVF {
+    background: #e8f5ec;
+    color: #2d7a44;
+  }
+  .market-source.demo {
+    background: #fff5e6;
+    color: #b07a1e;
   }
   .market-price {
     text-align: center;
@@ -389,7 +429,94 @@ const cssStyles = `
   }
 `;
 
-const TARGET_COORDS = [45.7580, 4.8590];
+/* ─── Coordonnées de fallback (mode démo / pas d'activeBien) ─── */
+const DEMO_TARGET_COORDS = [45.7580, 4.8590];
+const DEMO_TARGET_LABEL = '12 rue des Lilas';
+const DEMO_TARGET_CITY_LINE = '69003 Lyon';
+
+/* ─── Cadastre IGN — Géoplateforme (WMTS public) ─── */
+const CADASTRE_TILE_URL =
+  'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0' +
+  '&LAYER=CADASTRALPARCELS.PARCELS&TILEMATRIX={z}&TILEMATRIXSET=PM' +
+  '&TILECOL={x}&TILEROW={y}&FORMAT=image/png&STYLE=normal';
+
+/* ─── Overpass API — POI réels OSM ─── */
+const OVERPASS_ENDPOINT = 'https://overpass-api.de/api/interpreter';
+const OVERPASS_QUERIES = {
+  transports: (lat, lon, r) => `(
+    node["railway"="station"](around:${r},${lat},${lon});
+    node["public_transport"="station"](around:${r},${lat},${lon});
+    node["highway"="bus_stop"](around:${r},${lat},${lon});
+    node["amenity"="bicycle_rental"](around:${r},${lat},${lon});
+  );out body 12;`,
+  commerces: (lat, lon, r) => `(
+    node["shop"~"supermarket|convenience|bakery|butcher|greengrocer"](around:${r},${lat},${lon});
+    node["amenity"~"pharmacy|post_office|bank|cafe|restaurant"](around:${r},${lat},${lon});
+  );out body 12;`,
+  education: (lat, lon, r) => `(
+    node["amenity"~"kindergarten|school|college|university"](around:${r},${lat},${lon});
+    way["amenity"~"kindergarten|school|college|university"](around:${r},${lat},${lon});
+  );out center 10;`,
+  sante: (lat, lon, r) => `(
+    node["amenity"~"hospital|clinic|doctors|dentist"](around:${r},${lat},${lon});
+    way["amenity"~"hospital|clinic"](around:${r},${lat},${lon});
+  );out center 10;`,
+};
+
+/* Distance approx (m) entre deux paires lat/lon - haversine */
+function distMeters(a, b) {
+  const R = 6371000;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(b[0] - a[0]);
+  const dLon = toRad(b[1] - a[1]);
+  const lat1 = toRad(a[0]);
+  const lat2 = toRad(b[0]);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  return Math.round(2 * R * Math.asin(Math.sqrt(h)));
+}
+
+/* Détail formaté pour la popup OSM ("Métro — 350 m") */
+function buildPoiDetail(tags, distance) {
+  const parts = [];
+  if (tags.railway === 'station') parts.push('Gare');
+  else if (tags.public_transport === 'station') parts.push('Station');
+  else if (tags.highway === 'bus_stop') parts.push('Arrêt bus');
+  else if (tags.amenity === 'bicycle_rental') parts.push('Vélos');
+  else if (tags.shop) parts.push(tags.shop.replace(/_/g, ' '));
+  else if (tags.amenity) parts.push(tags.amenity.replace(/_/g, ' '));
+  parts.push(distance < 1000 ? `${distance} m` : `${(distance / 1000).toFixed(1)} km`);
+  return parts.join(' — ');
+}
+
+/* Fetch Overpass pour une catégorie (gère erreurs / timeout) */
+async function fetchOverpassCategory(cat, coords, radius, signal) {
+  const [lat, lon] = coords;
+  const body = `[out:json][timeout:10];${OVERPASS_QUERIES[cat](lat, lon, radius)}`;
+  const res = await fetch(OVERPASS_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `data=${encodeURIComponent(body)}`,
+    signal,
+  });
+  if (!res.ok) throw new Error(`Overpass ${cat} ${res.status}`);
+  const json = await res.json();
+  if (!json || !Array.isArray(json.elements)) return [];
+  return json.elements
+    .map((el) => {
+      const c = el.type === 'node'
+        ? [el.lat, el.lon]
+        : el.center ? [el.center.lat, el.center.lon] : null;
+      if (!c) return null;
+      const tags = el.tags || {};
+      const name = tags.name || tags['name:fr'] || tags.brand;
+      if (!name) return null;
+      const d = distMeters(coords, c);
+      return { name, coords: c, detail: buildPoiDetail(tags, d), distance: d };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.distance - b.distance)
+    .slice(0, 8);
+}
 
 /* ─── POI simulés autour du bien cible ─── */
 const POI_DATA = {
@@ -435,16 +562,63 @@ export default function Step2ContexteZone() {
   const [openSections, setOpenSections] = useState({});
   const [radiusMeters, setRadiusMeters] = useState(1000);
   const [activeLayers, setActiveLayers] = useState({ transports: true, commerces: true, education: false, sante: false });
+  const [cadastreOn, setCadastreOn] = useState(false);
+  const [realPoi, setRealPoi] = useState(null);     // { transports: [...], commerces: [...], ... } | null
+  const [poiLoading, setPoiLoading] = useState(false);
+  const [poiError, setPoiError] = useState(null);
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const circleRef = useRef(null);
-  const poiLayersRef = useRef({});
+  const poiLayersRef = useRef({});                   // catégorie -> L.layerGroup
+  const cadastreLayerRef = useRef(null);             // L.tileLayer cadastre
+  const targetMarkerRef = useRef(null);              // marker bien-cible
 
   const toggleSection = (idx) => {
     setOpenSections((prev) => ({ ...prev, [idx]: !prev[idx] }));
   };
 
-  const { market, sections } = contexteZone;
+  /* ─── Bien actif : coords / adresse / dvfStats ─────────────────────── */
+  const activeBien = useMemo(() => getActiveBien(), []);
+  const targetCoords = useMemo(() => {
+    if (activeBien?.adresse?.coords && Array.isArray(activeBien.adresse.coords)) {
+      return activeBien.adresse.coords;
+    }
+    return DEMO_TARGET_COORDS;
+  }, [activeBien]);
+  const targetLabel = activeBien?.adresse?.label || DEMO_TARGET_LABEL;
+  const targetCityLine = activeBien?.adresse
+    ? `${activeBien.adresse.postcode || ''} ${activeBien.adresse.city || ''}`.trim()
+    : DEMO_TARGET_CITY_LINE;
+  const dvfStats = activeBien?.dvfStats || null;
+
+  /* Market Card : DVF réel si disponible, sinon fallback contexteZone.market */
+  const marketDisplay = useMemo(() => {
+    if (dvfStats && dvfStats.median) {
+      const fmt = (n) => Number(n).toLocaleString('fr-FR');
+      return {
+        prixM2: fmt(dvfStats.median),
+        evolution: contexteZone.market.evolution,         // pas dans dvfStats actuel
+        transactions: dvfStats.count || '—',
+        delai: contexteZone.market.delai,                  // idem
+        fourchette: dvfStats.p25 && dvfStats.p75
+          ? `${fmt(dvfStats.p25)} – ${fmt(dvfStats.p75)}`
+          : contexteZone.market.fourchette,
+        source: 'DVF',
+      };
+    }
+    return { ...contexteZone.market, source: 'demo' };
+  }, [dvfStats]);
+
+  const marketTitle = activeBien?.adresse?.city
+    ? `Marché Local — ${activeBien.adresse.city}${activeBien.adresse.postcode ? ' (' + activeBien.adresse.postcode + ')' : ''}`
+    : 'Marché Local — IRIS 693830107';
+
+  /* Lien GPU (Géoportail Urbanisme) : pré-rempli sur la commune (citycode INSEE) */
+  const pluUrl = activeBien?.adresse?.citycode
+    ? `https://www.geoportail-urbanisme.gouv.fr/map/#tile=1&lon=${targetCoords[1]}&lat=${targetCoords[0]}&zoom=17`
+    : 'https://www.geoportail-urbanisme.gouv.fr/';
+
+  const { sections } = contexteZone;
 
   // Radius presets → meters
   const RADIUS_PRESETS = [
@@ -461,7 +635,7 @@ export default function Step2ContexteZone() {
     const map = mapInstanceRef.current;
     if (map) {
       const zoom = meters <= 500 ? 16 : meters <= 1000 ? 15 : 14;
-      map.setView(TARGET_COORDS, zoom, { animate: true });
+      map.setView(targetCoords, zoom, { animate: true });
     }
   };
 
@@ -487,11 +661,18 @@ export default function Step2ContexteZone() {
     const L = window.L;
     if (!L || !mapRef.current) return;
 
-    const map = L.map(mapRef.current, { zoomControl: false }).setView(TARGET_COORDS, 15);
+    const map = L.map(mapRef.current, { zoomControl: false }).setView(targetCoords, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap',
     }).addTo(map);
     L.control.zoom({ position: 'topright' }).addTo(map);
+
+    /* Cadastre IGN : layer gardé en ref, ajouté/retiré via toggle */
+    cadastreLayerRef.current = L.tileLayer(CADASTRE_TILE_URL, {
+      attribution: '&copy; IGN — Géoplateforme',
+      opacity: 0.7,
+      maxZoom: 20,
+    });
 
     // Target marker
     const targetIcon = L.divIcon({
@@ -505,11 +686,17 @@ export default function Step2ContexteZone() {
       iconSize: [36, 36],
       iconAnchor: [18, 18],
     });
-    L.marker(TARGET_COORDS, { icon: targetIcon, zIndexOffset: 1000 }).addTo(map)
-      .bindPopup('<strong>12 rue des Lilas</strong><br>69003 Lyon');
+    const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const popupHtml = `<strong>${escapeHtml(targetLabel)}</strong>${
+      targetCityLine ? '<br>' + escapeHtml(targetCityLine) : ''
+    }`;
+    targetMarkerRef.current = L.marker(targetCoords, { icon: targetIcon, zIndexOffset: 1000 })
+      .addTo(map)
+      .bindPopup(popupHtml);
 
     // Radius circle
-    const circle = L.circle(TARGET_COORDS, {
+    const circle = L.circle(targetCoords, {
       radius: 1000,
       color: '#46B962',
       fillColor: '#46B962',
@@ -520,27 +707,9 @@ export default function Step2ContexteZone() {
     }).addTo(map);
     circleRef.current = circle;
 
-    // POI layers per category
-    Object.entries(POI_DATA).forEach(([cat, pois]) => {
-      const style = POI_STYLES[cat];
-      const layerGroup = L.layerGroup();
-
-      pois.forEach((poi) => {
-        const icon = L.divIcon({
-          className: 'poi-icon',
-          html: `<div style="width:26px;height:26px;background:${style.color};border:2.5px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;font-size:12px;line-height:1">${style.icon}</div>`,
-          iconSize: [26, 26],
-          iconAnchor: [13, 13],
-        });
-        L.marker(poi.coords, { icon }).addTo(layerGroup)
-          .bindPopup(`<div style="font-family:'Open Sans',sans-serif;font-size:12px"><strong style="color:${style.color}">${poi.name}</strong><br><span style="color:#666">${poi.detail}</span></div>`);
-      });
-
-      poiLayersRef.current[cat] = layerGroup;
-      // Add initially active layers
-      if (cat === 'transports' || cat === 'commerces') {
-        layerGroup.addTo(map);
-      }
+    // POI : on initialise les layerGroups vides (remplis ensuite par useEffect Overpass)
+    Object.keys(POI_STYLES).forEach((cat) => {
+      poiLayersRef.current[cat] = L.layerGroup();
     });
 
     mapInstanceRef.current = map;
@@ -548,8 +717,90 @@ export default function Step2ContexteZone() {
     return () => {
       map.remove();
       mapInstanceRef.current = null;
+      cadastreLayerRef.current = null;
+      targetMarkerRef.current = null;
+      poiLayersRef.current = {};
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /* ─── Toggle cadastre IGN ───────────────────────────────────────────── */
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const layer = cadastreLayerRef.current;
+    if (!map || !layer) return;
+    if (cadastreOn && !map.hasLayer(layer)) layer.addTo(map);
+    else if (!cadastreOn && map.hasLayer(layer)) map.removeLayer(layer);
+  }, [cadastreOn]);
+
+  /* ─── Fetch POI réels via Overpass quand coords / rayon changent ────── */
+  useEffect(() => {
+    if (!targetCoords) return;
+    const ctrl = new AbortController();
+    const debounce = setTimeout(async () => {
+      setPoiLoading(true);
+      setPoiError(null);
+      try {
+        const cats = Object.keys(OVERPASS_QUERIES);
+        const results = await Promise.all(
+          cats.map((cat) => fetchOverpassCategory(cat, targetCoords, radiusMeters, ctrl.signal)
+            .catch((err) => {
+              if (err.name === 'AbortError') throw err;
+              console.warn('[Overpass]', cat, err.message);
+              return null;
+            }))
+        );
+        if (ctrl.signal.aborted) return;
+        const next = {};
+        cats.forEach((cat, i) => {
+          if (Array.isArray(results[i]) && results[i].length > 0) next[cat] = results[i];
+        });
+        setRealPoi(Object.keys(next).length > 0 ? next : null);
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.error('[Overpass] global error', err);
+          setPoiError('POI réels indisponibles — affichage des données démo.');
+        }
+      } finally {
+        setPoiLoading(false);
+      }
+    }, 600);
+    return () => {
+      ctrl.abort();
+      clearTimeout(debounce);
+    };
+  }, [targetCoords, radiusMeters]);
+
+  /* ─── Repeupler les layerGroups POI quand realPoi change ────────────── */
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    const L = window.L;
+    if (!L) return;
+
+    const sourceData = realPoi || POI_DATA;
+
+    Object.entries(POI_STYLES).forEach(([cat, style]) => {
+      const group = poiLayersRef.current[cat];
+      if (!group) return;
+      group.clearLayers();
+
+      const items = sourceData[cat] || [];
+      items.forEach((poi) => {
+        const icon = L.divIcon({
+          className: 'poi-icon',
+          html: `<div style="width:26px;height:26px;background:${style.color};border:2.5px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;font-size:12px;line-height:1">${style.icon}</div>`,
+          iconSize: [26, 26],
+          iconAnchor: [13, 13],
+        });
+        L.marker(poi.coords, { icon }).addTo(group)
+          .bindPopup(`<div style="font-family:'Open Sans',sans-serif;font-size:12px"><strong style="color:${style.color}">${poi.name}</strong><br><span style="color:#666">${poi.detail}</span></div>`);
+      });
+
+      // (Re)attache le groupe à la carte si la catégorie est active
+      if (activeLayers[cat] && !map.hasLayer(group)) group.addTo(map);
+    });
+  }, [realPoi, activeLayers]);
 
   return (
     <div className="step2-page">
@@ -626,30 +877,64 @@ export default function Step2ContexteZone() {
                 <span style={{ fontSize: 10, color: '#949494' }}>m</span>
               </div>
             </div>
+            {/* Ligne 3 : cadastre + PLU + statut POI */}
+            <div className="map-controls-row">
+              <label style={{ color: cadastreOn ? '#393939' : '#949494' }}>
+                <input
+                  type="checkbox"
+                  checked={cadastreOn}
+                  onChange={(e) => setCadastreOn(e.target.checked)}
+                />
+                Cadastre IGN
+              </label>
+              <a
+                href={pluUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="plu-link"
+                title="Ouvrir le PLU de la commune sur le Géoportail Urbanisme"
+              >
+                PLU / GPU &nearr;
+              </a>
+              <span className="poi-status">
+                {poiLoading
+                  ? 'POI : chargement…'
+                  : poiError
+                  ? poiError
+                  : realPoi
+                  ? `POI : OSM (${Object.values(realPoi).reduce((s, a) => s + a.length, 0)})`
+                  : 'POI : démo'}
+              </span>
+            </div>
           </div>
         </div>
 
         <div className="market-card">
-          <div className="market-title">March&eacute; Local &mdash; IRIS 693830107</div>
+          <div className="market-title">
+            {marketTitle}
+            <span className={`market-source ${marketDisplay.source}`}>
+              {marketDisplay.source === 'DVF' ? 'DVF' : 'démo'}
+            </span>
+          </div>
           <div className="market-price">
-            <span className="big">{market.prixM2} &euro;</span>
+            <span className="big">{marketDisplay.prixM2} &euro;</span>
             <span className="unit">/m&sup2;</span>
           </div>
           <div className="market-stats">
             <div className="market-stat">
-              <div className="val up">{market.evolution}</div>
+              <div className="val up">{marketDisplay.evolution}</div>
               <div className="lbl">&Eacute;volution 12 mois</div>
             </div>
             <div className="market-stat">
-              <div className="val">{market.transactions}</div>
-              <div className="lbl">Transactions/an</div>
+              <div className="val">{marketDisplay.transactions}</div>
+              <div className="lbl">Transactions{marketDisplay.source === 'DVF' ? ' (24 mois)' : '/an'}</div>
             </div>
             <div className="market-stat">
-              <div className="val">{market.delai}</div>
+              <div className="val">{marketDisplay.delai}</div>
               <div className="lbl">D&eacute;lai moyen vente</div>
             </div>
             <div className="market-stat">
-              <div className="val">{market.fourchette} &euro;</div>
+              <div className="val">{marketDisplay.fourchette} &euro;</div>
               <div className="lbl">Fourchette P25&ndash;P75/m&sup2;</div>
             </div>
           </div>
