@@ -1,12 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import PropertyCard from '../components/PropertyCard';
 import Stepper from '../components/Stepper';
+import PhotoUploader from '../components/PhotoUploader';
 import { bienCibleCategories as bienCibleCategoriesBase } from '../data/propertyData';
 import { getActiveBien, buildBienCibleCategories } from '../utils/activeBien';
+import { getAllPhotos } from '../utils/photosStore';
 import CadastrePLUCards from '../components/CadastrePLUCards';
 
 // Fix default Leaflet marker icon issue in React
@@ -922,9 +924,77 @@ export default function Step1BienCible() {
   // demo (12 rue des Lilas, Lyon 3eme).
   const [activeBien] = useState(() => getActiveBien());
 
-  // Catalogue effectif : si bien actif + photos deposees dans
-  // app/src/photos-bien-actif/, on bascule dessus. Sinon demo Unsplash.
-  const photoCatalog = activeBien && CUSTOM_PHOTOS.length > 0 ? CUSTOM_PHOTOS : PROPERTY_PHOTOS;
+  // Photos uploadees via PhotoUploader (IndexedDB). Recuperees au mount + apres
+  // chaque ajout/suppression via le callback onChange du composant.
+  // Forme : [{ id, src (objectURL), type, label, order, filename }]
+  const [uploadedPhotos, setUploadedPhotos] = useState([]);
+  // Pour eviter les fuites memoire, on cree les objectURLs ici (un par photo)
+  // et on les revoke quand la liste est remplacee ou au demontage.
+  const uploadedUrlsRef = useRef(new Map());
+
+  const buildUploadedFromRaw = (raw) => {
+    const next = (raw || []).map((p) => {
+      let url = uploadedUrlsRef.current.get(p.id);
+      if (!url) {
+        url = URL.createObjectURL(p.blob);
+        uploadedUrlsRef.current.set(p.id, url);
+      }
+      return {
+        id: `up-${p.id}`,
+        rawId: p.id,
+        type: p.type,
+        label: p.label,
+        order: p.order || 0,
+        url,
+      };
+    });
+    // revoke les URLs orphelines
+    const liveIds = new Set((raw || []).map((p) => p.id));
+    for (const [id, url] of uploadedUrlsRef.current.entries()) {
+      if (!liveIds.has(id)) {
+        try { URL.revokeObjectURL(url); } catch { /* ignore */ }
+        uploadedUrlsRef.current.delete(id);
+      }
+    }
+    // tri par type (selon PHOTO_TYPE_VALUES) puis order
+    next.sort((a, b) => {
+      const ta = PHOTO_TYPE_VALUES.indexOf(a.type);
+      const tb = PHOTO_TYPE_VALUES.indexOf(b.type);
+      if (ta !== tb) return ta - tb;
+      return a.order - b.order;
+    });
+    return next;
+  };
+
+  useEffect(() => {
+    let alive = true;
+    getAllPhotos()
+      .then((raw) => { if (alive) setUploadedPhotos(buildUploadedFromRaw(raw)); })
+      .catch((err) => console.error('[Step1] getAllPhotos', err));
+    // Capture la ref dans une variable locale pour le cleanup (evite warning
+    // react-hooks/exhaustive-deps sur un ref.current "stale").
+    const urlsCache = uploadedUrlsRef.current;
+    return () => {
+      alive = false;
+      for (const url of urlsCache.values()) {
+        try { URL.revokeObjectURL(url); } catch { /* ignore */ }
+      }
+      urlsCache.clear();
+    };
+  }, []);
+
+  // Catalogue effectif : priorite aux photos uploadees > photos dossier
+  // (app/src/photos-bien-actif/) > demo Unsplash.
+  // On ne bascule sur les sources "bien actif" que s'il y a un bien actif
+  // (sinon mode preview / demo).
+  let photoCatalog;
+  if (activeBien && uploadedPhotos.length > 0) {
+    photoCatalog = uploadedPhotos;
+  } else if (activeBien && CUSTOM_PHOTOS.length > 0) {
+    photoCatalog = CUSTOM_PHOTOS;
+  } else {
+    photoCatalog = PROPERTY_PHOTOS;
+  }
 
   // Categories pre-remplies dynamiquement a partir du bien actif. Si aucun
   // bien actif, retombe sur le bien demo statique.
@@ -1189,6 +1259,13 @@ export default function Step1BienCible() {
                 </div>
               ) : (
                 <div className="photos-empty">Aucune photo dans cette cat\u00e9gorie</div>
+              )}
+
+              {/* Uploader : disponible des qu'il y a un bien actif. */}
+              {activeBien && (
+                <PhotoUploader
+                  onChange={(raw) => setUploadedPhotos(buildUploadedFromRaw(raw))}
+                />
               )}
             </div>
 
