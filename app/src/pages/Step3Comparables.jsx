@@ -2275,6 +2275,7 @@ export default function Step3Comparables() {
   const targetCityLine = activeBien?.adresse
     ? `${activeBien.adresse.postcode || ''} ${activeBien.adresse.city || ''}`.trim()
     : '69003 Lyon 3ème';
+  const targetCityShort = activeBien?.adresse?.city || 'Lyon 3ème';
   const hasRealLocation = !!activeBien?.adresse?.citycode;
 
   /* targetFields = Set des clés (parmi COMPARABLE_FIELDS) renseignées sur le
@@ -2954,7 +2955,7 @@ export default function Step3Comparables() {
         {/* Radius Slider */}
         <div className="radius-row">
           <div className="radius-label">Rayon</div>
-          <span className="commune-badge">Lyon 3&egrave;me</span>
+          <span className="commune-badge">{targetCityShort}</span>
           <div className="radius-slider-wrap">
             <input
               type="range"

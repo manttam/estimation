@@ -59,6 +59,58 @@ export function clearActiveBien() {
 }
 
 /**
+ * Calcule la completude reelle du bien actif a partir des champs saisis
+ * sur /nouveau-bien (Step 1).
+ *
+ * Champs critiques pris en compte (12 au total) :
+ *  - adresse.label
+ *  - bien.type, surface, pieces, chambres, etage, ascenseur,
+ *    annee, etat, exposition, parking, exterieur
+ *
+ * Un champ est compte comme rempli si sa valeur n'est ni undefined, ni null,
+ * ni chaine vide. Les booleens (ascenseur) et les zeros valides (etage 0 = RDC)
+ * comptent comme remplis. Les valeurs par defaut "aucun" (parking, exterieur)
+ * comptent comme remplies car l'utilisateur les a explicitement choisies.
+ *
+ * @param {object} active - resultat de getActiveBien()
+ * @returns {{ pct: number, critiques: string, importants: string }}
+ */
+export function computeCompletude(active) {
+  if (!active || !active.bien) {
+    return { pct: 0, critiques: '0/12', importants: '0/0' };
+  }
+  const adr = active.adresse || {};
+  const b = active.bien;
+
+  const isFilled = (v) => v !== undefined && v !== null && v !== '';
+
+  const checks = [
+    isFilled(adr.label),
+    isFilled(b.type),
+    isFilled(b.surface),
+    isFilled(b.pieces),
+    isFilled(b.chambres),
+    isFilled(b.etage),
+    typeof b.ascenseur === 'boolean',
+    isFilled(b.annee),
+    isFilled(b.etat),
+    isFilled(b.exposition),
+    isFilled(b.parking),
+    isFilled(b.exterieur),
+  ];
+
+  const total = checks.length;
+  const filled = checks.filter(Boolean).length;
+  const pct = total > 0 ? Math.round((filled / total) * 100) : 0;
+
+  return {
+    pct,
+    critiques: `${filled}/${total}`,
+    importants: '0/0',
+  };
+}
+
+/**
  * Helper : derive un objet "property" compatible avec PropertyCard
  * a partir du bien actif. Renvoie null si aucun bien actif.
  *
@@ -105,7 +157,7 @@ export function getActiveBienAsProperty() {
     source: 'Ideeri',
     tags,
     disponibilite: '',
-    completude: { pct: 100, critiques: '19/19', importants: '50/50' },
+    completude: computeCompletude(a),
     adresse: adr.label || '',
     lat: adr.coords ? adr.coords[0] : null,
     lng: adr.coords ? adr.coords[1] : null,
