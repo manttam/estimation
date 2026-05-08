@@ -5,7 +5,6 @@ import Stepper from '../components/Stepper';
 import { contexteZone } from '../data/propertyData';
 import { getActiveBien } from '../utils/activeBien';
 import { getRisquesSynthese } from '../utils/georisquesClient';
-import { statsDvf } from '../utils/dvfClient';
 
 const COLOR_MAP = {
   green: '#46B962',
@@ -503,91 +502,6 @@ function buildPoiDetail(tags, distance) {
   else if (tags.amenity) parts.push(tags.amenity.replace(/_/g, ' '));
   parts.push(distance < 1000 ? `${distance} m` : `${(distance / 1000).toFixed(1)} km`);
   return parts.join(' — ');
-}
-
-/* ─── Fallback DVF — dataset statique Etalab geo-dvf ─────────────────── */
-/* https://files.data.gouv.fr/geo-dvf/latest/csv/{YEAR}/communes/{DEP}/{INSEE}.csv */
-
-function depFromCitycode(citycode) {
-  if (!citycode) return null;
-  const c = String(citycode);
-  if (c.startsWith('2A')) return '2A';
-  if (c.startsWith('2B')) return '2B';
-  if (/^97[1-6]/.test(c)) return c.slice(0, 3);  // DOM
-  return c.slice(0, 2);
-}
-
-/* Parser CSV simple gérant les valeurs entre guillemets */
-function parseCsvLine(line) {
-  const out = [];
-  let cur = '';
-  let inQ = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (ch === '"') inQ = !inQ;
-    else if (ch === ',' && !inQ) { out.push(cur); cur = ''; }
-    else cur += ch;
-  }
-  out.push(cur);
-  return out;
-}
-
-/* Fetch DVF statique Etalab — cascade des années récentes */
-async function fetchDvfFromEtalabStatic(citycode) {
-  const dep = depFromCitycode(citycode);
-  if (!dep) return [];
-  const years = [2025, 2024, 2023];
-  const all = [];
-  for (const year of years) {
-    const url = `https://files.data.gouv.fr/geo-dvf/latest/csv/${year}/communes/${dep}/${citycode}.csv`;
-    try {
-      const res = await fetch(url);
-      if (!res.ok) {
-        console.log('[DVF Etalab]', year, citycode, 'HTTP', res.status);
-        continue;
-      }
-      const text = await res.text();
-      const lines = text.split('\n').filter((l) => l.trim());
-      if (lines.length < 2) continue;
-      const headers = parseCsvLine(lines[0]);
-      const idx = (name) => headers.indexOf(name);
-      const iVal = idx('valeur_fonciere');
-      const iSurf = idx('surface_reelle_bati');
-      const iType = idx('type_local');
-      const iDate = idx('date_mutation');
-      const iLat = idx('latitude');
-      const iLon = idx('longitude');
-      const iAdr = idx('adresse_nom_voie');
-      const iNum = idx('adresse_numero');
-      const iCp = idx('code_postal');
-      const iCom = idx('nom_commune');
-      const iPiec = idx('nombre_pieces_principales');
-      for (let li = 1; li < lines.length; li++) {
-        const cells = parseCsvLine(lines[li]);
-        const surface = parseFloat(cells[iSurf] || 0);
-        const prix = parseFloat(cells[iVal] || 0);
-        const prixM2 = surface > 0 ? Math.round(prix / surface) : null;
-        if (!prixM2 || prixM2 < 500 || prixM2 > 30000 || surface < 9) continue;
-        all.push({
-          date: cells[iDate],
-          prix,
-          surface,
-          pieces: cells[iPiec] ? parseInt(cells[iPiec], 10) : null,
-          type: (cells[iType] || '').toLowerCase(),
-          adresse: [cells[iNum], cells[iAdr]].filter(Boolean).join(' '),
-          commune: cells[iCom] || '',
-          cp: cells[iCp] || '',
-          lat: cells[iLat] ? parseFloat(cells[iLat]) : null,
-          lon: cells[iLon] ? parseFloat(cells[iLon]) : null,
-          prixM2,
-        });
-      }
-      console.log('[DVF Etalab]', year, citycode, '→', all.length, 'cumul');
-    } catch (err) {
-      console.warn('[DVF Etalab]', year, citycode, err.message);
-    }
-  }
-  return all;
 }
 
 /* Fetch Overpass pour une catégorie — essaie les mirrors en cascade */
@@ -1131,16 +1045,30 @@ export default function Step2ContexteZone() {
 
     (async () => {
       try {
-        // Source unique : Etalab statique (geo-dvf).
-        // cquest.org/dvf est down chronique (504 fréquent) → on évite.
-        const transactions = await fetchDvfFromEtalabStatic(citycode);
-        console.log('[DVF Step2] etalab →', transactions.length, 'transactions');
+        // Proxy serverless Vercel : /api/dvf?citycode=XXXXX[&type=...]
+        // Source côté serveur : Etalab geo-dvf statique. Bypass CORS,
+        // cache CDN 24h, stats déjà calculées.
+        const type = activeBien?.type || '';
+        const url = `/api/dvf?citycode=${encodeURIComponent(citycode)}${type ? `&type=${encodeURIComponent(type)}` : ''}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        console.log('[DVF Step2] /api/dvf →', data);
         if (cancelled) return;
-        const type = activeBien?.type;
-        const statsByType = statsDvf(transactions, type);
-        const statsAll = statsDvf(transactions);
-        console.log('[DVF Step2] stats type=', type, '→', statsByType, '· all →', statsAll);
-        setDvfStatsLive(statsByType || statsAll);
+        if (data && data.ok && data.median) {
+          // Format compatible avec dvfStats (Step1) : { median, moyenne, min, max, p25, p75, count }
+          setDvfStatsLive({
+            median: data.median,
+            moyenne: data.moyenne,
+            min: data.min,
+            max: data.max,
+            p25: data.p25,
+            p75: data.p75,
+            count: data.countByType ?? data.count,
+          });
+        } else {
+          console.warn('[DVF Step2] api/dvf sans résultat exploitable', data);
+          setDvfStatsLive(null);
+        }
       } catch (err) {
         if (!cancelled) console.warn('[DVF Step2] fetch error', err);
       } finally {
