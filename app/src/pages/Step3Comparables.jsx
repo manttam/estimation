@@ -2052,11 +2052,13 @@ const INITIAL_OTHERS = [
   },
 ];
 
-/* Sous-ensemble des mocks INITIAL_OTHERS qui simulent des annonces portails
- * (SeLoger / Leboncoin / Bien'ici). On les conserve même en mode live tant que
- * le scraping live de ces sources n'est pas opérationnel (Datadome bloque
- * actuellement le proxy /api/leboncoin), pour ne pas avoir de zone vide. */
-const INITIAL_PORTAIL_MOCKS = INITIAL_OTHERS.filter((c) => c.source === 'portail');
+/* Sous-ensemble des mocks INITIAL_OTHERS qui ne sont pas issus de DVF
+ * (mandats Ideeri, transactions en cours, annonces portails SeLoger/Leboncoin/
+ * Bien'ici). En mode live on les conserve tant que les sources live correspon-
+ * dantes ne sont pas opérationnelles (Datadome bloque actuellement
+ * /api/leboncoin, pas de flux live mandats Ideeri ni en cours), pour ne pas
+ * avoir de zone vide à côté des résultats DVF réels. */
+const INITIAL_NON_DVF_MOCKS = INITIAL_OTHERS.filter((c) => c.source !== 'dvf');
 
 function SelectedCompCard({ comp, onRemove, onOpenDrawer, weight, onWeightChange }) {
   const pertinence = Math.round((comp.similarite || 0) * 0.6 + (comp.donnees || 0) * 0.4);
@@ -2287,9 +2289,9 @@ export default function Step3Comparables() {
   // ─── Mode démo (pas de bien actif) : garder les mocks Lyon 3 (4 selected + 4 others)
   // ─── Mode live (bien actif avec citycode) : démarrer vide, peupler via DVF /api/dvf
   const [selected, setSelected] = useState(() => (hasRealLocation ? [] : INITIAL_SELECTED));
-  // Mode démo : full mocks. Mode live : on garde uniquement les mocks portails
-  // (lafayette/villeroy/lacassagne) en attendant un branchement live SeLoger/Leboncoin.
-  const [others, setOthers] = useState(() => (hasRealLocation ? [...INITIAL_PORTAIL_MOCKS] : INITIAL_OTHERS));
+  // Mode démo : full mocks. Mode live : on garde tous les mocks non-DVF (mandats
+  // Ideeri, en cours, portails) en attendant les branchements live correspondants.
+  const [others, setOthers] = useState(() => (hasRealLocation ? [...INITIAL_NON_DVF_MOCKS] : INITIAL_OTHERS));
 
   // Comparables saisis manuellement (persistés dans localStorage).
   // Source unique de vérité — re-mergés dans `others` à chaque changement.
@@ -2346,9 +2348,10 @@ export default function Step3Comparables() {
           const db = haversineMeters(targetCoords, b.coords);
           return (da ?? 1e9) - (db ?? 1e9);
         });
-        // En mode live on conserve aussi les mocks portails (SeLoger / Leboncoin / Bien'ici)
-        // tant qu'on n'a pas de scraping live opérationnel pour ces sources.
-        setOthers(mergeManual([...dvfCards, ...INITIAL_PORTAIL_MOCKS]));
+        // En mode live on conserve aussi les mocks non-DVF (mandats Ideeri, en cours,
+        // portails SeLoger/Leboncoin/Bien'ici) tant que les sources live correspondantes
+        // ne sont pas opérationnelles.
+        setOthers(mergeManual([...dvfCards, ...INITIAL_NON_DVF_MOCKS]));
       });
 
     return () => { cancelled = true; };
