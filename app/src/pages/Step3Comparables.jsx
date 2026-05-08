@@ -2350,8 +2350,9 @@ export default function Step3Comparables() {
         });
         // En mode live on conserve aussi les mocks non-DVF (mandats Ideeri, en cours,
         // portails SeLoger/Leboncoin/Bien'ici) tant que les sources live correspondantes
-        // ne sont pas opérationnelles.
-        setOthers(mergeManual([...dvfCards, ...INITIAL_NON_DVF_MOCKS]));
+        // ne sont pas opérationnelles. On les place AVANT les cartes DVF pour qu'ils
+        // soient visibles d'emblée (sinon les 100+ DVF les poussent en fin de liste).
+        setOthers(mergeManual([...INITIAL_NON_DVF_MOCKS, ...dvfCards]));
       });
 
     return () => { cancelled = true; };
