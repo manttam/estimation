@@ -5,7 +5,62 @@ import 'leaflet/dist/leaflet.css';
 import PropertyCard from '../components/PropertyCard';
 import Stepper from '../components/Stepper';
 import ComparableDrawer from '../components/ComparableDrawer';
+import ManualComparableDrawer from '../components/ManualComparableDrawer';
 import { getActiveBien } from '../utils/activeBien';
+
+/* Clé localStorage des comparables saisis manuellement (par bien actif).
+ * On les stocke globalement pour l'instant — un futur travail pourra les
+ * indexer par citycode/adresse cible si besoin. */
+const MANUAL_COMPS_KEY = 'ideeri_manual_comps';
+
+function loadManualComps() {
+  try {
+    const raw = localStorage.getItem(MANUAL_COMPS_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveManualComps(list) {
+  try {
+    localStorage.setItem(MANUAL_COMPS_KEY, JSON.stringify(list));
+  } catch {
+    /* quota / mode privé : silencieux */
+  }
+}
+
+/* Transforme la sortie riche du ManualComparableDrawer en card "compact"
+ * compatible avec OTHERS / CompactCompCard (champs : meta, simScore,
+ * simClass, donScore, donClass, donCount). On garde toutes les données
+ * riches en surcharge pour que le ComparableDrawer (détail) puisse
+ * encore les afficher. */
+function manualOtherToCompact(manual, targetCoords) {
+  const distance = (manual.coords && targetCoords)
+    ? haversineMeters(targetCoords, manual.coords)
+    : null;
+  const distanceLabel = distance != null
+    ? (distance >= 1000 ? `${(distance / 1000).toFixed(1)}km` : `${distance}m`)
+    : '—';
+  const sourceLabelCompact = manual.source === 'dvf' ? 'DVF'
+    : manual.source === 'ideeri' ? 'Ideeri'
+    : manual.source === 'encours' ? 'En cours'
+    : manual.portalName || 'Portail';
+  const meta = `${sourceLabelCompact} · ${manual.prix}€ · ${manual.prixM2 ? `${manual.prixM2}€/m²` : '—'} · ${distanceLabel}`;
+  // Données : saisie manuelle souvent ~70% des champs (pas DVF brut, pas portail brut)
+  const don = 70;
+  return {
+    ...manual,
+    meta,
+    simScore: '— sim.',
+    simClass: 'mid',
+    donScore: `${don}% données`,
+    donClass: 'mid',
+    donCount: 'Manuel',
+  };
+}
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * Helpers DVF live
@@ -80,7 +135,9 @@ function dvfTxToOther(tx, idx, targetCoords) {
   };
 }
 
-/* Construit un titre depuis une annonce Leboncoin : "T3 70m² — adresse". */
+/* Construit un titre depuis une annonce Leboncoin : "T3 70m² — adresse".
+ * Helper conservé pour ré-activation future du proxy /api/leboncoin
+ * (actuellement débranché du front car Datadome bloque l'IP Vercel). */
 function buildLbcTitle(ad) {
   const piecesLabel = ad.pieces && ad.type === 'appartement' ? `T${ad.pieces}` : ad.type === 'maison' ? 'Maison' : 'Bien';
   const surfaceLabel = ad.surface ? `${Math.round(ad.surface)}m²` : '';
@@ -88,7 +145,9 @@ function buildLbcTitle(ad) {
   return `${piecesLabel} ${surfaceLabel} — ${adr}`.trim().replace(/\s+/g, ' ');
 }
 
-/* Transforme une annonce Leboncoin (issue de /api/leboncoin) en card OTHERS. */
+/* Transforme une annonce Leboncoin (issue de /api/leboncoin) en card OTHERS.
+ * Helper conservé pour ré-activation future du proxy. */
+// eslint-disable-next-line no-unused-vars
 function lbcAdToOther(ad, idx, targetCoords) {
   const distance = (ad.lat && ad.lon && targetCoords)
     ? haversineMeters(targetCoords, [ad.lat, ad.lon])
@@ -1776,10 +1835,19 @@ const INITIAL_SELECTED = [
 ];
 
 const INITIAL_OTHERS = [
+  /* DVF (vente publique, données limitées). */
   { id: 'duguesclin', title: 'T3 70m\u00b2 \u2014 5 rue Duguesclin, Lyon 3', source: 'dvf', meta: 'DVF \u00b7 295k\u20ac \u00b7 4 214\u20ac/m\u00b2 \u00b7 750m', simScore: '84% sim.', simClass: 'high', donScore: '62% donn\u00e9es', donClass: 'mid', donCount: '113/182' },
-  { id: 'lafayette', title: 'T4 85m\u00b2 \u2014 18 cours Lafayette, Lyon 3', source: 'portail', portalName: 'SeLoger', meta: 'Portail \u00b7 340k\u20ac \u00b7 4 000\u20ac/m\u00b2 \u00b7 890m', simScore: '58% sim.', simClass: 'mid', donScore: '5% donn\u00e9es', donClass: 'low', donCount: '9/182' },
   { id: 'mazenod', title: 'T2 55m\u00b2 \u2014 33 rue Mazenod, Lyon 3', source: 'dvf', meta: 'DVF \u00b7 240k\u20ac \u00b7 4 363\u20ac/m\u00b2 \u00b7 420m', simScore: '71% sim.', simClass: 'mid', donScore: '68% donn\u00e9es', donClass: 'mid', donCount: '124/182' },
+  /* Vendu par Ideeri (forte qualité données). */
   { id: 'guichard', title: 'T3 71m\u00b2 \u2014 7 place Guichard, Lyon 3', source: 'ideeri', meta: 'Ideeri \u00b7 298k\u20ac \u00b7 4 197\u20ac/m\u00b2 \u00b7 310m', simScore: '89% sim.', simClass: 'high', donScore: '93% donn\u00e9es', donClass: 'high', donCount: '538/575' },
+  { id: 'paulbert', title: 'T4 92m\u00b2 \u2014 14 rue Paul Bert, Lyon 3', source: 'ideeri', meta: 'Ideeri \u00b7 410k\u20ac \u00b7 4 456\u20ac/m\u00b2 \u00b7 680m', simScore: '76% sim.', simClass: 'mid', donScore: '88% donn\u00e9es', donClass: 'high', donCount: '506/575' },
+  /* En cours de commercialisation (mandats actifs Ideeri). */
+  { id: 'rambaud', title: 'T3 68m\u00b2 \u2014 22 avenue Rambaud, Lyon 3', source: 'encours', meta: 'En cours \u00b7 285k\u20ac \u00b7 4 191\u20ac/m\u00b2 \u00b7 540m', simScore: '82% sim.', simClass: 'high', donScore: '85% donn\u00e9es', donClass: 'high', donCount: '489/575' },
+  { id: 'felixfaure', title: 'T2 48m\u00b2 \u2014 9 avenue F\u00e9lix Faure, Lyon 3', source: 'encours', meta: 'En cours \u00b7 215k\u20ac \u00b7 4 479\u20ac/m\u00b2 \u00b7 920m', simScore: '64% sim.', simClass: 'mid', donScore: '79% donn\u00e9es', donClass: 'mid', donCount: '454/575' },
+  /* Portails (SeLoger, Leboncoin, Bien'ici) — données partielles, public. */
+  { id: 'lafayette', title: 'T4 85m\u00b2 \u2014 18 cours Lafayette, Lyon 3', source: 'portail', portalName: 'SeLoger', meta: 'SeLoger \u00b7 340k\u20ac \u00b7 4 000\u20ac/m\u00b2 \u00b7 890m', simScore: '58% sim.', simClass: 'mid', donScore: '15% donn\u00e9es', donClass: 'low', donCount: '27/182' },
+  { id: 'villeroy', title: 'T3 65m\u00b2 \u2014 41 rue de Villeroy, Lyon 3', source: 'portail', portalName: 'Leboncoin', meta: 'Leboncoin \u00b7 275k\u20ac \u00b7 4 230\u20ac/m\u00b2 \u00b7 470m', simScore: '69% sim.', simClass: 'mid', donScore: '12% donn\u00e9es', donClass: 'low', donCount: '22/182' },
+  { id: 'lacassagne', title: 'T3 74m\u00b2 \u2014 65 cours Lacassagne, Lyon 3', source: 'portail', portalName: "Bien'ici", meta: "Bien'ici \u00b7 320k\u20ac \u00b7 4 324\u20ac/m\u00b2 \u00b7 1.1km", simScore: '54% sim.', simClass: 'mid', donScore: '18% donn\u00e9es', donClass: 'low', donCount: '33/182' },
 ];
 
 function SelectedCompCard({ comp, onRemove, onOpenDrawer, weight, onWeightChange }) {
@@ -1997,77 +2065,66 @@ export default function Step3Comparables() {
   const [selected, setSelected] = useState(() => (hasRealLocation ? [] : INITIAL_SELECTED));
   const [others, setOthers] = useState(() => (hasRealLocation ? [] : INITIAL_OTHERS));
 
-  /* ─── Fetch DVF + Leboncoin live (en parallèle) → peuple "others" ──────
-   * Promise.all sur deux proxies Vercel :
-   *   - /api/dvf?citycode=XXX           → transactions réalisées (DVF Etalab)
-   *   - /api/leboncoin?postcode=XX&city=YY → annonces de mise en vente (LBC)
+  // Comparables saisis manuellement (persistés dans localStorage).
+  // Source unique de vérité — re-mergés dans `others` à chaque changement.
+  const [manualComps, setManualComps] = useState(() => loadManualComps());
+
+  // Drawer de saisie manuelle (Ajouter un comparable manuel)
+  const [manualDrawerOpen, setManualDrawerOpen] = useState(false);
+
+  /* ─── Fetch DVF live → peuple "others" avec transactions réelles ──────
+   * Pattern Step2 : appel /api/dvf?citycode=XXX&type=YYY (proxy Vercel),
+   * transformation transactions → shape comparable card OTHERS, override état.
    *
-   * Sources fusionnées et triées par distance au bien cible.
+   * Note : le proxy /api/leboncoin existe mais n'est plus appelé ici (Datadome
+   * bloque l'IP Vercel). Les annonces de portails arrivent désormais via le
+   * formulaire de saisie manuelle (ManualComparableDrawer).
+   *
    * Retombe gracieusement sur les mocks Lyon 3 si pas de citycode.
    */
   useEffect(() => {
     const citycode = activeBien?.adresse?.citycode;
-    const postcode = activeBien?.adresse?.postcode;
-    const city = activeBien?.adresse?.city;
+    /* Helper : merge des comps manuels (compactés) avec une base donnée. */
+    const mergeManual = (base) => {
+      const manualCards = manualComps.map((m) => manualOtherToCompact(m, targetCoords));
+      return [...manualCards, ...base];
+    };
+
     if (!citycode) {
       console.log('[Step3 live] pas de citycode → mode démo (mocks Lyon 3)');
-      return;
+      // En démo : garder les mocks INITIAL_OTHERS et y ajouter les comps manuels
+      setOthers(mergeManual(INITIAL_OTHERS));
+      return undefined;
     }
     let cancelled = false;
     const type = activeBien?.bien?.type || activeBien?.type || '';
-
-    /* DVF transactions */
     const dvfUrl = `/api/dvf?citycode=${encodeURIComponent(citycode)}${type ? `&type=${encodeURIComponent(type)}` : ''}`;
-    const dvfPromise = fetch(dvfUrl)
+    console.log('[Step3 live] fetch DVF', dvfUrl);
+
+    fetch(dvfUrl)
       .then((r) => r.json())
-      .catch((e) => ({ ok: false, error: e.message }));
-
-    /* Leboncoin annonces (si on a CP + ville, ce qui devrait être le cas) */
-    const lbcPromise = (postcode && city)
-      ? fetch(`/api/leboncoin?postcode=${encodeURIComponent(postcode)}&city=${encodeURIComponent(city)}${type ? `&type=${encodeURIComponent(type)}` : ''}`)
-          .then((r) => r.json())
-          .catch((e) => ({ ok: false, error: e.message }))
-      : Promise.resolve({ ok: false, error: 'no postcode/city' });
-
-    console.log('[Step3 live] fetch DVF', dvfUrl, '+ LBC', postcode, city);
-
-    Promise.all([dvfPromise, lbcPromise]).then(([dvfData, lbcData]) => {
-      if (cancelled) return;
-
-      /* DVF → cards OTHERS */
-      const dvfCards = (dvfData && dvfData.ok && Array.isArray(dvfData.transactions))
-        ? dvfData.transactions
-            .map((tx, i) => dvfTxToOther(tx, i, targetCoords))
-            .filter((c) => c && c.coords)
-        : [];
-      console.log('[Step3 live] DVF →', dvfCards.length, 'cards');
-      if (!dvfData?.ok) {
-        console.warn('[Step3 live] DVF NOK', dvfData?.error || 'unknown');
-      }
-
-      /* Leboncoin → cards OTHERS */
-      const lbcCards = (lbcData && lbcData.ok && Array.isArray(lbcData.transactions))
-        ? lbcData.transactions
-            .map((ad, i) => lbcAdToOther(ad, i, targetCoords))
-            .filter((c) => c && c.coords)
-        : [];
-      console.log('[Step3 live] LBC →', lbcCards.length, 'cards');
-      if (!lbcData?.ok) {
-        console.warn('[Step3 live] LBC NOK', lbcData?.error || 'unknown');
-      }
-
-      /* Fusion + tri par distance croissante */
-      const merged = [...dvfCards, ...lbcCards];
-      merged.sort((a, b) => {
-        const da = haversineMeters(targetCoords, a.coords);
-        const db = haversineMeters(targetCoords, b.coords);
-        return (da ?? 1e9) - (db ?? 1e9);
+      .catch((e) => ({ ok: false, error: e.message }))
+      .then((dvfData) => {
+        if (cancelled) return;
+        const dvfCards = (dvfData && dvfData.ok && Array.isArray(dvfData.transactions))
+          ? dvfData.transactions
+              .map((tx, i) => dvfTxToOther(tx, i, targetCoords))
+              .filter((c) => c && c.coords)
+          : [];
+        console.log('[Step3 live] DVF →', dvfCards.length, 'cards');
+        if (!dvfData?.ok) {
+          console.warn('[Step3 live] DVF NOK', dvfData?.error || 'unknown');
+        }
+        dvfCards.sort((a, b) => {
+          const da = haversineMeters(targetCoords, a.coords);
+          const db = haversineMeters(targetCoords, b.coords);
+          return (da ?? 1e9) - (db ?? 1e9);
+        });
+        setOthers(mergeManual(dvfCards));
       });
-      setOthers(merged);
-    });
 
     return () => { cancelled = true; };
-  }, [activeBien, targetCoords]);
+  }, [activeBien, targetCoords, manualComps]);
 
   // Drawer pour afficher le d\u00e9tail d'un comparable
   const [drawerComp, setDrawerComp] = useState(null);
@@ -2227,6 +2284,19 @@ export default function Step3Comparables() {
 
   // Alias utilis\u00e9 par la card et le tableau r\u00e9cap pour la suppression
   const handleRemoveComparable = removeFromSelected;
+
+  /* Handler de sauvegarde d'un comparable saisi manuellement.
+   * Appelé par <ManualComparableDrawer onSave={...}>. Ajoute le comparable
+   * à la liste des manuels (qui re-merge automatiquement dans `others` via
+   * le useEffect DVF) et persiste en localStorage. */
+  const handleSaveManualComparable = (richManual) => {
+    setManualComps((prev) => {
+      const next = [...prev, richManual];
+      saveManualComps(next);
+      return next;
+    });
+    setManualDrawerOpen(false);
+  };
 
   // Expose addToSelected for Leaflet popups
   addCompRef.current = addToSelected;
@@ -2910,6 +2980,29 @@ export default function Step3Comparables() {
 
         {/* List Panel */}
         <div className="list-panel">
+          <button
+            type="button"
+            className="btn-add-manual-comp"
+            onClick={() => setManualDrawerOpen(true)}
+            style={{
+              width: '100%',
+              padding: '10px 14px',
+              marginBottom: 14,
+              background: '#fff',
+              border: '1px dashed #46B962',
+              color: '#2d8856',
+              borderRadius: 8,
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: 'pointer',
+              fontFamily: "'Open Sans', sans-serif",
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = '#f0f8f5'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = '#fff'; }}
+          >
+            + Ajouter un comparable manuel
+          </button>
           <div className="section-label">S&eacute;lectionn&eacute;s ({selected.length})</div>
           {selected.map((c) => (
             <SelectedCompCard
@@ -3064,6 +3157,14 @@ export default function Step3Comparables() {
       {drawerComp && (
         <ComparableDrawer comp={drawerComp} onClose={() => setDrawerComp(null)} />
       )}
+
+      {/* Drawer de saisie manuelle d'un comparable */}
+      <ManualComparableDrawer
+        open={manualDrawerOpen}
+        onClose={() => setManualDrawerOpen(false)}
+        onSave={handleSaveManualComparable}
+        targetCoords={targetCoords}
+      />
     </div>
   );
 }
