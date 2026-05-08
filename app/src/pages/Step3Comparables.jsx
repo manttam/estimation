@@ -2060,6 +2060,27 @@ const INITIAL_OTHERS = [
  * avoir de zone vide à côté des résultats DVF réels. */
 const INITIAL_NON_DVF_MOCKS = INITIAL_OTHERS.filter((c) => c.source !== 'dvf');
 
+/* Projette un mock non-DVF (coordonnées Lyon 3 hardcodées) autour du bien actif
+ * réel, en spirale dorée, à 250m -> ~1000m du target. Permet en mode live de
+ * voir les markers démo près du bien testé plutôt qu'à 50km à Lyon. La distance
+ * affichée est recalculée pour rester cohérente avec la nouvelle position. */
+function projectMockNearTarget(comp, targetCoords, idx) {
+  if (!comp) return comp;
+  if (!targetCoords || !Array.isArray(targetCoords) || targetCoords.length < 2) return comp;
+  // Angle d'or (137.508°) → répartition équilibrée même avec peu de points
+  const angle = (idx * 137.508) * Math.PI / 180;
+  const distMeters = 250 + idx * 120;
+  const lat = targetCoords[0];
+  const lng = targetCoords[1];
+  const dLat = (distMeters / 111320) * Math.cos(angle);
+  const dLng = (distMeters / (111320 * Math.cos(lat * Math.PI / 180))) * Math.sin(angle);
+  return {
+    ...comp,
+    coords: [lat + dLat, lng + dLng],
+    distance: `${Math.round(distMeters)}m`,
+  };
+}
+
 function SelectedCompCard({ comp, onRemove, onOpenDrawer, weight, onWeightChange }) {
   const pertinence = Math.round((comp.similarite || 0) * 0.6 + (comp.donnees || 0) * 0.4);
   const pertinenceClass = pertinence >= 80 ? 'score-high' : pertinence >= 60 ? 'score-mid' : 'score-low';
@@ -2290,8 +2311,12 @@ export default function Step3Comparables() {
   // ─── Mode live (bien actif avec citycode) : démarrer vide, peupler via DVF /api/dvf
   const [selected, setSelected] = useState(() => (hasRealLocation ? [] : INITIAL_SELECTED));
   // Mode démo : full mocks. Mode live : on garde tous les mocks non-DVF (mandats
-  // Ideeri, en cours, portails) en attendant les branchements live correspondants.
-  const [others, setOthers] = useState(() => (hasRealLocation ? [...INITIAL_NON_DVF_MOCKS] : INITIAL_OTHERS));
+  // Ideeri, en cours, portails) en attendant les branchements live correspondants,
+  // et on projette leurs coordonnées Lyon 3 autour du bien actif réel pour la carte.
+  const [others, setOthers] = useState(() => {
+    if (!hasRealLocation) return INITIAL_OTHERS;
+    return INITIAL_NON_DVF_MOCKS.map((m, i) => projectMockNearTarget(m, targetCoords, i));
+  });
 
   // Comparables saisis manuellement (persistés dans localStorage).
   // Source unique de vérité — re-mergés dans `others` à chaque changement.
@@ -2352,7 +2377,10 @@ export default function Step3Comparables() {
         // portails SeLoger/Leboncoin/Bien'ici) tant que les sources live correspondantes
         // ne sont pas opérationnelles. On les place AVANT les cartes DVF pour qu'ils
         // soient visibles d'emblée (sinon les 100+ DVF les poussent en fin de liste).
-        setOthers(mergeManual([...INITIAL_NON_DVF_MOCKS, ...dvfCards]));
+        // Et on projette leurs coordonnées Lyon 3 hardcodées AUTOUR du bien actif
+        // pour qu'ils apparaissent sur la carte (sinon ils sont à 50km du target).
+        const projectedMocks = INITIAL_NON_DVF_MOCKS.map((m, i) => projectMockNearTarget(m, targetCoords, i));
+        setOthers(mergeManual([...projectedMocks, ...dvfCards]));
       });
 
     return () => { cancelled = true; };
