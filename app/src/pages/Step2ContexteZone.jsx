@@ -5,6 +5,7 @@ import Stepper from '../components/Stepper';
 import { contexteZone } from '../data/propertyData';
 import { getActiveBien } from '../utils/activeBien';
 import { getRisquesSynthese } from '../utils/georisquesClient';
+import { fetchDvfByCommune, statsDvf } from '../utils/dvfClient';
 
 const COLOR_MAP = {
   green: '#46B962',
@@ -238,6 +239,10 @@ const cssStyles = `
   .market-source.demo {
     background: #fff5e6;
     color: #b07a1e;
+  }
+  .market-source.indispo {
+    background: #f0f0f0;
+    color: #949494;
   }
   .market-price {
     text-align: center;
@@ -810,6 +815,8 @@ export default function Step2ContexteZone() {
   const [poiError, setPoiError] = useState(null);
   const [risques, setRisques] = useState(null);     // synthèse Géorisques | null
   const [risquesLoading, setRisquesLoading] = useState(false);
+  const [dvfStatsLive, setDvfStatsLive] = useState(null);  // DVF live recalculé en Step2
+  const [dvfLoading, setDvfLoading] = useState(false);
   const [refetchTick, setRefetchTick] = useState(0);
   const [debugOn, setDebugOn] = useState(false);
   const mapRef = useRef(null);
@@ -836,24 +843,40 @@ export default function Step2ContexteZone() {
     ? `${activeBien.adresse.postcode || ''} ${activeBien.adresse.city || ''}`.trim()
     : DEMO_TARGET_CITY_LINE;
   const dvfStats = activeBien?.dvfStats || null;
+  const hasRealLocationGlobal = !!activeBien?.adresse?.citycode;
 
-  /* Market Card : DVF réel si disponible, sinon fallback contexteZone.market */
+  /* Market Card : DVF réel (Step1 OU live Step2) si dispo, sinon
+     - si vraie localité : placeholder "indispo" (ne jamais afficher Lyon 3 démo)
+     - sinon : fallback contexteZone.market (mode démo) */
   const marketDisplay = useMemo(() => {
-    if (dvfStats && dvfStats.median) {
+    const dvf = (dvfStats && dvfStats.median) ? dvfStats
+              : (dvfStatsLive && dvfStatsLive.median) ? dvfStatsLive
+              : null;
+    if (dvf) {
       const fmt = (n) => Number(n).toLocaleString('fr-FR');
       return {
-        prixM2: fmt(dvfStats.median),
-        evolution: contexteZone.market.evolution,         // pas dans dvfStats actuel
-        transactions: dvfStats.count || '—',
+        prixM2: fmt(dvf.median),
+        evolution: contexteZone.market.evolution,         // pas dans DVF actuel
+        transactions: dvf.count || '—',
         delai: contexteZone.market.delai,                  // idem
-        fourchette: dvfStats.p25 && dvfStats.p75
-          ? `${fmt(dvfStats.p25)} – ${fmt(dvfStats.p75)}`
+        fourchette: dvf.p25 && dvf.p75
+          ? `${fmt(dvf.p25)} – ${fmt(dvf.p75)}`
           : contexteZone.market.fourchette,
         source: 'DVF',
       };
     }
+    if (hasRealLocationGlobal) {
+      return {
+        prixM2: '—',
+        evolution: '—',
+        transactions: '—',
+        delai: '—',
+        fourchette: '—',
+        source: 'indispo',
+      };
+    }
     return { ...contexteZone.market, source: 'demo' };
-  }, [dvfStats]);
+  }, [dvfStats, dvfStatsLive, hasRealLocationGlobal]);
 
   const marketTitle = activeBien?.adresse?.city
     ? `Marché Local — ${activeBien.adresse.city}${activeBien.adresse.postcode ? ' (' + activeBien.adresse.postcode + ')' : ''}`
@@ -991,6 +1014,33 @@ export default function Step2ContexteZone() {
     if (cadastreOn && !map.hasLayer(layer)) layer.addTo(map);
     else if (!cadastreOn && map.hasLayer(layer)) map.removeLayer(layer);
   }, [cadastreOn]);
+
+  /* ─── Fetch DVF live si manquant ─────────────────────────────────────
+     Step1 essaie de pré-remplir activeBien.dvfStats. Si l'utilisateur a
+     court-circuité Step1 ou si DVF a échoué (petite commune, timeout…),
+     on retente ici en Step2 pour ne pas afficher des chiffres démo Lyon 3
+     trompeurs. */
+  useEffect(() => {
+    const citycode = activeBien?.adresse?.citycode;
+    if (!citycode || (dvfStats && dvfStats.median)) {
+      setDvfStatsLive(null);
+      return undefined;
+    }
+    let cancelled = false;
+    setDvfLoading(true);
+    fetchDvfByCommune(citycode, { limit: 200 })
+      .then((transactions) => {
+        if (cancelled) return;
+        const type = activeBien?.type;          // "appartement" | "maison" | undefined
+        const stats = statsDvf(transactions, type) || statsDvf(transactions);
+        setDvfStatsLive(stats);
+      })
+      .catch((err) => console.warn('[DVF Step2]', err))
+      .finally(() => {
+        if (!cancelled) setDvfLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [activeBien, dvfStats, refetchTick]);
 
   /* ─── Fetch POI réels via Overpass quand coords / rayon changent ────── */
   useEffect(() => {
@@ -1260,8 +1310,16 @@ export default function Step2ContexteZone() {
                   <strong>risques</strong> :{' '}
                   {risques ? Object.keys(risques).join(', ') : 'null'}
                 </div>
+                <div>
+                  <strong>dvfStats (Step1)</strong> :{' '}
+                  {dvfStats?.median ? `median=${dvfStats.median} count=${dvfStats.count}` : 'null'}
+                </div>
+                <div>
+                  <strong>dvfStatsLive (Step2)</strong> :{' '}
+                  {dvfLoading ? 'chargement…' : dvfStatsLive?.median ? `median=${dvfStatsLive.median} count=${dvfStatsLive.count}` : 'null'}
+                </div>
                 <div style={{ marginTop: 6, color: '#949494', fontStyle: 'italic' }}>
-                  Ouvre la console (F12) pour voir les logs [Overpass] / [Géorisques].
+                  Ouvre la console (F12) pour voir les logs [Overpass] / [Géorisques] / [DVF].
                 </div>
               </div>
             )}
@@ -1272,7 +1330,11 @@ export default function Step2ContexteZone() {
           <div className="market-title">
             {marketTitle}
             <span className={`market-source ${marketDisplay.source}`}>
-              {marketDisplay.source === 'DVF' ? 'DVF' : 'démo'}
+              {marketDisplay.source === 'DVF'
+                ? (dvfLoading ? 'DVF…' : 'DVF')
+                : marketDisplay.source === 'indispo'
+                ? (dvfLoading ? 'chargement…' : 'indispo')
+                : 'démo'}
             </span>
           </div>
           <div className="market-price">
