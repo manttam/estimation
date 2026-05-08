@@ -1028,14 +1028,18 @@ export default function Step2ContexteZone() {
     }
     let cancelled = false;
     setDvfLoading(true);
+    console.log('[DVF Step2] start fetch citycode=', citycode, 'type=', activeBien?.type);
     fetchDvfByCommune(citycode, { limit: 200 })
       .then((transactions) => {
         if (cancelled) return;
+        console.log('[DVF Step2] received', transactions.length, 'transactions');
         const type = activeBien?.type;          // "appartement" | "maison" | undefined
-        const stats = statsDvf(transactions, type) || statsDvf(transactions);
-        setDvfStatsLive(stats);
+        const statsByType = statsDvf(transactions, type);
+        const statsAll = statsDvf(transactions);
+        console.log('[DVF Step2] stats type=', type, '→', statsByType, '· stats all →', statsAll);
+        setDvfStatsLive(statsByType || statsAll);
       })
-      .catch((err) => console.warn('[DVF Step2]', err))
+      .catch((err) => console.warn('[DVF Step2] fetch error', err))
       .finally(() => {
         if (!cancelled) setDvfLoading(false);
       });
