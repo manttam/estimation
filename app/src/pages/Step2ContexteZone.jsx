@@ -5,7 +5,7 @@ import Stepper from '../components/Stepper';
 import { contexteZone } from '../data/propertyData';
 import { getActiveBien } from '../utils/activeBien';
 import { getRisquesSynthese } from '../utils/georisquesClient';
-import { fetchDvfByCommune, statsDvf } from '../utils/dvfClient';
+import { statsDvf } from '../utils/dvfClient';
 
 const COLOR_MAP = {
   green: '#46B962',
@@ -1117,20 +1117,10 @@ export default function Step2ContexteZone() {
 
     (async () => {
       try {
-        let transactions = [];
-        // 1) cquest.org (rapide quand ça marche)
-        try {
-          transactions = await fetchDvfByCommune(citycode, { limit: 200 });
-          console.log('[DVF Step2] cquest →', transactions.length, 'transactions');
-        } catch (err) {
-          console.warn('[DVF Step2] cquest KO', err.message);
-        }
-        // 2) Fallback Etalab statique (geo-dvf) si cquest a renvoyé 0 ou planté
-        if (!transactions.length) {
-          console.log('[DVF Step2] fallback Etalab static…');
-          transactions = await fetchDvfFromEtalabStatic(citycode);
-          console.log('[DVF Step2] etalab →', transactions.length, 'transactions');
-        }
+        // Source unique : Etalab statique (geo-dvf).
+        // cquest.org/dvf est down chronique (504 fréquent) → on évite.
+        const transactions = await fetchDvfFromEtalabStatic(citycode);
+        console.log('[DVF Step2] etalab →', transactions.length, 'transactions');
         if (cancelled) return;
         const type = activeBien?.type;
         const statsByType = statsDvf(transactions, type);
