@@ -447,10 +447,12 @@ const CADASTRE_TILE_URL =
   '&TILECOL={x}&TILEROW={y}&FORMAT=image/png&STYLE=normal';
 
 /* ─── Overpass API — POI réels OSM (avec mirrors de secours) ─── */
+/* Ordre = ordre d'essai. kumi.systems en 1er car overpass-api.de
+   refuse régulièrement les connexions (ERR_CONNECTION_REFUSED). */
 const OVERPASS_ENDPOINTS = [
-  'https://overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
   'https://overpass.private.coffee/api/interpreter',
+  'https://overpass-api.de/api/interpreter',
 ];
 const OVERPASS_TIMEOUT = 25;          // secondes côté serveur Overpass
 const OVERPASS_QUERIES = {
@@ -594,6 +596,7 @@ async function fetchOverpassCategory(cat, coords, radius, signal) {
   const body = `[out:json][timeout:${OVERPASS_TIMEOUT}];${OVERPASS_QUERIES[cat](lat, lon, radius)}`;
   let lastErr = null;
   let json = null;
+  let usedEndpoint = null;
   for (const endpoint of OVERPASS_ENDPOINTS) {
     try {
       const res = await fetch(endpoint, {
@@ -602,16 +605,24 @@ async function fetchOverpassCategory(cat, coords, radius, signal) {
         body: `data=${encodeURIComponent(body)}`,
         signal,
       });
-      if (!res.ok) { lastErr = new Error(`${endpoint} ${res.status}`); continue; }
+      if (!res.ok) {
+        lastErr = new Error(`${endpoint} ${res.status}`);
+        // log discret en console.warn (pas d'erreur rouge si mirror suivant OK)
+        console.warn('[Overpass]', cat, endpoint, '→ HTTP', res.status, '· essai mirror suivant');
+        continue;
+      }
       json = await res.json();
+      usedEndpoint = endpoint;
       break;
     } catch (err) {
       if (err.name === 'AbortError') throw err;
       lastErr = err;
+      console.warn('[Overpass]', cat, endpoint, '→', err.message, '· essai mirror suivant');
       continue;
     }
   }
   if (!json) throw lastErr || new Error('Overpass : tous les mirrors KO');
+  console.log('[Overpass]', cat, '→ OK via', usedEndpoint);
   if (!Array.isArray(json.elements)) return [];
   return json.elements
     .map((el) => {
