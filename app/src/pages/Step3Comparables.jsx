@@ -5,8 +5,79 @@ import 'leaflet/dist/leaflet.css';
 import PropertyCard from '../components/PropertyCard';
 import Stepper from '../components/Stepper';
 import ComparableDrawer from '../components/ComparableDrawer';
+import ComparableEditDrawer from '../components/ComparableEditDrawer';
 import ManualComparableDrawer from '../components/ManualComparableDrawer';
-import { getActiveBien } from '../utils/activeBien';
+import { getActiveBien, buildBienCibleCategories } from '../utils/activeBien';
+import { bienCibleCategories as bienCibleCategoriesBase } from '../data/propertyData';
+import {
+  getTargetFilledFieldKeys,
+  computeDataCoverage,
+  dataCoverageClass,
+} from '../utils/comparableFields';
+
+/* Clé localStorage des overrides de similarité.
+ * Format : { [compId: string]: number 0-100 }
+ */
+const SIM_OVERRIDES_KEY = 'ideeri_sim_overrides';
+
+function loadSimOverrides() {
+  try {
+    const raw = typeof window !== 'undefined' ? window.localStorage.getItem(SIM_OVERRIDES_KEY) : null;
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return {};
+    // Sanitize : on garde uniquement les valeurs numériques 0-100.
+    const out = {};
+    Object.keys(parsed).forEach((id) => {
+      const v = Number(parsed[id]);
+      if (!Number.isNaN(v) && v >= 0 && v <= 100) out[id] = Math.round(v);
+    });
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/* Applique un éventuel override de similarité au comparable.
+ * - Conserve la valeur auto dans `_autoSim`
+ * - Marque `_hasSimOverride` true si override actif
+ * - Met à jour les champs dérivés (simScore, simClass) pour cohérence d'affichage
+ */
+function applySimOverride(comp, overrides) {
+  if (!comp) return comp;
+  const auto = Number(comp.similarite) || 0;
+  const ovRaw = overrides ? overrides[comp.id] : undefined;
+  if (ovRaw === undefined || ovRaw === null) {
+    return { ...comp, _autoSim: auto, _hasSimOverride: false };
+  }
+  const eff = Math.max(0, Math.min(100, Math.round(Number(ovRaw))));
+  const simClass = eff >= 80 ? 'high' : eff >= 60 ? 'mid' : 'low';
+  return {
+    ...comp,
+    similarite: eff,
+    simScore: `${eff}% sim.`,
+    simClass,
+    _autoSim: auto,
+    _hasSimOverride: true,
+  };
+}
+
+/* Applique le calcul dynamique de couverture données à un comparable.
+ * Remplace donCount / donScore / donClass par des valeurs calculées sur la
+ * base de l'intersection (champs renseignés Step 1) ∩ (champs comparable).
+ * Si le comp porte déjà ces champs en dur, ils sont écrasés par le calcul.
+ */
+function enrichWithCoverage(comp, targetSet) {
+  if (!comp || !targetSet) return comp;
+  const cov = computeDataCoverage(targetSet, comp);
+  return {
+    ...comp,
+    donCount: `${cov.count}/${cov.total}`,
+    donScore: `${cov.percent}% données`,
+    donClass: dataCoverageClass(cov.percent),
+    _coverage: cov,
+  };
+}
 
 /* Clé localStorage des comparables saisis manuellement (par bien actif).
  * On les stocke globalement pour l'instant — un futur travail pourra les
@@ -49,16 +120,39 @@ function manualOtherToCompact(manual, targetCoords) {
     : manual.source === 'encours' ? 'En cours'
     : manual.portalName || 'Portail';
   const meta = `${sourceLabelCompact} · ${manual.prix}€ · ${manual.prixM2 ? `${manual.prixM2}€/m²` : '—'} · ${distanceLabel}`;
-  // Données : saisie manuelle souvent ~70% des champs (pas DVF brut, pas portail brut)
-  const don = 70;
+  // On fabrique un `fields` agrégé à partir des données manuelles.
+  // Les helpers de couverture calculeront M/N à partir de ce fields.
+  const fields = {
+    type: manual.type,
+    surface: manual.surface,
+    pieces: manual.pieces,
+    chambres: manual.chambres,
+    etage: manual.etage,
+    orientation: manual.orientation,
+    ascenseur: manual.ascenseur,
+    cave: manual.cave,
+    garage: manual.garage,
+    parking: manual.parking,
+    terrasse: manual.terrasse,
+    balcon: manual.balcon,
+    jardin: manual.jardin,
+    anneeConstruction: manual.anneeConstruction || manual.annee,
+    epoqueConstruction: manual.epoqueConstruction || manual.epoque,
+    chauffageType: manual.chauffageType || manual.chauffage,
+    chauffageEnergie: manual.chauffageEnergie || manual.energie,
+    dpe: manual.dpe,
+    ges: manual.ges,
+    cuisineEquipee: manual.cuisineEquipee,
+    etatCuisine: manual.etatCuisine,
+    prix: manual.prix,
+    prixM2: manual.prixM2,
+  };
   return {
     ...manual,
     meta,
     simScore: '— sim.',
     simClass: 'mid',
-    donScore: `${don}% données`,
-    donClass: 'mid',
-    donCount: 'Manuel',
+    fields,
   };
 }
 
@@ -116,9 +210,8 @@ function dvfTxToOther(tx, idx, targetCoords) {
   // (on ne peut pas la calculer finement sans le bien cible complet — placeholder doux)
   const sim = distance != null && distance < 500 ? 80 : distance < 1500 ? 65 : 50;
   const simClass = sim >= 80 ? 'high' : sim >= 60 ? 'mid' : 'low';
-  // Données : DVF a ~30% (date, prix, surface, type) — pas de DPE, pas d'étage, pas de photos
-  const don = 30;
-  const donClass = 'low';
+  // DVF expose un sous-ensemble fixe : type, surface, pieces, prix, prixM2 (+ date).
+  // Le calcul de couverture est branché à l'extérieur via enrichWithCoverage.
   return {
     id: `dvf-${idx}`,
     title,
@@ -126,10 +219,14 @@ function dvfTxToOther(tx, idx, targetCoords) {
     meta,
     simScore: `${sim}% sim.`,
     simClass,
-    donScore: `${don}% données`,
-    donClass,
-    donCount: '5/19', // 5 champs DVF / 19 attendus
     coords: tx.lat && tx.lon ? [tx.lat, tx.lon] : null,
+    fields: {
+      type: tx.type,
+      surface: tx.surface,
+      pieces: tx.pieces,
+      prix: tx.prix,
+      prixM2: tx.prixM2,
+    },
     // Méta brute conservée pour la sélection / drawer
     _dvfRaw: tx,
   };
@@ -158,9 +255,8 @@ function lbcAdToOther(ad, idx, targetCoords) {
   // Heuristique scoring : annonce active = signal d'offre, distance prime
   const sim = distance != null && distance < 500 ? 75 : distance < 1500 ? 60 : 45;
   const simClass = sim >= 80 ? 'high' : sim >= 60 ? 'mid' : 'low';
-  // Données : LBC apporte titre + photo + prix demandé (~40% des champs cibles)
-  const don = 40;
-  const donClass = 'mid';
+  // Leboncoin expose : type, surface, pieces, prix, prixM2 + parfois etage/dpe.
+  // Le calcul de couverture est branché à l'extérieur via enrichWithCoverage.
   return {
     id: ad.id || `lbc-${idx}`,
     title,
@@ -169,10 +265,16 @@ function lbcAdToOther(ad, idx, targetCoords) {
     meta,
     simScore: `${sim}% sim.`,
     simClass,
-    donScore: `${don}% données`,
-    donClass,
-    donCount: '8/19',
     coords: ad.lat && ad.lon ? [ad.lat, ad.lon] : null,
+    fields: {
+      type: ad.type,
+      surface: ad.surface,
+      pieces: ad.pieces,
+      etage: ad.etage,
+      dpe: ad.dpe,
+      prix: ad.prix,
+      prixM2: ad.prixM2,
+    },
     _lbcRaw: ad,
     photoUrl: ad.photo || null,
     url: ad.url || null,
@@ -1834,20 +1936,120 @@ const INITIAL_SELECTED = [
   },
 ];
 
+/* Mocks comparables démo (Lyon 3). Le `fields` ↓ porte les valeurs réellement
+ * renseignées sur chaque comparable. Le compteur "X/Y champs" n'est PAS figé :
+ * il est calculé dynamiquement (cf. enrichWithCoverage) en intersection avec
+ * les champs renseignés sur le bien cible (Step 1).
+ *
+ * Variabilité voulue :
+ * - DVF : ~5 champs (donnée publique brute)
+ * - Ideeri complet : ~25-28 champs (mandat saisi à fond par l'agent)
+ * - Ideeri partiel : ~14-18 champs (saisie incomplète)
+ * - En cours : ~14-20 champs (mandat actif, saisie en cours)
+ * - Portails : ~7-9 champs (titre annonce + DPE + prix)
+ */
 const INITIAL_OTHERS = [
   /* DVF (vente publique, données limitées). */
-  { id: 'duguesclin', title: 'T3 70m\u00b2 \u2014 5 rue Duguesclin, Lyon 3', source: 'dvf', meta: 'DVF \u00b7 295k\u20ac \u00b7 4 214\u20ac/m\u00b2 \u00b7 750m', simScore: '84% sim.', simClass: 'high', donScore: '62% donn\u00e9es', donClass: 'mid', donCount: '113/182' },
-  { id: 'mazenod', title: 'T2 55m\u00b2 \u2014 33 rue Mazenod, Lyon 3', source: 'dvf', meta: 'DVF \u00b7 240k\u20ac \u00b7 4 363\u20ac/m\u00b2 \u00b7 420m', simScore: '71% sim.', simClass: 'mid', donScore: '68% donn\u00e9es', donClass: 'mid', donCount: '124/182' },
+  {
+    id: 'duguesclin', title: 'T3 70m\u00b2 \u2014 5 rue Duguesclin, Lyon 3',
+    source: 'dvf', meta: 'DVF \u00b7 295k\u20ac \u00b7 4 214\u20ac/m\u00b2 \u00b7 750m',
+    simScore: '84% sim.', simClass: 'high',
+    fields: { type: 'appartement', surface: 70, pieces: 3, prix: 295000, prixM2: 4214 },
+  },
+  {
+    id: 'mazenod', title: 'T2 55m\u00b2 \u2014 33 rue Mazenod, Lyon 3',
+    source: 'dvf', meta: 'DVF \u00b7 240k\u20ac \u00b7 4 363\u20ac/m\u00b2 \u00b7 420m',
+    simScore: '71% sim.', simClass: 'mid',
+    fields: { type: 'appartement', surface: 55, pieces: 2, prix: 240000, prixM2: 4363 },
+  },
   /* Vendu par Ideeri (forte qualité données). */
-  { id: 'guichard', title: 'T3 71m\u00b2 \u2014 7 place Guichard, Lyon 3', source: 'ideeri', meta: 'Ideeri \u00b7 298k\u20ac \u00b7 4 197\u20ac/m\u00b2 \u00b7 310m', simScore: '89% sim.', simClass: 'high', donScore: '93% donn\u00e9es', donClass: 'high', donCount: '538/575' },
-  { id: 'paulbert', title: 'T4 92m\u00b2 \u2014 14 rue Paul Bert, Lyon 3', source: 'ideeri', meta: 'Ideeri \u00b7 410k\u20ac \u00b7 4 456\u20ac/m\u00b2 \u00b7 680m', simScore: '76% sim.', simClass: 'mid', donScore: '88% donn\u00e9es', donClass: 'high', donCount: '506/575' },
+  {
+    id: 'guichard', title: 'T3 71m\u00b2 \u2014 7 place Guichard, Lyon 3',
+    source: 'ideeri', meta: 'Ideeri \u00b7 298k\u20ac \u00b7 4 197\u20ac/m\u00b2 \u00b7 310m',
+    simScore: '89% sim.', simClass: 'high',
+    fields: {
+      type: 'appartement', surface: 71, surfaceUtile: 71, pieces: 3, chambres: 2,
+      sdb: 1, wc: 1, etage: 4, etagesTotal: 6, orientation: 'Sud-Ouest',
+      ascenseur: true, cave: 4, balcon: 6,
+      anneeConstruction: 1972, epoqueConstruction: 'Ann\u00e9es 70',
+      facadesEtat: 'Bon \u00e9tat', vitrage: 'Double vitrage r\u00e9cent',
+      chauffageType: 'Individuel', chauffageEnergie: 'Gaz',
+      dpe: 'D', dpeConsommation: 195, ges: 'D',
+      cuisineEquipee: true, etatCuisine: 'R\u00e9cente',
+      prix: 298000, prixM2: 4197,
+    },
+  },
+  {
+    id: 'paulbert', title: 'T4 92m\u00b2 \u2014 14 rue Paul Bert, Lyon 3',
+    source: 'ideeri', meta: 'Ideeri \u00b7 410k\u20ac \u00b7 4 456\u20ac/m\u00b2 \u00b7 680m',
+    simScore: '76% sim.', simClass: 'mid',
+    fields: {
+      type: 'appartement', surface: 92, pieces: 4, chambres: 3, sdb: 1, wc: 2,
+      etage: 2, etagesTotal: 5, orientation: 'Est', ascenseur: false, balcon: 4,
+      anneeConstruction: 1965, chauffageType: 'Collectif',
+      dpe: 'E', ges: 'E', cuisineEquipee: true,
+      prix: 410000, prixM2: 4456,
+    },
+  },
   /* En cours de commercialisation (mandats actifs Ideeri). */
-  { id: 'rambaud', title: 'T3 68m\u00b2 \u2014 22 avenue Rambaud, Lyon 3', source: 'encours', meta: 'En cours \u00b7 285k\u20ac \u00b7 4 191\u20ac/m\u00b2 \u00b7 540m', simScore: '82% sim.', simClass: 'high', donScore: '85% donn\u00e9es', donClass: 'high', donCount: '489/575' },
-  { id: 'felixfaure', title: 'T2 48m\u00b2 \u2014 9 avenue F\u00e9lix Faure, Lyon 3', source: 'encours', meta: 'En cours \u00b7 215k\u20ac \u00b7 4 479\u20ac/m\u00b2 \u00b7 920m', simScore: '64% sim.', simClass: 'mid', donScore: '79% donn\u00e9es', donClass: 'mid', donCount: '454/575' },
+  {
+    id: 'rambaud', title: 'T3 68m\u00b2 \u2014 22 avenue Rambaud, Lyon 3',
+    source: 'encours', meta: 'En cours \u00b7 285k\u20ac \u00b7 4 191\u20ac/m\u00b2 \u00b7 540m',
+    simScore: '82% sim.', simClass: 'high',
+    fields: {
+      type: 'appartement', surface: 68, pieces: 3, chambres: 2, sdb: 1, wc: 1,
+      etage: 3, etagesTotal: 7, orientation: 'Sud', ascenseur: true,
+      cave: 3, balcon: 5,
+      anneeConstruction: 1980, epoqueConstruction: 'Ann\u00e9es 80',
+      vitrage: 'Double vitrage',
+      chauffageType: 'Individuel', chauffageEnergie: '\u00c9lectrique',
+      dpe: 'D', ges: 'C', cuisineEquipee: true, etatCuisine: '\u00c0 r\u00e9nover',
+      prix: 285000, prixM2: 4191,
+    },
+  },
+  {
+    id: 'felixfaure', title: 'T2 48m\u00b2 \u2014 9 avenue F\u00e9lix Faure, Lyon 3',
+    source: 'encours', meta: 'En cours \u00b7 215k\u20ac \u00b7 4 479\u20ac/m\u00b2 \u00b7 920m',
+    simScore: '64% sim.', simClass: 'mid',
+    fields: {
+      type: 'appartement', surface: 48, pieces: 2, chambres: 1, sdb: 1, wc: 1,
+      etage: 1, etagesTotal: 4, anneeConstruction: 1980,
+      chauffageType: 'Collectif', chauffageEnergie: 'Gaz',
+      dpe: 'D', ges: 'D',
+      prix: 215000, prixM2: 4479,
+    },
+  },
   /* Portails (SeLoger, Leboncoin, Bien'ici) — données partielles, public. */
-  { id: 'lafayette', title: 'T4 85m\u00b2 \u2014 18 cours Lafayette, Lyon 3', source: 'portail', portalName: 'SeLoger', meta: 'SeLoger \u00b7 340k\u20ac \u00b7 4 000\u20ac/m\u00b2 \u00b7 890m', simScore: '58% sim.', simClass: 'mid', donScore: '15% donn\u00e9es', donClass: 'low', donCount: '27/182' },
-  { id: 'villeroy', title: 'T3 65m\u00b2 \u2014 41 rue de Villeroy, Lyon 3', source: 'portail', portalName: 'Leboncoin', meta: 'Leboncoin \u00b7 275k\u20ac \u00b7 4 230\u20ac/m\u00b2 \u00b7 470m', simScore: '69% sim.', simClass: 'mid', donScore: '12% donn\u00e9es', donClass: 'low', donCount: '22/182' },
-  { id: 'lacassagne', title: 'T3 74m\u00b2 \u2014 65 cours Lacassagne, Lyon 3', source: 'portail', portalName: "Bien'ici", meta: "Bien'ici \u00b7 320k\u20ac \u00b7 4 324\u20ac/m\u00b2 \u00b7 1.1km", simScore: '54% sim.', simClass: 'mid', donScore: '18% donn\u00e9es', donClass: 'low', donCount: '33/182' },
+  {
+    id: 'lafayette', title: 'T4 85m\u00b2 \u2014 18 cours Lafayette, Lyon 3',
+    source: 'portail', portalName: 'SeLoger',
+    meta: 'SeLoger \u00b7 340k\u20ac \u00b7 4 000\u20ac/m\u00b2 \u00b7 890m',
+    simScore: '58% sim.', simClass: 'mid',
+    fields: {
+      type: 'appartement', surface: 85, pieces: 4, chambres: 3,
+      etage: 2, dpe: 'D', prix: 340000, prixM2: 4000,
+    },
+  },
+  {
+    id: 'villeroy', title: 'T3 65m\u00b2 \u2014 41 rue de Villeroy, Lyon 3',
+    source: 'portail', portalName: 'Leboncoin',
+    meta: 'Leboncoin \u00b7 275k\u20ac \u00b7 4 230\u20ac/m\u00b2 \u00b7 470m',
+    simScore: '69% sim.', simClass: 'mid',
+    fields: {
+      type: 'appartement', surface: 65, pieces: 3, etage: 3, dpe: 'E',
+      prix: 275000, prixM2: 4230,
+    },
+  },
+  {
+    id: 'lacassagne', title: 'T3 74m\u00b2 \u2014 65 cours Lacassagne, Lyon 3',
+    source: 'portail', portalName: "Bien'ici",
+    meta: "Bien'ici \u00b7 320k\u20ac \u00b7 4 324\u20ac/m\u00b2 \u00b7 1.1km",
+    simScore: '54% sim.', simClass: 'mid',
+    fields: {
+      type: 'appartement', surface: 74, pieces: 3, chambres: 2,
+      balcon: 3, dpe: 'D', prix: 320000, prixM2: 4324,
+    },
+  },
 ];
 
 function SelectedCompCard({ comp, onRemove, onOpenDrawer, weight, onWeightChange }) {
@@ -1994,10 +2196,18 @@ function SelectedCompCard({ comp, onRemove, onOpenDrawer, weight, onWeightChange
   );
 }
 
-function CompactCompCard({ comp, onAdd }) {
+function CompactCompCard({ comp, onAdd, onOpenEdit }) {
   const dotClass = comp.source === 'dvf' ? 'dot-dvf' : comp.source === 'ideeri' ? 'dot-ideeri' : comp.source === 'encours' ? 'dot-encours' : 'dot-portail';
+  const handleCardClick = () => { if (onOpenEdit) onOpenEdit(comp); };
+  const stop = (e) => e.stopPropagation();
   return (
-    <div className="comp-card compact">
+    <div
+      className={`comp-card compact${onOpenEdit ? ' clickable' : ''}`}
+      onClick={onOpenEdit ? handleCardClick : undefined}
+      role={onOpenEdit ? 'button' : undefined}
+      tabIndex={onOpenEdit ? 0 : undefined}
+      onKeyDown={onOpenEdit ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCardClick(); } } : undefined}
+    >
       <div className="compact-row">
         <div className="compact-left">
           <div className="compact-title">{comp.title}</div>
@@ -2008,9 +2218,9 @@ function CompactCompCard({ comp, onAdd }) {
             <span className="data-count">{comp.donCount}</span>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
-          {comp.portalName && <a className="btn-view-ad" href="#" onClick={(e) => e.preventDefault()}>&#8599; Annonce</a>}
-          <button className="btn-add" onClick={() => onAdd && onAdd(comp.id)}>+ Ajouter</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }} onClick={stop}>
+          {comp.portalName && <a className="btn-view-ad" href="#" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>&#8599; Annonce</a>}
+          <button className="btn-add" onClick={(e) => { e.stopPropagation(); onAdd && onAdd(comp.id); }}>+ Ajouter</button>
         </div>
       </div>
     </div>
@@ -2037,6 +2247,14 @@ export default function Step3Comparables() {
     ? `${activeBien.adresse.postcode || ''} ${activeBien.adresse.city || ''}`.trim()
     : '69003 Lyon 3ème';
   const hasRealLocation = !!activeBien?.adresse?.citycode;
+
+  /* targetFields = Set des clés (parmi COMPARABLE_FIELDS) renseignées sur le
+   * bien cible (Step 1). C'est le DÉNOMINATEUR du ratio "M/N" affiché sur
+   * chaque carte comparable. Reflète le périmètre réel de comparaison. */
+  const targetFields = useMemo(() => {
+    const cats = buildBienCibleCategories(bienCibleCategoriesBase, activeBien);
+    return getTargetFilledFieldKeys(cats);
+  }, [activeBien]);
 
   const [radius, setRadius] = useState(1000);
   const [mapStyle, setMapStyle] = useState('plan');
@@ -2128,6 +2346,39 @@ export default function Step3Comparables() {
 
   // Drawer pour afficher le d\u00e9tail d'un comparable
   const [drawerComp, setDrawerComp] = useState(null);
+
+  // Drawer de r\u00e9glage manuel de la similarit\u00e9 (clic sur la carte)
+  const [editComp, setEditComp] = useState(null);
+
+  // Overrides de similarit\u00e9 par comparable (id \u2192 valeur 0-100).
+  // Chargement initial depuis localStorage (cl\u00e9 ideeri_sim_overrides).
+  const [simOverrides, setSimOverrides] = useState(() => loadSimOverrides());
+
+  // Persistance localStorage \u00e0 chaque modification.
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(SIM_OVERRIDES_KEY, JSON.stringify(simOverrides));
+    } catch {
+      // localStorage indisponible (mode priv\u00e9, quota plein...) \u2192 silent fail
+    }
+  }, [simOverrides]);
+
+  // Met \u00e0 jour ou supprime l'override pour un id donn\u00e9.
+  const setSimOverrideFor = (id, value) => {
+    setSimOverrides((prev) => {
+      const next = { ...prev };
+      if (value === undefined || value === null) {
+        delete next[id];
+      } else {
+        const v = Math.max(0, Math.min(100, Math.round(Number(value))));
+        if (Number.isNaN(v)) delete next[id];
+        else next[id] = v;
+      }
+      return next;
+    });
+  };
+
+  const clearSimOverrideFor = (id) => setSimOverrideFor(id, null);
 
   // Pond\u00e9ration manuelle des comparables (somme = 100, normalis\u00e9e auto).
   // En mode live (selected vide au start), reste vide jusqu'à ce que l'user ajoute des comparables.
@@ -2518,7 +2769,8 @@ export default function Step3Comparables() {
     layer.clearLayers();
 
     // SELECTED — markers prominents (22px, ring autour)
-    selected.forEach((comp) => {
+    selected.forEach((rawComp) => {
+      const comp = applySimOverride(rawComp, simOverrides);
       const coords = comp.coords || COMP_COORDS[comp.id];
       if (!coords) return;
       const color = sourceMarkerColor[comp.source] || '#999';
@@ -2581,7 +2833,7 @@ export default function Step3Comparables() {
         </div>`
       );
     });
-  }, [selected, others]);
+  }, [selected, others, simOverrides]);
 
   // Toggle freehand drawing mode
   const toggleDrawMode = () => {
@@ -3004,29 +3256,35 @@ export default function Step3Comparables() {
             + Ajouter un comparable manuel
           </button>
           <div className="section-label">S&eacute;lectionn&eacute;s ({selected.length})</div>
-          {selected.map((c) => (
+          {selected.map((c) => applySimOverride(c, simOverrides)).map((c) => (
             <SelectedCompCard
               key={c.id}
               comp={c}
               onRemove={handleRemoveComparable}
-              onOpenDrawer={setDrawerComp}
+              onOpenDrawer={setEditComp}
               weight={weights[c.id] !== undefined ? weights[c.id] : 0}
               onWeightChange={handleWeightChange}
             />
           ))}
           {(() => {
-            const visibleOthers = others.filter((c) => {
-              if (c.source === 'dvf') return sourceDvf;
-              if (c.source === 'portail') return sourcePortail;
-              if (c.source === 'ideeri') return sourceIdeeri;
-              if (c.source === 'encours') return sourceEncours;
-              return true;
-            });
+            const visibleOthers = others
+              .filter((c) => {
+                if (c.source === 'dvf') return sourceDvf;
+                if (c.source === 'portail') return sourcePortail;
+                if (c.source === 'ideeri') return sourceIdeeri;
+                if (c.source === 'encours') return sourceEncours;
+                return true;
+              })
+              // Calcule donCount/donScore/donClass dynamiquement à partir de
+              // l'intersection (champs comp ∩ champs Step 1 renseignés).
+              .map((c) => enrichWithCoverage(c, targetFields))
+              // Applique l'override de similarité (si présent) avant le rendu.
+              .map((c) => applySimOverride(c, simOverrides));
             return (
               <>
                 {visibleOthers.length > 0 && <div className="section-label others">Autres ({visibleOthers.length})</div>}
                 {visibleOthers.map((c) => (
-                  <CompactCompCard key={c.id} comp={c} onAdd={addToSelected} />
+                  <CompactCompCard key={c.id} comp={c} onAdd={addToSelected} onOpenEdit={setEditComp} />
                 ))}
               </>
             );
@@ -3063,7 +3321,7 @@ export default function Step3Comparables() {
             </tr>
           </thead>
           <tbody>
-            {selected.map((c) => {
+            {selected.map((c) => applySimOverride(c, simOverrides)).map((c) => {
               const pertinence = Math.round((c.similarite || 0) * 0.6 + (c.donnees || 0) * 0.4);
               const pertCls = pertinence >= 80 ? 'pos' : pertinence >= 60 ? '' : 'neg';
               const sourceShort = c.source === 'dvf' ? 'DVF' : c.source === 'ideeri' ? 'Ideeri' : c.source === 'encours' ? 'En cours' : 'Portail';
@@ -3156,6 +3414,28 @@ export default function Step3Comparables() {
       {/* Drawer d\u00e9tail comparable */}
       {drawerComp && (
         <ComparableDrawer comp={drawerComp} onClose={() => setDrawerComp(null)} />
+      )}
+
+      {/* Drawer de r\u00e9glage manuel de la similarit\u00e9 (clic carte) */}
+      {editComp && (
+        <ComparableEditDrawer
+          comp={editComp}
+          autoSimilarity={editComp._autoSim !== undefined ? editComp._autoSim : (editComp.similarite || 0)}
+          overrideValue={simOverrides[editComp.id]}
+          onClose={() => setEditComp(null)}
+          onCommit={(value) => {
+            setSimOverrideFor(editComp.id, value);
+            setEditComp(null);
+          }}
+          onReset={() => {
+            clearSimOverrideFor(editComp.id);
+            setEditComp(null);
+          }}
+          onViewDetail={(c) => {
+            setEditComp(null);
+            setDrawerComp(c);
+          }}
+        />
       )}
 
       {/* Drawer de saisie manuelle d'un comparable */}
