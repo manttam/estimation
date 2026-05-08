@@ -1,7 +1,29 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import PropertyCard from '../components/PropertyCard';
 import Stepper from '../components/Stepper';
+import AcquereurEditDrawer from '../components/AcquereurEditDrawer';
+import { getActiveBien } from '../utils/activeBien';
+import {
+  parseAcquereursCsv,
+  buildAcquereurCsvTemplate,
+  scoreAcquereur,
+} from '../utils/acquereursCsv';
+
+/* ─── Labels persona / statut pour affichage ──────────────────────────── */
+const PERSONA_LABELS = {
+  familles: 'Familles',
+  investisseurs: 'Investisseurs',
+  primo: 'Primo-accédants',
+  retraites: 'Retraités',
+  mono: 'Mono-parentaux',
+  autre: 'Autre',
+};
+const STATUT_LABELS = {
+  chaud: 'Chaud',
+  actif: 'Actif',
+  passif: 'Passif',
+};
 
 /* ─── Données personas ─── */
 const PERSONAS = {
@@ -576,6 +598,48 @@ const cssStyles = `
   @media (max-width: 600px) {
     .project-modal { width: 100%; }
   }
+
+  /* ─── Section "Mes acquéreurs" (mode live) ─── */
+  .my-acq-section { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 22px 24px; margin: 0 0 28px; }
+  .my-acq-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 16px; flex-wrap: wrap; }
+  .my-acq-title { font-size: 16px; font-weight: 700; color: var(--text); margin: 0; display: flex; align-items: center; gap: 10px; }
+  .my-acq-count { font-size: 11px; font-weight: 600; color: var(--muted); background: #f4f4f6; padding: 3px 10px; border-radius: 999px; }
+  .my-acq-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .my-acq-btn { font-size: 12px; font-weight: 600; padding: 7px 14px; border-radius: 6px; border: 1px solid var(--line); background: #fff; color: var(--text); cursor: pointer; transition: background 0.15s, border-color 0.15s; display: inline-flex; align-items: center; gap: 6px; }
+  .my-acq-btn:hover { background: #f8f8fa; border-color: #d0d0d8; }
+  .my-acq-btn.primary { background: var(--text); color: #fff; border-color: var(--text); }
+  .my-acq-btn.primary:hover { background: #000; border-color: #000; }
+  .my-acq-btn.ghost { background: transparent; }
+  .my-acq-errors { background: #fff8f0; border: 1px solid #ffd9b3; border-radius: 6px; padding: 10px 14px; margin-bottom: 14px; font-size: 12px; color: #8c4a00; }
+  .my-acq-errors-title { font-weight: 700; margin-bottom: 4px; }
+  .my-acq-errors ul { margin: 0; padding-left: 18px; }
+  .my-acq-empty { text-align: center; padding: 28px 16px; color: var(--muted); font-size: 13px; background: #fafafb; border-radius: 8px; border: 1px dashed #e0e0e6; }
+  .my-acq-empty-hint { font-size: 11.5px; color: var(--muted); margin-top: 6px; }
+  .my-acq-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+  .acq-card { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; transition: border-color 0.15s, box-shadow 0.15s; }
+  .acq-card:hover { border-color: #c8c8d0; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+  .acq-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .acq-card-name { font-size: 13.5px; font-weight: 700; color: var(--text); line-height: 1.3; }
+  .acq-card-persona { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .acq-card-score { font-size: 18px; font-weight: 700; padding: 4px 10px; border-radius: 999px; line-height: 1; min-width: 52px; text-align: center; font-variant-numeric: tabular-nums; }
+  .acq-card-score.high { background: var(--green-soft); color: var(--green-dark); }
+  .acq-card-score.mid { background: #fff4e0; color: #b25c00; }
+  .acq-card-score.low { background: var(--red-soft); color: var(--red); }
+  .acq-card-score.na { background: #f0f0f3; color: var(--muted); font-size: 12px; padding: 6px 12px; }
+  .acq-card-budget { font-size: 12px; color: var(--text); font-weight: 600; }
+  .acq-card-budget .muted { color: var(--muted); font-weight: 400; }
+  .acq-card-criteres { display: flex; flex-wrap: wrap; gap: 4px; font-size: 10.5px; }
+  .acq-card-crit { padding: 2px 7px; border-radius: 4px; line-height: 1.4; }
+  .acq-card-crit.ok { background: var(--green-soft); color: var(--green-dark); }
+  .acq-card-crit.ko { background: var(--red-soft); color: var(--red); }
+  .acq-card-statut { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .acq-card-statut.chaud { background: #ffe0e0; color: #b00000; }
+  .acq-card-statut.actif { background: #e0f0ff; color: #004080; }
+  .acq-card-statut.passif { background: #f0f0f3; color: var(--muted); }
+  .acq-card-actions { display: flex; gap: 6px; margin-top: 4px; padding-top: 8px; border-top: 1px dashed #eee; }
+  .acq-card-action { font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 4px; border: none; background: transparent; color: var(--muted); cursor: pointer; transition: background 0.15s, color 0.15s; }
+  .acq-card-action:hover { background: #f4f4f6; color: var(--text); }
+  .acq-card-action.danger:hover { background: var(--red-soft); color: var(--red); }
 `;
 
 /* ─── Composant modale projet ─── */
@@ -754,6 +818,94 @@ export default function Step4TensionMarche() {
   const maxDist = Math.max(...P.dist);
   const modeIdx = P.dist.indexOf(maxDist);
 
+  /* ─── Mode live : "Mes acquéreurs" (CSV + saisie manuelle) ─── */
+  const activeBien = useMemo(() => getActiveBien(), []);
+  const hasRealLocation = !!(activeBien && activeBien.adresse && activeBien.adresse.label);
+  const prixEstime = useMemo(() => {
+    if (!activeBien || !activeBien.bien) return null;
+    const surface = Number(activeBien.bien.surface);
+    if (!Number.isFinite(surface) || surface <= 0) return null;
+    // Estimation indicative (4 500 €/m² par défaut si pas de prix calculé)
+    return Math.round(surface * 4500);
+  }, [activeBien]);
+
+  const [myAcquereurs, setMyAcquereurs] = useState([]);
+  const [drawerAcq, setDrawerAcq] = useState(null);
+  const [csvErrors, setCsvErrors] = useState([]);
+  const fileInputRef = useRef(null);
+
+  const handleAddManual = () => {
+    setDrawerAcq({});
+  };
+
+  const handleEditAcq = (acq) => {
+    setDrawerAcq(acq);
+  };
+
+  const handleSaveAcq = (payload) => {
+    setMyAcquereurs((prev) => {
+      const idx = prev.findIndex((a) => a.id === payload.id);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = { ...prev[idx], ...payload };
+        return next;
+      }
+      const newAcq = {
+        ...payload,
+        id: payload.id || `manual-${Date.now()}`,
+        source: 'manual',
+      };
+      return [...prev, newAcq];
+    });
+    setDrawerAcq(null);
+  };
+
+  const handleDeleteAcq = (id) => {
+    setMyAcquereurs((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  const handleCsvSelect = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target.result;
+      const { rows, errors } = parseAcquereursCsv(String(text || ''));
+      if (rows.length > 0) {
+        setMyAcquereurs((prev) => [...prev, ...rows]);
+      }
+      setCsvErrors(errors);
+    };
+    reader.readAsText(file, 'UTF-8');
+    // reset input pour permettre ré-upload du même fichier
+    e.target.value = '';
+  };
+
+  const handleDownloadTemplate = () => {
+    const csv = buildAcquereurCsvTemplate();
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'modele-acquereurs.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // Acquéreurs scorés et triés par score décroissant
+  const scoredAcquereurs = useMemo(() => {
+    if (!hasRealLocation || myAcquereurs.length === 0) return [];
+    const bien = activeBien?.bien || {};
+    return myAcquereurs
+      .map((a) => ({
+        acq: a,
+        ...scoreAcquereur(a, bien, prixEstime),
+      }))
+      .sort((a, b) => b.score - a.score);
+  }, [myAcquereurs, activeBien, prixEstime, hasRealLocation]);
+
   useEffect(() => {
     document.body.style.paddingBottom = '70px';
     return () => { document.body.style.paddingBottom = ''; };
@@ -764,6 +916,133 @@ export default function Step4TensionMarche() {
       <style>{cssStyles}</style>
       <PropertyCard />
       <Stepper currentStep={4} />
+
+      {/* ═══ MES ACQUÉREURS (mode live uniquement) ═══ */}
+      {hasRealLocation && (
+        <section className="my-acq-section">
+          <div className="my-acq-header">
+            <h2 className="my-acq-title">
+              Mes acquéreurs
+              <span className="my-acq-count">
+                {myAcquereurs.length} {myAcquereurs.length > 1 ? 'profils' : 'profil'}
+              </span>
+            </h2>
+            <div className="my-acq-actions">
+              <button type="button" className="my-acq-btn ghost" onClick={handleDownloadTemplate}>
+                <span aria-hidden="true">📥</span> Modèle CSV
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                style={{ display: 'none' }}
+                onChange={handleCsvSelect}
+              />
+              <button
+                type="button"
+                className="my-acq-btn"
+                onClick={() => fileInputRef.current && fileInputRef.current.click()}
+              >
+                <span aria-hidden="true">📂</span> Importer CSV
+              </button>
+              <button type="button" className="my-acq-btn primary" onClick={handleAddManual}>
+                <span aria-hidden="true">+</span> Ajouter manuellement
+              </button>
+            </div>
+          </div>
+
+          {csvErrors.length > 0 && (
+            <div className="my-acq-errors">
+              <div className="my-acq-errors-title">
+                Import CSV : {csvErrors.length} avertissement{csvErrors.length > 1 ? 's' : ''}
+              </div>
+              <ul>
+                {csvErrors.slice(0, 5).map((err, i) => (
+                  <li key={i}>Ligne {err.line} — {err.message}</li>
+                ))}
+                {csvErrors.length > 5 && <li>… et {csvErrors.length - 5} autre(s)</li>}
+              </ul>
+            </div>
+          )}
+
+          {myAcquereurs.length === 0 ? (
+            <div className="my-acq-empty">
+              <div>Aucun acquéreur enregistré pour ce bien.</div>
+              <div className="my-acq-empty-hint">
+                Importez un fichier CSV ou ajoutez vos acquéreurs manuellement pour calculer leur score de match avec votre bien.
+              </div>
+            </div>
+          ) : (
+            <div className="my-acq-list">
+              {scoredAcquereurs.map(({ acq, score, matches }) => {
+                const scoreCls = matches.length === 0
+                  ? 'na'
+                  : score >= 75 ? 'high' : score >= 50 ? 'mid' : 'low';
+                const scoreLabel = matches.length === 0 ? '—' : `${score}%`;
+                return (
+                  <div key={acq.id} className="acq-card">
+                    <div className="acq-card-top">
+                      <div>
+                        <div className="acq-card-name">{acq.nom}</div>
+                        <div className="acq-card-persona">
+                          {PERSONA_LABELS[acq.persona] || 'Autre'}
+                          {' · '}
+                          <span className={`acq-card-statut ${acq.statut || 'actif'}`}>
+                            {STATUT_LABELS[acq.statut] || 'Actif'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className={`acq-card-score ${scoreCls}`}>{scoreLabel}</div>
+                    </div>
+                    {(acq.budgetMin != null || acq.budgetMax != null) && (
+                      <div className="acq-card-budget">
+                        <span className="muted">Budget : </span>
+                        {acq.budgetMin != null ? `${acq.budgetMin}` : '—'}
+                        {' à '}
+                        {acq.budgetMax != null ? `${acq.budgetMax}` : '—'}
+                        <span className="muted"> k€</span>
+                      </div>
+                    )}
+                    {matches.length > 0 && (
+                      <div className="acq-card-criteres">
+                        {matches.map((m, i) => (
+                          <span key={i} className={`acq-card-crit ${m.ok ? 'ok' : 'ko'}`}>
+                            {m.ok ? '✓' : '✗'} {m.label}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="acq-card-actions">
+                      <button
+                        type="button"
+                        className="acq-card-action"
+                        onClick={() => handleEditAcq(acq)}
+                      >
+                        Modifier
+                      </button>
+                      <button
+                        type="button"
+                        className="acq-card-action danger"
+                        onClick={() => handleDeleteAcq(acq.id)}
+                      >
+                        Supprimer
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
+
+      {drawerAcq && (
+        <AcquereurEditDrawer
+          acquereur={drawerAcq}
+          onClose={() => setDrawerAcq(null)}
+          onSave={handleSaveAcq}
+        />
+      )}
 
       {/* ═══ ACTE 1 ═══ */}
       <section className="act act-1">
