@@ -2625,18 +2625,41 @@ export default function Step3Comparables() {
   const addExtraFilter = (key) => setExtraFilters(prev => [...prev, key]);
   const removeExtraFilter = (key) => setExtraFilters(prev => prev.filter(k => k !== key));
 
+  // Filtre live unifié : applique sources + type + surface + pièces + prix + rayon
+  // Utilisé à la fois par le count (computeFilteredCount) et la liste visible
+  // (visibleOthers), pour que les 2 affichages soient toujours alignés.
+  const passesLiveFilters = (c) => {
+    // Filtre source (checkboxes)
+    if (c.source === 'dvf' && !sourceDvf) return false;
+    if (c.source === 'portail' && !sourcePortail) return false;
+    if (c.source === 'ideeri' && !sourceIdeeri) return false;
+    if (c.source === 'encours' && !sourceEncours) return false;
+    // Filtre type (appartement / maison / tous)
+    const compType = c.fields?.type || c._dvfRaw?.type;
+    if (typeFilter !== 'tous' && compType && compType !== typeFilter) return false;
+    // Filtre surface
+    const compSurface = c.fields?.surface ?? c._dvfRaw?.surface;
+    if (typeof compSurface === 'number' && (compSurface < surfaceMin || compSurface > surfaceMax)) return false;
+    // Filtre pièces
+    const compPieces = c.fields?.pieces ?? c._dvfRaw?.pieces;
+    if (typeof compPieces === 'number' && (compPieces < piecesMin || compPieces > piecesMax)) return false;
+    // Filtre prix
+    const compPrix = c.fields?.prix ?? c._dvfRaw?.prix;
+    if (typeof compPrix === 'number' && (compPrix < prixMin || compPrix > prixMax)) return false;
+    // Filtre rayon (distance haversine depuis le target)
+    if (c.coords && targetCoords) {
+      const dist = haversineMeters(targetCoords, c.coords);
+      if (dist != null && dist > radius) return false;
+    }
+    return true;
+  };
+
   // Bien count : en mode live (DVF), on s'appuie sur le count réel de transactions.
   // En mode démo (pas de bien actif), on simule via les filtres pour garder l'UX initiale.
   const computeFilteredCount = () => {
-    // Mode live : count réel des cards "others" filtré selon les checkboxes sources actives
+    // Mode live : count réel des cards "others" filtré selon tous les filtres actifs.
     if (hasRealLocation && others.length > 0) {
-      const filtered = others.filter((c) => {
-        if (c.source === 'dvf') return sourceDvf;
-        if (c.source === 'portail') return sourcePortail;
-        if (c.source === 'ideeri') return sourceIdeeri;
-        if (c.source === 'encours') return sourceEncours;
-        return true;
-      });
+      const filtered = others.filter(passesLiveFilters);
       return Math.max(filtered.length, 0);
     }
     let count = ALL_COMPS_COUNT;
@@ -3310,7 +3333,11 @@ export default function Step3Comparables() {
           ))}
           {(() => {
             const visibleOthers = others
+              // En live on applique tous les filtres (sources + type + surface +
+              // pièces + prix + rayon) pour rester aligné avec computeFilteredCount.
+              // En démo on filtre uniquement par source pour garder l'UX initiale.
               .filter((c) => {
+                if (hasRealLocation) return passesLiveFilters(c);
                 if (c.source === 'dvf') return sourceDvf;
                 if (c.source === 'portail') return sourcePortail;
                 if (c.source === 'ideeri') return sourceIdeeri;
