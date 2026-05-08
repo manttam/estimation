@@ -622,9 +622,10 @@ async function fetchOverpassCategory(cat, coords, radius, signal) {
     }
   }
   if (!json) throw lastErr || new Error('Overpass : tous les mirrors KO');
-  console.log('[Overpass]', cat, '→ OK via', usedEndpoint);
+  const rawCount = Array.isArray(json.elements) ? json.elements.length : 0;
+  console.log('[Overpass]', cat, '→ OK via', usedEndpoint, '·', rawCount, 'éléments bruts');
   if (!Array.isArray(json.elements)) return [];
-  return json.elements
+  const filtered = json.elements
     .map((el) => {
       const c = el.type === 'node'
         ? [el.lat, el.lon]
@@ -639,6 +640,8 @@ async function fetchOverpassCategory(cat, coords, radius, signal) {
     .filter(Boolean)
     .sort((a, b) => a.distance - b.distance)
     .slice(0, 8);
+  console.log('[Overpass]', cat, '→', filtered.length, 'POI retenus (avec nom)');
+  return filtered;
 }
 
 /* ─── Helpers : construction des sections déroulables dynamiques ─────── */
@@ -1170,6 +1173,9 @@ export default function Step2ContexteZone() {
         cats.forEach((cat, i) => {
           if (Array.isArray(results[i]) && results[i].length > 0) next[cat] = results[i];
         });
+        console.log('[Overpass] récap final →',
+          Object.entries(next).map(([k, v]) => `${k}:${v.length}`).join(', ') || 'AUCUN POI',
+          '· radius=', radiusMeters, 'm');
         setRealPoi(Object.keys(next).length > 0 ? next : null);
       } catch (err) {
         if (err.name !== 'AbortError') {
