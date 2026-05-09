@@ -1,8 +1,36 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PropertyCard from '../components/PropertyCard';
 import Stepper from '../components/Stepper';
 import { avisValeur } from '../data/propertyData';
+import { getActiveBien } from '../utils/activeBien';
+import { getAcquereurs } from '../utils/acquereursStore';
+
+const TYPE_LABELS = {
+  appartement: 'Appartement',
+  maison: 'Maison',
+  studio: 'Studio',
+  loft: 'Loft',
+  duplex: 'Duplex',
+  terrain: 'Terrain',
+  parking: 'Parking',
+  local: 'Local',
+};
+
+function describeBien(active) {
+  if (!active || !active.bien) return null;
+  const b = active.bien;
+  const a = active.adresse || {};
+  const type = TYPE_LABELS[b.type] || (b.type ? b.type.charAt(0).toUpperCase() + b.type.slice(1) : 'Bien');
+  const piecesLabel = b.pieces ? `T${b.pieces}` : '';
+  const surfaceLabel = b.surface ? `${b.surface} m²` : '';
+  const cityLabel = a.city || '';
+  const etageLabel = (b.etage !== undefined && b.etage !== null && b.etage !== '')
+    ? (Number(b.etage) === 0 ? 'RDC' : `${b.etage}ème étage`)
+    : '';
+  const parts = [type, piecesLabel, surfaceLabel, cityLabel, etageLabel].filter(Boolean);
+  return parts.join(' · ');
+}
 
 const cssStyles = `
   .step5-page {
@@ -38,6 +66,33 @@ const cssStyles = `
     color: #bbb;
     letter-spacing: 0.5px;
     margin-bottom: 20px;
+  }
+  /* Bouton "Masquer la démo" en mode live */
+  .hide-demo-toggle {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #555;
+    background: #fafafa;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .hide-demo-toggle:hover {
+    background: #f0f0f0;
+    border-color: #c0c0c0;
+  }
+  .hide-demo-toggle.active {
+    background: #fff7e6;
+    border-color: #ffd591;
+    color: #d46b08;
   }
   .hero-prices {
     display: flex;
@@ -781,26 +836,68 @@ function formatPrice(n) {
   return n.toLocaleString('fr-FR') + ' \u20ac';
 }
 
+const DPE_RANK_LOCAL = { A: 7, B: 6, C: 5, D: 4, E: 3, F: 2, G: 1 };
+
 /* ==================== Component ==================== */
 export default function Step5AvisValeur() {
   const navigate = useNavigate();
 
-  const [sliderValue, setSliderValue] = useState(avisValeur.prixMedian);
+  /* ─── Mode live : récupération du bien actif et des acquéreurs réels ─── */
+  const activeBien = useMemo(() => getActiveBien(), []);
+  const hasRealLocation = !!(activeBien && activeBien.adresse && activeBien.adresse.label);
+  const realAcquereurs = useMemo(() => (hasRealLocation ? getAcquereurs() : []), [hasRealLocation]);
+
+  // Surface : depuis activeBien si dispo, sinon mock (72.5m²)
+  const surface = useMemo(() => {
+    const s = Number(activeBien?.bien?.surface);
+    return Number.isFinite(s) && s > 0 ? s : 72.5;
+  }, [activeBien]);
+
+  // Prix de référence : depuis activeBien.result si dispo, sinon mock avisValeur
+  const priceRef = useMemo(() => {
+    if (hasRealLocation && activeBien?.result?.prix) {
+      const prix = Number(activeBien.result.prix);
+      const prixBas = Number(activeBien.result.prixBas) || Math.round(prix * 0.93);
+      const prixHaut = Number(activeBien.result.prixHaut) || Math.round(prix * 1.07);
+      return { prixMedian: prix, prixBas, prixHaut, prixM2: Math.round(prix / surface) };
+    }
+    return {
+      prixMedian: avisValeur.prixMedian,
+      prixBas: avisValeur.prixBas,
+      prixHaut: avisValeur.prixHaut,
+      prixM2: avisValeur.prixM2,
+    };
+  }, [activeBien, hasRealLocation, surface]);
+
+  // Description hero : "Appartement T3 · 72m² · Lyon 3ème · 4ème étage"
+  const heroDescription = useMemo(() => {
+    return describeBien(activeBien) || 'Appartement T3 · 72.5m² · Lyon 3ème · 4ème étage';
+  }, [activeBien]);
+
+  // Bornes du slider de prix : -17% / +27% autour du prix médian, arrondies au millier
+  const sliderBounds = useMemo(() => {
+    const median = priceRef.prixMedian;
+    const min = Math.max(0, Math.round((median * 0.83) / 1000) * 1000);
+    const max = Math.round((median * 1.27) / 1000) * 1000;
+    return { min, max };
+  }, [priceRef]);
+
+  const [sliderValue, setSliderValue] = useState(priceRef.prixMedian);
   const [selectedStrategy, setSelectedStrategy] = useState(1);
   const [pointsForts, setPointsForts] = useState([...avisValeur.pointsForts]);
   const [pointsVigilance, setPointsVigilance] = useState([...avisValeur.pointsVigilance]);
-  const [customPrice, setCustomPrice] = useState('300000');
+  const [customPrice, setCustomPrice] = useState(String(priceRef.prixMedian));
 
-  // Visibilit\u00e9 des sections en RDV : true = masqu\u00e9 lors du RDV
+  // Visibilité des sections en RDV : true = masqué lors du RDV
   const [hideConfiance, setHideConfiance] = useState(false);
   const [hideStrategie, setHideStrategie] = useState(false);
 
-  const surface = 72.5;
-  const totalAcquereurs = 23;
+  // Toggle "Masquer la démo" en mode live (pour cacher éléments fictifs)
+  const [hideDemo, setHideDemo] = useState(false);
 
   /* ---- Demand computation (matching HTML wireframe logic) ---- */
-  // Simulated acquéreur data matching the HTML wireframe
-  const acquereurs = [
+  // Mock acquéreur data (mode démo) — utilisé quand pas d'acquéreurs réels
+  const mockAcquereurs = [
     { budgetMax: 330000, type: true, surface: true, loc: true, dpe: true },
     { budgetMax: 310000, type: true, surface: true, loc: true, dpe: true },
     { budgetMax: 295000, type: true, surface: true, loc: true, dpe: true },
@@ -826,7 +923,40 @@ export default function Step5AvisValeur() {
     { budgetMax: 275000, type: true, surface: true, loc: true, dpe: true },
   ];
 
-  let budgetMatch = 0, typeMatch = 0, surfMatch = 0, locMatch = 0, dpeMatch = 0, allMatch = 0;
+  // En mode live : on dérive les flags type/surface/loc/dpe à partir des critères
+  // de chaque acquéreur réel vis-à-vis du bien actif. La loc est neutre par défaut
+  // (pas de critère "communes" dans le schéma actuel).
+  const liveAcquereurs = useMemo(() => {
+    if (!hasRealLocation || realAcquereurs.length === 0) return [];
+    const bien = activeBien?.bien || {};
+    const bienType = bien.type || null;
+    const bienSurface = Number(bien.surface);
+    const bienDpeRank = bien.dpe ? (DPE_RANK_LOCAL[String(bien.dpe).toUpperCase()] || 0) : null;
+    return realAcquereurs.map((a) => {
+      const budgetMax = a.budgetMax != null ? Number(a.budgetMax) * 1000 : Infinity;
+      const typeOk = !a.type || a.type === 'indifferent' || !bienType
+        ? true
+        : a.type === bienType;
+      const surfaceOk = a.surfaceMin == null || !Number.isFinite(bienSurface)
+        ? true
+        : bienSurface >= a.surfaceMin;
+      const dpeOk = !a.dpeMin || bienDpeRank == null
+        ? true
+        : bienDpeRank >= (DPE_RANK_LOCAL[a.dpeMin] || 0);
+      return {
+        budgetMax,
+        type: typeOk,
+        surface: surfaceOk,
+        loc: true, // pas de critère localisation dans le schéma actuel
+        dpe: dpeOk,
+      };
+    });
+  }, [hasRealLocation, realAcquereurs, activeBien]);
+
+  const acquereurs = hasRealLocation && liveAcquereurs.length > 0 ? liveAcquereurs : mockAcquereurs;
+  const totalAcquereurs = acquereurs.length;
+
+  let budgetMatch = 0, typeMatch = 0, surfMatch = 0, locMatch = 0, dpeMatch = 0;
   acquereurs.forEach((a) => {
     const passBudget = a.budgetMax >= sliderValue;
     if (passBudget) budgetMatch++;
@@ -834,7 +964,6 @@ export default function Step5AvisValeur() {
     if (a.surface) surfMatch++;
     if (a.loc) locMatch++;
     if (a.dpe) dpeMatch++;
-    if (passBudget && a.type && a.surface && a.loc && a.dpe) allMatch++;
   });
 
   /* ---- Offres concurrentes : biens immo \u00e0 vendre actuellement dans la fourchette de prix ----
@@ -970,24 +1099,35 @@ export default function Step5AvisValeur() {
       <div className="step5-section">
         {/* ============ HERO SECTION ============ */}
         <div className="hero-section">
+          {hasRealLocation && (
+            <button
+              type="button"
+              className={`hide-demo-toggle${hideDemo ? ' active' : ''}`}
+              onClick={() => setHideDemo((v) => !v)}
+              title={hideDemo ? 'R\u00e9afficher les sections d\u00e9mo (comparables, offres concurrentes\u2026)' : 'Masquer les sections d\u00e9mo (comparables fictifs, offres concurrentes simul\u00e9es\u2026)'}
+            >
+              <span aria-hidden="true">{hideDemo ? '\uD83D\uDC41\uFE0F' : '\uD83D\uDEAB'}</span>
+              {hideDemo ? ' R\u00e9afficher la d\u00e9mo' : ' Masquer la d\u00e9mo'}
+            </button>
+          )}
           <div className="hero-label">
-            ESTIMATION &mdash; Appartement T3 &middot; 72.5m&sup2; &middot; Lyon 3&egrave;me &middot; 4&egrave;me &eacute;tage
+            ESTIMATION &mdash; {heroDescription}
           </div>
           <div className="hero-prices">
             <div className="price-item">
               <div className="price-label">Fourchette basse</div>
-              <div className="price-low">{formatPrice(avisValeur.prixBas)}</div>
+              <div className="price-low">{formatPrice(priceRef.prixBas)}</div>
             </div>
             <div className="price-item">
-              <div className="price-main">{formatPrice(avisValeur.prixMedian)}</div>
+              <div className="price-main">{formatPrice(priceRef.prixMedian)}</div>
             </div>
             <div className="price-item">
               <div className="price-label">Fourchette haute</div>
-              <div className="price-high">{formatPrice(avisValeur.prixHaut)}</div>
+              <div className="price-high">{formatPrice(priceRef.prixHaut)}</div>
             </div>
           </div>
           <div className="price-meta">
-            <span className="price-meta-item"><strong>{avisValeur.prixM2.toLocaleString('fr-FR')} &euro;/m&sup2;</strong></span>
+            <span className="price-meta-item"><strong>{priceRef.prixM2.toLocaleString('fr-FR')} &euro;/m&sup2;</strong></span>
           </div>
           {hideConfiance ? (
             <div className="rdv-collapsed">
@@ -1049,11 +1189,15 @@ export default function Step5AvisValeur() {
               <div className="demand-big-number" style={{ color: demandColor }}>{budgetMatch}</div>
               <div className="demand-big-label">projets<br/>d&apos;achat</div>
             </div>
-            <div className="demand-vs">vs</div>
-            <div className="demand-big-wrap">
-              <div className="demand-big-number offers">{offresImmo}</div>
-              <div className="demand-big-label">offres<br/>concurrentes</div>
-            </div>
+            {!hideDemo && (
+              <>
+                <div className="demand-vs">vs</div>
+                <div className="demand-big-wrap">
+                  <div className="demand-big-number offers">{offresImmo}</div>
+                  <div className="demand-big-label">offres<br/>concurrentes</div>
+                </div>
+              </>
+            )}
             <div className="demand-gauge-wrap">
               <div className="demand-price-display">
                 {formatPrice(sliderValue)}
@@ -1063,16 +1207,16 @@ export default function Step5AvisValeur() {
                 <input
                   type="range"
                   className="demand-slider"
-                  min={250000}
-                  max={380000}
+                  min={sliderBounds.min}
+                  max={sliderBounds.max}
                   step={1000}
                   value={sliderValue}
                   onChange={(e) => setSliderValue(Number(e.target.value))}
                 />
                 <div className="demand-slider-labels">
-                  <span>250 000 &euro;</span>
-                  <span className="estimation-marker">&#9660; Estimation 300k</span>
-                  <span>380 000 &euro;</span>
+                  <span>{sliderBounds.min.toLocaleString('fr-FR')} &euro;</span>
+                  <span className="estimation-marker">&#9660; Estimation {Math.round(priceRef.prixMedian / 1000)}k</span>
+                  <span>{sliderBounds.max.toLocaleString('fr-FR')} &euro;</span>
                 </div>
               </div>
             </div>
@@ -1106,7 +1250,8 @@ export default function Step5AvisValeur() {
 
         {/* ============ THREE-COLUMN GRID ============ */}
         <div className="content-grid">
-          {/* --- Column 1: Decomposition + Comparables --- */}
+          {/* --- Column 1: Decomposition + Comparables (mock — masqu\u00e9 en mode "Masquer la d\u00e9mo") --- */}
+          {!hideDemo && (
           <div className="content-grid-col">
             <div className="card">
               <div className="card-title">Avis de valeur</div>
@@ -1158,6 +1303,7 @@ export default function Step5AvisValeur() {
               </table>
             </div>
           </div>
+          )}
 
           {/* --- Column 2: Points forts + Points de vigilance --- */}
           <div className="content-grid-col">

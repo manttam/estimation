@@ -9,6 +9,10 @@ import {
   buildAcquereurCsvTemplate,
   scoreAcquereur,
 } from '../utils/acquereursCsv';
+import {
+  getAcquereurs as getStoredAcquereurs,
+  setAcquereurs as setStoredAcquereurs,
+} from '../utils/acquereursStore';
 
 /* ─── Labels persona / statut pour affichage ──────────────────────────── */
 const PERSONA_LABELS = {
@@ -829,7 +833,16 @@ export default function Step4TensionMarche() {
     return Math.round(surface * 4500);
   }, [activeBien]);
 
-  const [myAcquereurs, setMyAcquereurs] = useState([]);
+  // Initialisation depuis sessionStorage (partagé avec Step 5)
+  const [myAcquereurs, setMyAcquereursState] = useState(() => getStoredAcquereurs());
+  // Wrapper qui synchronise state local + sessionStorage
+  const setMyAcquereurs = (updater) => {
+    setMyAcquereursState((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      setStoredAcquereurs(next);
+      return next;
+    });
+  };
   const [drawerAcq, setDrawerAcq] = useState(null);
   const [csvErrors, setCsvErrors] = useState([]);
   const [hideDemo, setHideDemo] = useState(false);
