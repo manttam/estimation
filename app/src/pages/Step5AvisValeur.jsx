@@ -874,6 +874,35 @@ export default function Step5AvisValeur() {
     return describeBien(activeBien) || 'Appartement T3 · 72.5m² · Lyon 3ème · 4ème étage';
   }, [activeBien]);
 
+  // Décomposition de l'estimation en mode live : prix m² de base + ajustements
+  // breakdown = array de { label, coef } (coef = 1.0 -> neutre, 1.05 -> +5%, 0.95 -> -5%)
+  const breakdownLive = useMemo(() => {
+    if (!hasRealLocation || !activeBien?.result?.breakdown) return null;
+    return {
+      prixM2Base: Number(activeBien.result.prixM2Base) || 0,
+      coef: Number(activeBien.result.coef) || 1,
+      breakdown: Array.isArray(activeBien.result.breakdown) ? activeBien.result.breakdown : [],
+    };
+  }, [activeBien, hasRealLocation]);
+
+  // Comparables DVF : top 10 transactions du quartier persistées dans activeBien
+  const comparablesLive = useMemo(() => {
+    if (!hasRealLocation || !Array.isArray(activeBien?.dvfTopComparables)) return [];
+    return activeBien.dvfTopComparables.slice(0, 5).map((c, i) => {
+      const adresse = c.adresse || c.nom_voie || c.address || `Transaction #${i + 1}`;
+      const prixM2 = Number(c.prix_m2 || c.prixM2 || (c.valeur_fonciere && c.surface_reelle_bati
+        ? c.valeur_fonciere / c.surface_reelle_bati : 0));
+      return { adresse, prixM2: Math.round(prixM2) };
+    }).filter((c) => c.prixM2 > 0);
+  }, [activeBien, hasRealLocation]);
+
+  // Moyenne pondérée des comparables (pondération uniforme pour l'instant)
+  const comparablesAvg = useMemo(() => {
+    if (comparablesLive.length === 0) return 0;
+    const sum = comparablesLive.reduce((acc, c) => acc + c.prixM2, 0);
+    return Math.round(sum / comparablesLive.length);
+  }, [comparablesLive]);
+
   // Bornes du slider de prix : -17% / +27% autour du prix médian, arrondies au millier
   const sliderBounds = useMemo(() => {
     const median = priceRef.prixMedian;
@@ -882,10 +911,81 @@ export default function Step5AvisValeur() {
     return { min, max };
   }, [priceRef]);
 
+  // Points forts / vigilance auto-générés à partir des caractéristiques du bien
+  // (mode live uniquement). Heuristiques simples sur DPE, étage, ascenseur,
+  // exposition, parking, extérieur, état, année de construction.
+  const autoPoints = useMemo(() => {
+    if (!hasRealLocation || !activeBien?.bien) {
+      return { forts: avisValeur.pointsForts, vigilance: avisValeur.pointsVigilance };
+    }
+    const bien = activeBien.bien;
+    const forts = [];
+    const vigilance = [];
+
+    // DPE
+    const dpe = bien.dpe ? String(bien.dpe).toUpperCase() : null;
+    if (dpe && ['A', 'B', 'C'].includes(dpe)) {
+      forts.push(`DPE ${dpe} — bien performant énergétiquement`);
+    } else if (dpe && ['F', 'G'].includes(dpe)) {
+      vigilance.push(`DPE ${dpe} — passoire thermique (interdiction de location 2025/2028)`);
+    } else if (dpe === 'E') {
+      vigilance.push(`DPE E — interdiction de location prévue en 2034`);
+    }
+
+    // Étage + ascenseur (appartement)
+    if (bien.type === 'appartement') {
+      if (bien.etage != null && bien.etage !== '') {
+        const e = Number(bien.etage);
+        if (e === 0) vigilance.push('Rez-de-chaussée — vis-à-vis et sécurité à anticiper');
+        else if (e >= 6 && !bien.ascenseur) vigilance.push(`${e}e étage sans ascenseur — frein commercial fort`);
+        else if (e >= 3 && bien.ascenseur) forts.push(`${e}e étage avec ascenseur — vue dégagée et confort`);
+      }
+    }
+
+    // Exposition
+    if (bien.exposition && /sud/i.test(bien.exposition)) {
+      forts.push(`Exposition ${bien.exposition.replace('_', '-')} — luminosité optimale`);
+    } else if (bien.exposition === 'nord') {
+      vigilance.push('Exposition nord — luminosité réduite');
+    }
+
+    // Extérieur
+    if (bien.exterieur === 'jardin') forts.push('Jardin — atout différenciant rare en zone urbaine');
+    else if (bien.exterieur === 'terrasse') forts.push('Terrasse — extérieur très recherché');
+    else if (bien.exterieur === 'balcon') forts.push('Balcon — extérieur appréciable');
+    else if (bien.exterieur === 'aucun' && bien.type === 'appartement') {
+      vigilance.push('Absence d\u2019extérieur — frein post-Covid');
+    }
+
+    // Parking
+    if (bien.parking === 'box') forts.push('Box / garage fermé — valorise le bien (+5%)');
+    else if (bien.parking === 'place') forts.push('Place de parking — confort apprécié en centre-ville');
+    else if (bien.parking === 'aucun') vigilance.push('Pas de stationnement — frein dans certains quartiers');
+
+    // État
+    if (bien.etat === 'neuf') forts.push('État neuf — aucun travaux à prévoir');
+    else if (bien.etat === 'refait') forts.push('Récemment rénové — prêt à emménager');
+    else if (bien.etat === 'a_renover') vigilance.push('À rénover — anticiper budget travaux');
+    else if (bien.etat === 'a_reconstruire') vigilance.push('À reconstruire — projet lourd, public restreint');
+
+    // Année
+    if (bien.annee) {
+      const a = Number(bien.annee);
+      if (a >= 2010) forts.push(`Construction ${a} — récent, normes thermiques actuelles`);
+      else if (a < 1948) vigilance.push(`Construction ${a} — ancien, vigilance sur structure et isolation`);
+    }
+
+    // Fallback : si rien généré, on garde les valeurs démo
+    if (forts.length === 0) forts.push(...avisValeur.pointsForts);
+    if (vigilance.length === 0) vigilance.push(...avisValeur.pointsVigilance);
+
+    return { forts, vigilance };
+  }, [activeBien, hasRealLocation]);
+
   const [sliderValue, setSliderValue] = useState(priceRef.prixMedian);
   const [selectedStrategy, setSelectedStrategy] = useState(1);
-  const [pointsForts, setPointsForts] = useState([...avisValeur.pointsForts]);
-  const [pointsVigilance, setPointsVigilance] = useState([...avisValeur.pointsVigilance]);
+  const [pointsForts, setPointsForts] = useState(autoPoints.forts);
+  const [pointsVigilance, setPointsVigilance] = useState(autoPoints.vigilance);
   const [customPrice, setCustomPrice] = useState(String(priceRef.prixMedian));
 
   // Visibilité des sections en RDV : true = masqué lors du RDV
@@ -1255,52 +1355,125 @@ export default function Step5AvisValeur() {
           <div className="content-grid-col">
             <div className="card">
               <div className="card-title">Avis de valeur</div>
-              <div className="decomp-step">
-                <span className="decomp-label">1. Prix m&eacute;dian comparables</span>
-                <span className="decomp-value">4 172 &euro;/m&sup2;</span>
-              </div>
-              <div className="decomp-detail">&times; 72.5m&sup2; = 302 470 &euro;</div>
-              <div className="decomp-step">
-                <span className="decomp-label">2. Impact tension march&eacute;</span>
-                <span className="decomp-value pos">+0.7%</span>
-              </div>
-              <div className="decomp-detail">Ratio demande/offre 3.2x +0.5%</div>
-              <div className="decomp-detail">7 acqu&eacute;reurs forte compatibilit&eacute; +0.2%</div>
-              <div className="decomp-detail">&rarr; <strong style={{ color: '#46B962' }}>+2 117 &euro;</strong></div>
-              <div className="decomp-step">
-                <span className="decomp-label">3. Corrections sp&eacute;cifiques</span>
-                <span className="decomp-value neg">&minus;1.5%</span>
-              </div>
-              <div className="decomp-detail">DPE D (passoire thermique 2028) &minus;2.0%</div>
-              <div className="decomp-detail">Travaux copro vot&eacute;s (15k&euro;) &minus;0.5%</div>
-              <div className="decomp-detail">Balcon 5.2m&sup2; +1.0%</div>
-              <div className="decomp-detail">&rarr; <strong style={{ color: '#e74c3c' }}>&minus;4 537 &euro;</strong></div>
-              <div className="decomp-divider" />
-              <div className="decomp-step">
-                <span className="decomp-label decomp-final">AVIS DE VALEUR</span>
-                <span className="decomp-value decomp-final-value">300 000 &euro;</span>
-              </div>
-              <div className="decomp-range">Fourchette: 280 000 &euro; &mdash; 315 000 &euro;</div>
+              {breakdownLive ? (
+                <>
+                  <div className="decomp-step">
+                    <span className="decomp-label">1. Prix m&eacute;dian de base</span>
+                    <span className="decomp-value">{breakdownLive.prixM2Base.toLocaleString('fr-FR')} &euro;/m&sup2;</span>
+                  </div>
+                  <div className="decomp-detail">
+                    &times; {surface}m&sup2; = {Math.round(breakdownLive.prixM2Base * surface).toLocaleString('fr-FR')} &euro;
+                  </div>
+                  {breakdownLive.breakdown.length > 0 && (
+                    <>
+                      <div className="decomp-step">
+                        <span className="decomp-label">2. Ajustements du bien</span>
+                        <span className={`decomp-value ${breakdownLive.coef >= 1 ? 'pos' : 'neg'}`}>
+                          {breakdownLive.coef >= 1 ? '+' : ''}{((breakdownLive.coef - 1) * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                      {breakdownLive.breakdown.map((b, idx) => {
+                        const pct = ((b.coef - 1) * 100).toFixed(1);
+                        const sign = b.coef >= 1 ? '+' : '';
+                        return (
+                          <div key={idx} className="decomp-detail">
+                            {b.label} {sign}{pct}%
+                          </div>
+                        );
+                      })}
+                      <div className="decomp-detail">
+                        &rarr;{' '}
+                        <strong style={{ color: breakdownLive.coef >= 1 ? '#46B962' : '#e74c3c' }}>
+                          {breakdownLive.coef >= 1 ? '+' : '\u2212'}
+                          {Math.abs(Math.round((breakdownLive.coef - 1) * breakdownLive.prixM2Base * surface)).toLocaleString('fr-FR')} &euro;
+                        </strong>
+                      </div>
+                    </>
+                  )}
+                  <div className="decomp-divider" />
+                  <div className="decomp-step">
+                    <span className="decomp-label decomp-final">AVIS DE VALEUR</span>
+                    <span className="decomp-value decomp-final-value">{formatPrice(priceRef.prixMedian)}</span>
+                  </div>
+                  <div className="decomp-range">
+                    Fourchette: {formatPrice(priceRef.prixBas)} &mdash; {formatPrice(priceRef.prixHaut)}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="decomp-step">
+                    <span className="decomp-label">1. Prix m&eacute;dian comparables</span>
+                    <span className="decomp-value">4 172 &euro;/m&sup2;</span>
+                  </div>
+                  <div className="decomp-detail">&times; 72.5m&sup2; = 302 470 &euro;</div>
+                  <div className="decomp-step">
+                    <span className="decomp-label">2. Impact tension march&eacute;</span>
+                    <span className="decomp-value pos">+0.7%</span>
+                  </div>
+                  <div className="decomp-detail">Ratio demande/offre 3.2x +0.5%</div>
+                  <div className="decomp-detail">7 acqu&eacute;reurs forte compatibilit&eacute; +0.2%</div>
+                  <div className="decomp-detail">&rarr; <strong style={{ color: '#46B962' }}>+2 117 &euro;</strong></div>
+                  <div className="decomp-step">
+                    <span className="decomp-label">3. Corrections sp&eacute;cifiques</span>
+                    <span className="decomp-value neg">&minus;1.5%</span>
+                  </div>
+                  <div className="decomp-detail">DPE D (passoire thermique 2028) &minus;2.0%</div>
+                  <div className="decomp-detail">Travaux copro vot&eacute;s (15k&euro;) &minus;0.5%</div>
+                  <div className="decomp-detail">Balcon 5.2m&sup2; +1.0%</div>
+                  <div className="decomp-detail">&rarr; <strong style={{ color: '#e74c3c' }}>&minus;4 537 &euro;</strong></div>
+                  <div className="decomp-divider" />
+                  <div className="decomp-step">
+                    <span className="decomp-label decomp-final">AVIS DE VALEUR</span>
+                    <span className="decomp-value decomp-final-value">300 000 &euro;</span>
+                  </div>
+                  <div className="decomp-range">Fourchette: 280 000 &euro; &mdash; 315 000 &euro;</div>
+                </>
+              )}
             </div>
 
             <div className="card">
               <div className="card-title">Comparables utilis&eacute;s</div>
-              <table className="comp-table">
-                <thead>
-                  <tr>
-                    <th>Adresse</th>
-                    <th>Prix/m&sup2;</th>
-                    <th>Poids</th>
-                    <th>Ajust&eacute;</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr><td>8 rue Villeroy</td><td>4 191&euro;</td><td>35%</td><td>4 103&euro;</td></tr>
-                  <tr><td>22 av. Lacassagne</td><td>4 133&euro;</td><td>40%</td><td>4 195&euro;</td></tr>
-                  <tr><td>15 rue Paul Bert</td><td>4 274&euro;</td><td>25%</td><td>4 112&euro;</td></tr>
-                  <tr className="total"><td colSpan="3">Moyenne pond&eacute;r&eacute;e</td><td>4 172&euro;</td></tr>
-                </tbody>
-              </table>
+              {comparablesLive.length > 0 ? (
+                <table className="comp-table">
+                  <thead>
+                    <tr>
+                      <th>Adresse</th>
+                      <th>Prix/m&sup2;</th>
+                      <th>Poids</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {comparablesLive.map((c, i) => (
+                      <tr key={i}>
+                        <td>{c.adresse}</td>
+                        <td>{c.prixM2.toLocaleString('fr-FR')}&euro;</td>
+                        <td>{Math.round(100 / comparablesLive.length)}%</td>
+                      </tr>
+                    ))}
+                    <tr className="total">
+                      <td colSpan="2">Moyenne</td>
+                      <td>{comparablesAvg.toLocaleString('fr-FR')}&euro;</td>
+                    </tr>
+                  </tbody>
+                </table>
+              ) : (
+                <table className="comp-table">
+                  <thead>
+                    <tr>
+                      <th>Adresse</th>
+                      <th>Prix/m&sup2;</th>
+                      <th>Poids</th>
+                      <th>Ajust&eacute;</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>8 rue Villeroy</td><td>4 191&euro;</td><td>35%</td><td>4 103&euro;</td></tr>
+                    <tr><td>22 av. Lacassagne</td><td>4 133&euro;</td><td>40%</td><td>4 195&euro;</td></tr>
+                    <tr><td>15 rue Paul Bert</td><td>4 274&euro;</td><td>25%</td><td>4 112&euro;</td></tr>
+                    <tr className="total"><td colSpan="3">Moyenne pond&eacute;r&eacute;e</td><td>4 172&euro;</td></tr>
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
           )}
