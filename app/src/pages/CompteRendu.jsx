@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   property,
@@ -11,6 +11,9 @@ import {
   personasAcquereurs,
 } from '../data/propertyData';
 import ReliabilityBadge from '../components/ReliabilityBadge';
+import { getActiveBien } from '../utils/activeBien';
+import { getAcquereurs } from '../utils/acquereursStore';
+import { getPhotosForCarousel, revokePhotoUrls } from '../utils/photosStore';
 
 /**
  * Icônes Lucide inlinées (ISC license).
@@ -55,12 +58,139 @@ const LUCIDE_ICONS = {
 export default function CompteRendu() {
   const navigate = useNavigate();
 
+  /* ───── Mode live : bien actif + acquéreurs réels ─────
+   * En mode live (un bien a été saisi via /nouveau-bien), on dérive toutes
+   * les sections depuis activeBien / getAcquereurs / IndexedDB photos.
+   * En mode démo (aucun bien actif), on garde les mocks 12 rue des Lilas.
+   */
+  const activeBien = useMemo(() => getActiveBien(), []);
+  const isLive = !!(activeBien?.adresse?.label);
+  const realAcquereurs = useMemo(() => (isLive ? getAcquereurs() : []), [isLive]);
+
+  // Photos IndexedDB (mode live uniquement) : chargement async + revoke au démontage
+  const [livePhotos, setLivePhotos] = useState([]);
+  useEffect(() => {
+    if (!isLive) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const photos = await getPhotosForCarousel();
+        if (!cancelled) setLivePhotos(photos || []);
+      } catch (err) {
+        console.warn('[CompteRendu] photos load error', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      revokePhotoUrls(livePhotos);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLive]);
+
+  // effProperty : forme identique à property{} mais dérivée d'activeBien
+  const effProperty = useMemo(() => {
+    if (!isLive) return property;
+    const b = activeBien.bien || {};
+    const adr = activeBien.adresse || {};
+    return {
+      ...property,
+      adresse: adr.label || '',
+      surface: b.surface ?? '—',
+      pieces: b.pieces ?? '—',
+      chambres: b.chambres ?? '—',
+      etage: b.etage != null ? b.etage : '—',
+      annee: b.annee ?? '—',
+      dpe: b.dpe || '—',
+      reference: `IDR-${new Date(activeBien.createdAt || Date.now()).getFullYear()}-${String(Math.floor(Math.random() * 90000) + 10000)}`,
+    };
+  }, [isLive, activeBien]);
+
+  // effContexteZone : marché local depuis dvfStats si dispo
+  const effContexteZone = useMemo(() => {
+    if (!isLive) return contexteZone;
+    const dvf = activeBien.dvfStats || {};
+    const city = activeBien.adresse?.city || '';
+    return {
+      ...contexteZone,
+      zoneLabel: city ? `${city} (secteur du bien)` : 'Secteur du bien',
+      rayonMetres: contexteZone.rayonMetres,
+      market: {
+        ...contexteZone.market,
+        prixM2: dvf.median ? Math.round(dvf.median).toLocaleString('fr-FR') : '—',
+        evolution: dvf.evolution || '—',
+        transactions: dvf.count ?? '—',
+        delai: dvf.delaiMoyen || '—',
+        fourchette: dvf.fourchette || '—',
+      },
+      tensionLabel: dvf.tensionLabel || '—',
+      tensionScore: dvf.tensionScore ?? '—',
+      commodites: [], // pas de POI collectés en live pour l'instant
+    };
+  }, [isLive, activeBien]);
+
+  // effComparables : reprend dvfTopComparables (forme minimale)
+  const effComparables = useMemo(() => {
+    if (!isLive) return comparables;
+    const top = Array.isArray(activeBien.dvfTopComparables) ? activeBien.dvfTopComparables : [];
+    return top.map((c, idx) => ({
+      id: c.id || `dvf-${idx}`,
+      source: 'dvf',
+      sourceLabel: 'DVF',
+      type: c.type || 'Appartement',
+      surface: c.surface || '—',
+      pieces: c.pieces || '—',
+      adresse: c.adresse || '—',
+      prix: c.prix || 0,
+      prixM2: c.prixM2 || 0,
+      date: c.date || '—',
+      distance: c.distance || '—',
+      etage: c.etage ?? '—',
+      etageMax: c.etageMax ?? '—',
+      selected: true,
+      dpe: c.dpe || '—',
+      etat: c.etat || '—',
+      atouts: c.atouts || [],
+      exposition: c.exposition || '—',
+      anneeConstruction: c.anneeConstruction || '—',
+      commentairePertinence: c.commentairePertinence || 'Comparable issu de la base DVF (transaction confirmée).',
+      raisonEcart: c.raisonEcart || '',
+      donneesCroisees: c.donneesCroisees || { fiabilite: 'moyenne' },
+    }));
+  }, [isLive, activeBien]);
+
+  // effAvisValeur : prix depuis activeBien.result, garde le reste statique
+  const effAvisValeur = useMemo(() => {
+    if (!isLive) return avisValeur;
+    const r = activeBien.result || {};
+    const prixBas = r.prixBas || 0;
+    const prixHaut = r.prixHaut || 0;
+    const prixMedian = r.prix || Math.round((prixBas + prixHaut) / 2);
+    const surface = activeBien.bien?.surface || 1;
+    const prixM2 = r.prixM2 || Math.round(prixMedian / surface);
+    return {
+      ...avisValeur,
+      prixBas,
+      prixHaut,
+      prixM2,
+      strategies: [
+        { label: 'Prudent', prix: prixBas, prixM2: Math.round(prixBas / surface), delai: '—', profilCible: '—', risque: '—', argumentaireDetaille: 'Borne basse de la fourchette d\'estimation.', recommended: false },
+        { label: 'Recommandé', prix: prixMedian, prixM2, delai: '—', profilCible: '—', risque: '—', argumentaireDetaille: 'Prix médian recommandé par notre algorithme d\'estimation.', recommended: true },
+        { label: 'Ambitieux', prix: prixHaut, prixM2: Math.round(prixHaut / surface), delai: '—', profilCible: '—', risque: '—', argumentaireDetaille: 'Borne haute de la fourchette d\'estimation.', recommended: false },
+      ],
+      decomposition: Array.isArray(r.breakdown) && r.breakdown.length > 0 ? r.breakdown : avisValeur.decomposition,
+      pointsForts: [],
+      pointsVigilance: [],
+      acquereurs: realAcquereurs.map((a) => ({ budget: (a.budgetMax || 0) * 1000 })),
+      afficherCommodites: false,
+    };
+  }, [isLive, activeBien, realAcquereurs]);
+
   const themeStyle = {
     '--primary': agence.couleurPrimaire,
     '--secondary': agence.couleurSecondaire,
   };
 
-  const recommendedStrategy = avisValeur.strategies.find((s) => s.recommended);
+  const recommendedStrategy = effAvisValeur.strategies.find((s) => s.recommended) || effAvisValeur.strategies[0];
 
   const dateEdition = new Date().toLocaleDateString('fr-FR', {
     day: 'numeric',
@@ -82,12 +212,16 @@ export default function CompteRendu() {
 
   const [shareStatus, setShareStatus] = useState('idle'); // idle|loading|copied|error
 
-  const selectedComps = comparables.filter((c) => c.selected);
+  const selectedComps = effComparables.filter((c) => c.selected);
 
   // Personas d'acquéreurs : en web on sélectionne, en PDF tout est déplié.
+  // En mode live, on ne dispose pas de personas regroupés → on affichera
+  // une liste plate des acquéreurs réels dans la section 6.
   const personasList = Object.values(personasAcquereurs);
   const [activePersonaKey, setActivePersonaKey] = useState(personasList[0].key);
-  const totalProjets = personasList.reduce((sum, p) => sum + p.count, 0);
+  const totalProjets = isLive
+    ? realAcquereurs.length
+    : personasList.reduce((sum, p) => sum + p.count, 0);
 
   return (
     <div className="report-root" style={themeStyle}>
@@ -100,14 +234,18 @@ export default function CompteRendu() {
         <img src={agence.logo} alt={agence.nom} className="cover-logo" />
         <div className="cover-bar" />
         <h1 className="cover-title">ÉTUDE DE MARCHÉ</h1>
-        <p className="cover-address">{property.adresse}</p>
+        <p className="cover-address">{effProperty.adresse || '—'}</p>
         <div className="cover-hero" aria-hidden="true">
-          <div className="cover-hero-placeholder">
-            <span>{property.surface} m² · T{property.pieces} · Étage {property.etage}</span>
-          </div>
+          {isLive && livePhotos[0]?.src ? (
+            <img src={livePhotos[0].src} alt="Photo principale" className="cover-hero-img" />
+          ) : (
+            <div className="cover-hero-placeholder">
+              <span>{effProperty.surface} m² · T{effProperty.pieces} · Étage {effProperty.etage}</span>
+            </div>
+          )}
         </div>
         <div className="cover-meta">
-          <div>Référence : <strong>{property.reference}</strong></div>
+          <div>Référence : <strong>{effProperty.reference}</strong></div>
           <div>Établi le {dateEdition}</div>
           <div>Par {agent.nom}, {agent.fonction}</div>
         </div>
@@ -136,23 +274,23 @@ export default function CompteRendu() {
         <p className="letter-date">{agence.adresse.split(',').slice(-1)[0].trim().split(' ').slice(-1)[0] /* ville */ ? `Lyon, le ${dateEdition}` : `Le ${dateEdition}`}</p>
 
         <p className="letter-object">
-          <strong>Objet :</strong> Étude de marché — {property.adresse}
+          <strong>Objet :</strong> Étude de marché — {effProperty.adresse || '—'}
         </p>
 
         <div className="letter-body">
           <p>{mandant.civilite} {mandant.nom},</p>
-          <p>{avisValeur.lettre.introParagraphe}</p>
+          <p>{effAvisValeur.lettre.introParagraphe}</p>
           <p>
             Au terme de notre analyse, nous évaluons la valeur vénale de votre bien
-            à <strong>{avisValeur.prixBas.toLocaleString('fr-FR')} € — {avisValeur.prixHaut.toLocaleString('fr-FR')} €</strong>,
-            avec une recommandation de prix de présentation à <strong>{recommendedStrategy.prix.toLocaleString('fr-FR')} €</strong>.
+            à <strong>{(effAvisValeur.prixBas || 0).toLocaleString('fr-FR')} € — {(effAvisValeur.prixHaut || 0).toLocaleString('fr-FR')} €</strong>,
+            avec une recommandation de prix de présentation à <strong>{(recommendedStrategy?.prix || 0).toLocaleString('fr-FR')} €</strong>.
           </p>
           <p>
             Notre méthodologie s'appuie sur l'analyse de biens comparables, la mesure
             de la tension de marché dans votre secteur et les caractéristiques propres
             de votre bien. Vous retrouverez le détail dans les pages suivantes.
           </p>
-          <p>{avisValeur.lettre.cloture}</p>
+          <p>{effAvisValeur.lettre.cloture}</p>
           <p>Je reste à votre disposition,</p>
         </div>
 
@@ -176,56 +314,93 @@ export default function CompteRendu() {
         <h2 className="section-title">Votre bien</h2>
 
         <div className="property-gallery">
-          <div className="photo-main">Photo principale</div>
-          <div className="photo-grid">
-            <div className="photo-thumb">Séjour</div>
-            <div className="photo-thumb">Cuisine</div>
-            <div className="photo-thumb">Chambre</div>
-          </div>
+          {isLive ? (
+            livePhotos.length > 0 ? (
+              <>
+                <div className="photo-main" style={{ backgroundImage: `url(${livePhotos[0].src})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+                <div className="photo-grid">
+                  {livePhotos.slice(1, 4).map((p, i) => (
+                    <div
+                      key={p.id || i}
+                      className="photo-thumb"
+                      style={{ backgroundImage: `url(${p.src})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+                    />
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="photo-main" style={{ color: '#999' }}>Aucune photo ajoutée</div>
+            )
+          ) : (
+            <>
+              <div className="photo-main">Photo principale</div>
+              <div className="photo-grid">
+                <div className="photo-thumb">Séjour</div>
+                <div className="photo-thumb">Cuisine</div>
+                <div className="photo-thumb">Chambre</div>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="property-specs">
           <div className="spec-col">
-            <div className="spec-row"><span>Type</span><strong>Appartement T{property.pieces}</strong></div>
-            <div className="spec-row"><span>Surface</span><strong>{property.surface} m²</strong></div>
-            <div className="spec-row"><span>Pièces</span><strong>{property.pieces}</strong></div>
-            <div className="spec-row"><span>Chambres</span><strong>{property.chambres}</strong></div>
-            <div className="spec-row"><span>Étage</span><strong>{property.etage} / 6</strong></div>
-            <div className="spec-row"><span>Année</span><strong>{property.annee}</strong></div>
+            <div className="spec-row"><span>Type</span><strong>{isLive ? (activeBien?.bien?.type === 'maison' ? 'Maison' : 'Appartement') : 'Appartement'} T{effProperty.pieces}</strong></div>
+            <div className="spec-row"><span>Surface</span><strong>{effProperty.surface} m²</strong></div>
+            <div className="spec-row"><span>Pièces</span><strong>{effProperty.pieces}</strong></div>
+            <div className="spec-row"><span>Chambres</span><strong>{effProperty.chambres}</strong></div>
+            <div className="spec-row"><span>Étage</span><strong>{effProperty.etage}{isLive ? '' : ' / 6'}</strong></div>
+            <div className="spec-row"><span>Année</span><strong>{effProperty.annee}</strong></div>
           </div>
           <div className="spec-col">
             <div className="spec-row">
               <span>DPE</span>
-              <strong className={`dpe-badge dpe-${property.dpe}`}>{property.dpe}</strong>
+              <strong className={`dpe-badge dpe-${effProperty.dpe}`}>{effProperty.dpe}</strong>
             </div>
             <div className="spec-row">
               <span>GES</span>
-              <strong className="dpe-badge dpe-D">D</strong>
+              <strong className="dpe-badge dpe-D">{isLive ? '—' : 'D'}</strong>
             </div>
-            <div className="spec-row"><span>Exposition</span><strong>Sud-Est</strong></div>
-            <div className="spec-row"><span>Chauffage</span><strong>Individuel gaz</strong></div>
-            <div className="spec-row"><span>État</span><strong>Bon état</strong></div>
-            <div className="spec-row"><span>Ascenseur</span><strong>Oui</strong></div>
+            <div className="spec-row"><span>Exposition</span><strong>{isLive ? (activeBien?.bien?.exposition || '—') : 'Sud-Est'}</strong></div>
+            <div className="spec-row"><span>Chauffage</span><strong>{isLive ? '—' : 'Individuel gaz'}</strong></div>
+            <div className="spec-row"><span>État</span><strong>{isLive ? (activeBien?.bien?.etat || '—') : 'Bon état'}</strong></div>
+            <div className="spec-row"><span>Ascenseur</span><strong>{isLive ? (activeBien?.bien?.ascenseur ? 'Oui' : 'Non') : 'Oui'}</strong></div>
           </div>
         </div>
 
-        <p className="property-desc">
-          Bel appartement T{property.pieces} de {property.surface} m² traversant, situé au {property.etage}ᵉ
-          étage avec ascenseur d'un immeuble des années 1970 en bon état d'entretien.
-          Il dispose d'un balcon de 5,2 m² exposé Sud-Est, d'une cave et d'un parking
-          extérieur. La cuisine ouverte sur le séjour lumineux offre un espace de vie
-          agréable. Les menuiseries double vitrage performant et la chaudière gaz à
-          condensation de 2018 permettent une consommation maîtrisée.
-        </p>
+        {!isLive && (
+          <p className="property-desc">
+            Bel appartement T{effProperty.pieces} de {effProperty.surface} m² traversant, situé au {effProperty.etage}ᵉ
+            étage avec ascenseur d'un immeuble des années 1970 en bon état d'entretien.
+            Il dispose d'un balcon de 5,2 m² exposé Sud-Est, d'une cave et d'un parking
+            extérieur. La cuisine ouverte sur le séjour lumineux offre un espace de vie
+            agréable. Les menuiseries double vitrage performant et la chaudière gaz à
+            condensation de 2018 permettent une consommation maîtrisée.
+          </p>
+        )}
 
-        <div className="property-tags">
-          <span className="pill">Balcon</span>
-          <span className="pill">Ascenseur</span>
-          <span className="pill">Cave</span>
-          <span className="pill">Parking</span>
-          <span className="pill">DPE D</span>
-          <span className="pill">Métro 350m</span>
-        </div>
+        {!isLive && (
+          <div className="property-tags">
+            <span className="pill">Balcon</span>
+            <span className="pill">Ascenseur</span>
+            <span className="pill">Cave</span>
+            <span className="pill">Parking</span>
+            <span className="pill">DPE D</span>
+            <span className="pill">Métro 350m</span>
+          </div>
+        )}
+        {isLive && (
+          <div className="property-tags">
+            {activeBien?.bien?.exterieur && activeBien.bien.exterieur !== 'aucun' && (
+              <span className="pill">{activeBien.bien.exterieur.charAt(0).toUpperCase() + activeBien.bien.exterieur.slice(1)}</span>
+            )}
+            {activeBien?.bien?.ascenseur && <span className="pill">Ascenseur</span>}
+            {activeBien?.bien?.parking && activeBien.bien.parking !== 'aucun' && (
+              <span className="pill">Parking {activeBien.bien.parking}</span>
+            )}
+            {effProperty.dpe && effProperty.dpe !== '—' && <span className="pill">DPE {effProperty.dpe}</span>}
+          </div>
+        )}
       </section>
 
       {/* =============================================================
@@ -234,44 +409,44 @@ export default function CompteRendu() {
       <section className="market page-break">
         <h2 className="section-title">Votre marché local</h2>
         <p className="market-zone">
-          {contexteZone.zoneLabel} · rayon {contexteZone.rayonMetres} m autour du bien
+          {effContexteZone.zoneLabel} · rayon {effContexteZone.rayonMetres} m autour du bien
         </p>
 
         <div className="market-kpis">
           <div className="kpi">
-            <div className="kpi-value">{contexteZone.market.prixM2} €/m²</div>
+            <div className="kpi-value">{effContexteZone.market.prixM2} €/m²</div>
             <div className="kpi-label">Médiane secteur</div>
           </div>
           <div className="kpi">
-            <div className="kpi-value">{contexteZone.market.evolution}</div>
+            <div className="kpi-value">{effContexteZone.market.evolution}</div>
             <div className="kpi-label">Évolution 12 mois</div>
           </div>
           <div className="kpi">
-            <div className="kpi-value">{contexteZone.market.delai}</div>
+            <div className="kpi-value">{effContexteZone.market.delai}</div>
             <div className="kpi-label">Délai moyen de vente</div>
           </div>
           <div className="kpi">
-            <div className="kpi-value">{contexteZone.market.transactions}</div>
+            <div className="kpi-value">{effContexteZone.market.transactions}</div>
             <div className="kpi-label">Transactions 12 mois</div>
           </div>
         </div>
 
         <div className="market-tension">
           <strong>Tension du marché : </strong>
-          <span className="tension-badge">{contexteZone.tensionLabel}</span>
-          <span className="tension-score">{contexteZone.tensionScore}/10</span>
+          <span className="tension-badge">{effContexteZone.tensionLabel}</span>
+          <span className="tension-score">{effContexteZone.tensionScore}/10</span>
         </div>
 
         <p className="market-caption">
-          Fourchette de prix observée sur la typologie T3 dans votre secteur :
-          <strong> {contexteZone.market.fourchette} €/m²</strong>.
+          Fourchette de prix observée sur la typologie T{effProperty.pieces} dans votre secteur :
+          <strong> {effContexteZone.market.fourchette} €/m²</strong>.
         </p>
 
-        {avisValeur.afficherCommodites && contexteZone.commodites?.length > 0 && (
+        {effAvisValeur.afficherCommodites && effContexteZone.commodites?.length > 0 && (
           <div className="market-commodites">
             <h3>Commodités à proximité</h3>
             {Object.entries(
-              contexteZone.commodites.reduce((acc, c) => {
+              effContexteZone.commodites.reduce((acc, c) => {
                 (acc[c.categorie] ||= []).push(c);
                 return acc;
               }, {})
@@ -302,10 +477,35 @@ export default function CompteRendu() {
       <section className="personas page-break">
         <h2 className="section-title">Profils d'acquéreurs en recherche</h2>
         <p className="section-intro">
-          <strong>{totalProjets} projets d'achat actifs</strong> dans votre périmètre matchent
-          les critères de votre bien. Ils se répartissent en 5 profils-types.
+          {isLive ? (
+            totalProjets > 0 ? (
+              <><strong>{totalProjets} projet{totalProjets > 1 ? 's' : ''} d'achat actif{totalProjets > 1 ? 's' : ''}</strong> dans votre fichier acquéreurs correspond{totalProjets > 1 ? 'ent' : ''} aux critères de votre bien.</>
+            ) : (
+              <>Aucun acquéreur n'a été enregistré pour ce bien. Ajoutez-en depuis l'étape 4.</>
+            )
+          ) : (
+            <><strong>{totalProjets} projets d'achat actifs</strong> dans votre périmètre matchent les critères de votre bien. Ils se répartissent en 5 profils-types.</>
+          )}
         </p>
 
+        {isLive && realAcquereurs.length > 0 && (
+          <div className="live-acquereurs-list">
+            <ul>
+              {realAcquereurs.map((a, i) => (
+                <li key={a.id || i} style={{ marginBottom: '8px' }}>
+                  <strong>{a.prenom || ''} {a.nom || `Acquéreur ${i + 1}`}</strong>
+                  {a.budgetMax && <> · Budget max <strong>{(Number(a.budgetMax) * 1000).toLocaleString('fr-FR')} €</strong></>}
+                  {a.surfaceMin && <> · Surface min <strong>{a.surfaceMin} m²</strong></>}
+                  {a.type && a.type !== 'indifferent' && <> · Type {a.type}</>}
+                  {a.dpeMin && <> · DPE min {a.dpeMin}</>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {!isLive && (
+        <>
         <div className="personas-row">
           {personasList.map((p) => {
             const isActive = activePersonaKey === p.key;
@@ -386,6 +586,8 @@ export default function CompteRendu() {
               </div>
             </div>
           ))}
+        </>
+        )}
       </section>
 
       {/* =============================================================
@@ -395,7 +597,7 @@ export default function CompteRendu() {
         <h2 className="section-title">Comment nous avons estimé votre bien</h2>
 
         <div className="pillars">
-          {avisValeur.methodologie.piliers.map((p, i) => (
+          {effAvisValeur.methodologie.piliers.map((p, i) => (
             <div className="pillar" key={i}>
               <div className="pillar-visual">
                 {LUCIDE_ICONS[p.iconeLucide] || null}
@@ -413,7 +615,7 @@ export default function CompteRendu() {
       <section className="comparables page-break">
         <h2 className="section-title">Comparables retenus</h2>
         <p className="comp-intro">
-          Nous avons analysé <strong>{comparables.length} biens comparables</strong>,
+          Nous avons analysé <strong>{effComparables.length} biens comparables</strong>,
           dont <strong>{selectedComps.length} retenus</strong> pour le calcul
           de la moyenne pondérée.
         </p>
@@ -463,11 +665,11 @@ export default function CompteRendu() {
           ))}
         </div>
 
-        {comparables.some((c) => !c.selected) && (
+        {effComparables.some((c) => !c.selected) && (
           <div className="comp-others">
             <h3>Autres biens analysés (non retenus)</h3>
             <div className="comp-others-list">
-              {comparables
+              {effComparables
                 .filter((c) => !c.selected)
                 .map((c) => (
                   <div className="comp-other-row" key={c.id}>
@@ -490,7 +692,7 @@ export default function CompteRendu() {
         )}
 
         <div className="comp-average">
-          Moyenne pondérée retenue : <strong>{avisValeur.prixM2.toLocaleString('fr-FR')} €/m²</strong>
+          Moyenne pondérée retenue : <strong>{(effAvisValeur.prixM2 || 0).toLocaleString('fr-FR')} €/m²</strong>
         </div>
       </section>
 
@@ -504,17 +706,21 @@ export default function CompteRendu() {
           <div className="arg-col arg-strong">
             <h3>Points forts</h3>
             <ul>
-              {avisValeur.pointsForts.map((p, i) => (
-                <li key={i}>{p}</li>
-              ))}
+              {(effAvisValeur.pointsForts || []).length > 0 ? (
+                effAvisValeur.pointsForts.map((p, i) => <li key={i}>{p}</li>)
+              ) : (
+                <li style={{ color: '#999' }}>Non renseigné</li>
+              )}
             </ul>
           </div>
           <div className="arg-col arg-vigilance">
             <h3>Points de vigilance</h3>
             <ul>
-              {avisValeur.pointsVigilance.map((p, i) => (
-                <li key={i}>{p}</li>
-              ))}
+              {(effAvisValeur.pointsVigilance || []).length > 0 ? (
+                effAvisValeur.pointsVigilance.map((p, i) => <li key={i}>{p}</li>)
+              ) : (
+                <li style={{ color: '#999' }}>Non renseigné</li>
+              )}
             </ul>
           </div>
         </div>
@@ -527,7 +733,7 @@ export default function CompteRendu() {
         <h2 className="section-title">Décomposition du prix</h2>
 
         <div className="cascade">
-          {avisValeur.decomposition.map((d, i) => (
+          {(effAvisValeur.decomposition || []).map((d, i) => (
             <React.Fragment key={i}>
               <div className={`cascade-step ${d.final ? 'final' : ''}`}>
                 <div className="step-label">{d.step}</div>
@@ -535,7 +741,7 @@ export default function CompteRendu() {
                 {d.delta && <div className="step-delta">{d.delta}</div>}
                 <div className="step-detail">{d.detail}</div>
               </div>
-              {i < avisValeur.decomposition.length - 1 && (
+              {i < (effAvisValeur.decomposition || []).length - 1 && (
                 <span className="cascade-arrow">→</span>
               )}
             </React.Fragment>
@@ -550,7 +756,7 @@ export default function CompteRendu() {
         <h2 className="section-title">Notre proposition</h2>
 
         <div className="strat-cols">
-          {avisValeur.strategies.map((s, i) => (
+          {effAvisValeur.strategies.map((s, i) => (
             <div
               key={i}
               className={`strat-col ${s.recommended ? 'recommended' : ''}`}
@@ -559,12 +765,12 @@ export default function CompteRendu() {
                 <span className="strat-badge">Notre recommandation</span>
               )}
               <div className="strat-label">{s.label}</div>
-              <div className="strat-price">{s.prix.toLocaleString('fr-FR')} €</div>
-              <div className="strat-m2">{s.prixM2.toLocaleString('fr-FR')} €/m²</div>
+              <div className="strat-price">{(s.prix || 0).toLocaleString('fr-FR')} €</div>
+              <div className="strat-m2">{(s.prixM2 || 0).toLocaleString('fr-FR')} €/m²</div>
               <div className="strat-row">
                 <span>Projets d'achat compatibles</span>
                 <strong>
-                  {(avisValeur.acquereurs || []).filter((a) => a.budget >= s.prix).length}
+                  {(effAvisValeur.acquereurs || []).filter((a) => a.budget >= s.prix).length}
                 </strong>
               </div>
               <div className="strat-row"><span>Délai</span><strong>{s.delai}</strong></div>
@@ -574,10 +780,12 @@ export default function CompteRendu() {
           ))}
         </div>
 
-        <div className="strat-reco">
-          <strong>Pourquoi la stratégie {recommendedStrategy.label} ?</strong>
-          <p>{recommendedStrategy.argumentaireDetaille}</p>
-        </div>
+        {recommendedStrategy && (
+          <div className="strat-reco">
+            <strong>Pourquoi la stratégie {recommendedStrategy.label} ?</strong>
+            <p>{recommendedStrategy.argumentaireDetaille}</p>
+          </div>
+        )}
       </section>
 
       {/* =============================================================
@@ -612,7 +820,7 @@ export default function CompteRendu() {
       <footer className="legal page-break">
         <h3>Mentions légales</h3>
         <ul>
-          {avisValeur.mentionsLegales.map((m, i) => (
+          {(effAvisValeur.mentionsLegales || []).map((m, i) => (
             <li key={i}>{m}</li>
           ))}
         </ul>
