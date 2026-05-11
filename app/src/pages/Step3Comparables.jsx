@@ -2630,6 +2630,10 @@ export default function Step3Comparables() {
   // Utilisé à la fois par le count (computeFilteredCount) et la liste visible
   // (visibleOthers), pour que les 2 affichages soient toujours alignés.
   const passesLiveFilters = (c) => {
+    // Les comparables ajoutés manuellement par l'utilisateur ne sont JAMAIS
+    // filtrés (sinon on lui cache son propre ajout si surface/pièces/prix sont
+    // hors plage par défaut, ou si la source correspondante est décochée).
+    if (c.manual) return true;
     // Filtre source (checkboxes)
     if (c.source === 'dvf' && !sourceDvf) return false;
     if (c.source === 'portail' && !sourcePortail) return false;
@@ -3338,6 +3342,8 @@ export default function Step3Comparables() {
               // pièces + prix + rayon) pour rester aligné avec computeFilteredCount.
               // En démo on filtre uniquement par source pour garder l'UX initiale.
               .filter((c) => {
+                // Les ajouts manuels de l'utilisateur restent toujours visibles.
+                if (c.manual) return true;
                 if (hasRealLocation) return passesLiveFilters(c);
                 if (c.source === 'dvf') return sourceDvf;
                 if (c.source === 'portail') return sourcePortail;
