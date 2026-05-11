@@ -2341,6 +2341,7 @@ export default function Step3Comparables() {
     /* Helper : merge des comps manuels (compactés) avec une base donnée. */
     const mergeManual = (base) => {
       const manualCards = manualComps.map((m) => manualOtherToCompact(m, targetCoords));
+      console.log('[Step3 merge] manuals:', manualCards.length, 'base:', base.length, '→ total:', manualCards.length + base.length);
       return [...manualCards, ...base];
     };
 
@@ -2584,9 +2585,11 @@ export default function Step3Comparables() {
    * à la liste des manuels (qui re-merge automatiquement dans `others` via
    * le useEffect DVF) et persiste en localStorage. */
   const handleSaveManualComparable = (richManual) => {
+    console.log('[Step3 manual] save', { id: richManual?.id, manual: richManual?.manual, source: richManual?.source, type: richManual?.type, surface: richManual?.surface, pieces: richManual?.pieces, prix: richManual?.prix, coords: richManual?.coords });
     setManualComps((prev) => {
       const next = [...prev, richManual];
       saveManualComps(next);
+      console.log('[Step3 manual] manualComps now', next.length, 'items');
       return next;
     });
     setManualDrawerOpen(false);
