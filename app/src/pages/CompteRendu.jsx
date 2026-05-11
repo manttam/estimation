@@ -14,6 +14,20 @@ import ReliabilityBadge from '../components/ReliabilityBadge';
 import { getActiveBien } from '../utils/activeBien';
 import { getAcquereurs } from '../utils/acquereursStore';
 import { getPhotosForCarousel, revokePhotoUrls } from '../utils/photosStore';
+import { getReportState } from '../utils/reportStore';
+
+/* Charge les comparables manuels saisis dans Step3 (clé `ideeri_manual_comps`). */
+function loadManualComparables() {
+  try {
+    if (typeof window === 'undefined') return [];
+    const raw = window.localStorage.getItem('ideeri_manual_comps');
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+}
 
 /**
  * Icônes Lucide inlinées (ISC license).
@@ -66,6 +80,12 @@ export default function CompteRendu() {
   const activeBien = useMemo(() => getActiveBien(), []);
   const isLive = !!(activeBien?.adresse?.label);
   const realAcquereurs = useMemo(() => (isLive ? getAcquereurs() : []), [isLive]);
+
+  // État persisté par Step3/Step5 (points forts/vigilance édités, prix retenu,
+  // stratégie sélectionnée, comparables sélectionnés en Top 3).
+  const reportState = useMemo(() => (isLive ? getReportState() : {}), [isLive]);
+  // Comparables ajoutés à la main par l'agent dans Step3.
+  const manualComps = useMemo(() => (isLive ? loadManualComparables() : []), [isLive]);
 
   // Photos IndexedDB (mode live uniquement) : chargement async + revoke au démontage
   const [livePhotos, setLivePhotos] = useState([]);
@@ -128,35 +148,63 @@ export default function CompteRendu() {
     };
   }, [isLive, activeBien]);
 
-  // effComparables : reprend dvfTopComparables (forme minimale)
+  // effComparables : priorité à ce que l'agent a sélectionné en Step3
+  // (reportState.comparablesSelectionnes) + comparables saisis à la main
+  // (manualComps) ; sinon fallback sur dvfTopComparables.
   const effComparables = useMemo(() => {
     if (!isLive) return comparables;
-    const top = Array.isArray(activeBien.dvfTopComparables) ? activeBien.dvfTopComparables : [];
-    return top.map((c, idx) => ({
-      id: c.id || `dvf-${idx}`,
-      source: 'dvf',
-      sourceLabel: 'DVF',
-      type: c.type || 'Appartement',
-      surface: c.surface || '—',
-      pieces: c.pieces || '—',
-      adresse: c.adresse || '—',
-      prix: c.prix || 0,
-      prixM2: c.prixM2 || 0,
-      date: c.date || '—',
-      distance: c.distance || '—',
-      etage: c.etage ?? '—',
-      etageMax: c.etageMax ?? '—',
-      selected: true,
-      dpe: c.dpe || '—',
-      etat: c.etat || '—',
-      atouts: c.atouts || [],
-      exposition: c.exposition || '—',
-      anneeConstruction: c.anneeConstruction || '—',
-      commentairePertinence: c.commentairePertinence || 'Comparable issu de la base DVF (transaction confirmée).',
-      raisonEcart: c.raisonEcart || '',
-      donneesCroisees: c.donneesCroisees || { fiabilite: 'moyenne' },
-    }));
-  }, [isLive, activeBien]);
+    const sel = Array.isArray(reportState.comparablesSelectionnes)
+      ? reportState.comparablesSelectionnes
+      : [];
+    const dvfTop = Array.isArray(activeBien.dvfTopComparables) ? activeBien.dvfTopComparables : [];
+    // Normalise un comparable (forme variable selon source) vers la forme
+    // attendue par le rapport (champs identiques aux mocks de propertyData).
+    const normalize = (c, idx, fallbackSource = 'dvf') => {
+      // selected (Step3) → fields parsés à plat ; manual (Step3) → coordonnées + prixRaw
+      const src = c.source || fallbackSource;
+      const surface = c.surface ?? c.fields?.surface ?? '—';
+      const pieces = c.pieces ?? c.fields?.pieces ?? '—';
+      const prix = c.prixRaw ?? c.prix ?? (typeof c.prix === 'string' ? Number(String(c.prix).replace(/[^\d]/g, '')) : 0) ?? 0;
+      const prixM2 = c.prixM2Raw ?? c.prixM2 ?? (surface && prix ? Math.round(prix / Number(surface)) : 0);
+      return {
+        id: c.id || `${src}-${idx}`,
+        source: src,
+        sourceLabel: c.sourceLabel || (src === 'dvf' ? 'DVF' : src === 'ideeri' ? 'Ideeri' : src === 'encours' ? 'En cours' : 'Portail'),
+        type: c.type || c.fields?.type || 'Appartement',
+        surface,
+        pieces,
+        adresse: c.addr || c.adresse || '—',
+        prix: typeof prix === 'number' ? prix : Number(prix) || 0,
+        prixM2: typeof prixM2 === 'number' ? prixM2 : Number(prixM2) || 0,
+        date: c.dateLabel || c.date || '—',
+        distance: c.distance || '—',
+        etage: c.etage ?? c.fields?.etage ?? '—',
+        etageMax: c.etagesTotal ?? c.etageMax ?? '—',
+        selected: true,
+        dpe: c.dpe || c.fields?.dpe || '—',
+        etat: c.etat || c.infosGenerales?.etatGeneral || '—',
+        atouts: c.atoutsQualitatifs || c.atouts || [],
+        exposition: c.exposition || c.orientation || '—',
+        anneeConstruction: c.anneeConstruction || c.fields?.anneeConstruction || '—',
+        commentairePertinence: c.commentairePertinence || (c.manual
+          ? 'Comparable saisi manuellement par l\'agent.'
+          : src === 'dvf'
+            ? 'Comparable issu de la base DVF (transaction confirmée).'
+            : 'Comparable de référence.'),
+        raisonEcart: c.raisonEcart || '',
+        donneesCroisees: c.donneesCroisees || { fiabilite: src === 'dvf' || src === 'ideeri' ? 'haute' : 'moyenne' },
+      };
+    };
+
+    // 1) Priorité : sélectionnés en Step3 (Top 3)
+    if (sel.length > 0) {
+      return sel.map((c, idx) => normalize(c, idx, c.source || 'portail'));
+    }
+    // 2) Sinon : manuels + DVF top
+    const manualNormalized = manualComps.map((c, idx) => normalize(c, idx, c.source || 'portail'));
+    const dvfNormalized = dvfTop.map((c, idx) => normalize(c, idx + manualNormalized.length, 'dvf'));
+    return [...manualNormalized, ...dvfNormalized];
+  }, [isLive, activeBien, reportState, manualComps]);
 
   // effAvisValeur : prix depuis activeBien.result + génération auto des
   // points forts / vigilance depuis les caractéristiques du bien
@@ -219,23 +267,43 @@ export default function CompteRendu() {
       else if (a < 1948) vigilance.push(`Construction ${a} — ancien, vigilance sur structure et isolation`);
     }
 
+    // Si l'agent a édité les points dans Step5, on prend SES saisies ;
+    // sinon on retombe sur les règles auto calculées ci-dessus.
+    const fortsEdites = Array.isArray(reportState.pointsForts) && reportState.pointsForts.length > 0
+      ? reportState.pointsForts
+      : forts;
+    const vigilanceEdites = Array.isArray(reportState.pointsVigilance) && reportState.pointsVigilance.length > 0
+      ? reportState.pointsVigilance
+      : vigilance;
+
+    // Stratégies : le customPrice retenu en Step5 prime sur le prix médian.
+    const customPrice = typeof reportState.customPrice === 'number' && reportState.customPrice > 0
+      ? reportState.customPrice
+      : prixMedian;
+    const customPrixM2 = surface > 0 ? Math.round(customPrice / surface) : prixM2;
+    const selectedIdx = typeof reportState.selectedStrategy === 'number'
+      ? reportState.selectedStrategy
+      : 1; // par défaut "Recommandé"
+
+    const strategies = [
+      { label: 'Prudent', prix: prixBas, prixM2: Math.round(prixBas / surface), delai: '—', profilCible: '—', risque: '—', argumentaireDetaille: 'Borne basse de la fourchette d\'estimation.', recommended: selectedIdx === 0 },
+      { label: 'Recommandé', prix: customPrice, prixM2: customPrixM2, delai: '—', profilCible: '—', risque: '—', argumentaireDetaille: 'Prix retenu par l\'agent à partir de l\'analyse cascade.', recommended: selectedIdx === 1 },
+      { label: 'Ambitieux', prix: prixHaut, prixM2: Math.round(prixHaut / surface), delai: '—', profilCible: '—', risque: '—', argumentaireDetaille: 'Borne haute de la fourchette d\'estimation.', recommended: selectedIdx === 2 },
+    ];
+
     return {
       ...avisValeur,
       prixBas,
       prixHaut,
-      prixM2,
-      strategies: [
-        { label: 'Prudent', prix: prixBas, prixM2: Math.round(prixBas / surface), delai: '—', profilCible: '—', risque: '—', argumentaireDetaille: 'Borne basse de la fourchette d\'estimation.', recommended: false },
-        { label: 'Recommandé', prix: prixMedian, prixM2, delai: '—', profilCible: '—', risque: '—', argumentaireDetaille: 'Prix médian recommandé par notre algorithme d\'estimation.', recommended: true },
-        { label: 'Ambitieux', prix: prixHaut, prixM2: Math.round(prixHaut / surface), delai: '—', profilCible: '—', risque: '—', argumentaireDetaille: 'Borne haute de la fourchette d\'estimation.', recommended: false },
-      ],
+      prixM2: customPrixM2,
+      strategies,
       decomposition: Array.isArray(r.breakdown) && r.breakdown.length > 0 ? r.breakdown : avisValeur.decomposition,
-      pointsForts: forts,
-      pointsVigilance: vigilance,
+      pointsForts: fortsEdites,
+      pointsVigilance: vigilanceEdites,
       acquereurs: realAcquereurs.map((a) => ({ budget: (a.budgetMax || 0) * 1000 })),
       afficherCommodites: false,
     };
-  }, [isLive, activeBien, realAcquereurs]);
+  }, [isLive, activeBien, realAcquereurs, reportState]);
 
   const themeStyle = {
     '--primary': agence.couleurPrimaire,

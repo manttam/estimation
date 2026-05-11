@@ -14,6 +14,7 @@ import {
   computeDataCoverage,
   dataCoverageClass,
 } from '../utils/comparableFields';
+import { setReportState } from '../utils/reportStore';
 
 /* Clé localStorage des overrides de similarité.
  * Format : { [compId: string]: number 0-100 }
@@ -2341,7 +2342,6 @@ export default function Step3Comparables() {
     /* Helper : merge des comps manuels (compactés) avec une base donnée. */
     const mergeManual = (base) => {
       const manualCards = manualComps.map((m) => manualOtherToCompact(m, targetCoords));
-      console.log('[Step3 merge] manuals:', manualCards.length, 'base:', base.length, '→ total:', manualCards.length + base.length);
       return [...manualCards, ...base];
     };
 
@@ -2398,14 +2398,20 @@ export default function Step3Comparables() {
   // Chargement initial depuis localStorage (cl\u00e9 ideeri_sim_overrides).
   const [simOverrides, setSimOverrides] = useState(() => loadSimOverrides());
 
-  // Persistance localStorage \u00e0 chaque modification.
+  // Persistance localStorage à chaque modification.
   useEffect(() => {
     try {
       window.localStorage.setItem(SIM_OVERRIDES_KEY, JSON.stringify(simOverrides));
     } catch {
-      // localStorage indisponible (mode priv\u00e9, quota plein...) \u2192 silent fail
+      // localStorage indisponible (mode privé, quota plein...) → silent fail
     }
   }, [simOverrides]);
+
+  // Persiste les comparables sélectionnés (Top 3) dans le reportStore pour
+  // qu'ils remontent dans la page CompteRendu (/report).
+  useEffect(() => {
+    setReportState({ comparablesSelectionnes: selected });
+  }, [selected]);
 
   // Met \u00e0 jour ou supprime l'override pour un id donn\u00e9.
   const setSimOverrideFor = (id, value) => {
@@ -2585,11 +2591,9 @@ export default function Step3Comparables() {
    * à la liste des manuels (qui re-merge automatiquement dans `others` via
    * le useEffect DVF) et persiste en localStorage. */
   const handleSaveManualComparable = (richManual) => {
-    console.log('[Step3 manual] save', { id: richManual?.id, manual: richManual?.manual, source: richManual?.source, type: richManual?.type, surface: richManual?.surface, pieces: richManual?.pieces, prix: richManual?.prix, coords: richManual?.coords });
     setManualComps((prev) => {
       const next = [...prev, richManual];
       saveManualComps(next);
-      console.log('[Step3 manual] manualComps now', next.length, 'items');
       return next;
     });
     setManualDrawerOpen(false);

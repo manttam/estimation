@@ -1,10 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PropertyCard from '../components/PropertyCard';
 import Stepper from '../components/Stepper';
 import { avisValeur } from '../data/propertyData';
 import { getActiveBien } from '../utils/activeBien';
 import { getAcquereurs } from '../utils/acquereursStore';
+import { setReportState } from '../utils/reportStore';
 
 const TYPE_LABELS = {
   appartement: 'Appartement',
@@ -998,6 +999,23 @@ export default function Step5AvisValeur() {
 
   // Toggle "Masquer la démo" en mode live (pour cacher éléments fictifs)
   const [hideDemo, setHideDemo] = useState(false);
+
+  // Persistance dans le reportStore pour que CompteRendu (/report) puisse
+  // afficher les valeurs saisies par l'utilisateur (points forts/vigilance
+  // édités, prix retenu, stratégie sélectionnée).
+  useEffect(() => {
+    setReportState({ pointsForts });
+  }, [pointsForts]);
+  useEffect(() => {
+    setReportState({ pointsVigilance });
+  }, [pointsVigilance]);
+  useEffect(() => {
+    const n = Number(customPrice);
+    if (Number.isFinite(n) && n > 0) setReportState({ customPrice: n });
+  }, [customPrice]);
+  useEffect(() => {
+    setReportState({ selectedStrategy });
+  }, [selectedStrategy]);
 
   /* ---- Demand computation (matching HTML wireframe logic) ---- */
   // Mock acquéreur data (mode démo) — utilisé quand pas d'acquéreurs réels
