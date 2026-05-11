@@ -1040,14 +1040,18 @@ export default function Step1BienCible() {
     }
   };
 
-  // Catalogue effectif : priorite aux photos uploadees > photos dossier
-  // (app/src/photos-bien-actif/) > demo Unsplash.
-  // On ne bascule sur les sources "bien actif" que s'il y a un bien actif
-  // (sinon mode preview / demo).
+  // Catalogue effectif :
+  // - En mode live (activeBien) : UNIQUEMENT les photos uploadees par
+  //   l'utilisateur via le PhotoUploader (zero donnee fake). Si elle n'a
+  //   rien uploade, le carrousel est vide et seul le PhotoUploader est
+  //   propose. Les CUSTOM_PHOTOS bundlees etaient utilisees comme
+  //   "fallback live" mais ne sont jamais supprimables (pas en IDB) -
+  //   donc inadaptees au mode live.
+  // - En mode demo (pas de bien actif) : CUSTOM_PHOTOS > PROPERTY_PHOTOS.
   let photoCatalog;
-  if (activeBien && uploadedPhotos.length > 0) {
+  if (activeBien) {
     photoCatalog = uploadedPhotos;
-  } else if (activeBien && CUSTOM_PHOTOS.length > 0) {
+  } else if (CUSTOM_PHOTOS.length > 0) {
     photoCatalog = CUSTOM_PHOTOS;
   } else {
     photoCatalog = PROPERTY_PHOTOS;

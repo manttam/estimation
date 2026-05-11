@@ -914,9 +914,15 @@ export default function Step5AvisValeur() {
   // Points forts / vigilance auto-générés à partir des caractéristiques du bien
   // (mode live uniquement). Heuristiques simples sur DPE, étage, ascenseur,
   // exposition, parking, extérieur, état, année de construction.
+  // En mode démo : on garde les listes statiques d'avisValeur.
+  // En mode live : on génère depuis le bien ; si rien n'est généré, listes
+  // vides (l'utilisateur ajoute ses propres points). Aucune donnée fake.
   const autoPoints = useMemo(() => {
-    if (!hasRealLocation || !activeBien?.bien) {
+    if (!hasRealLocation) {
       return { forts: avisValeur.pointsForts, vigilance: avisValeur.pointsVigilance };
+    }
+    if (!activeBien?.bien) {
+      return { forts: [], vigilance: [] };
     }
     const bien = activeBien.bien;
     const forts = [];
@@ -975,10 +981,8 @@ export default function Step5AvisValeur() {
       else if (a < 1948) vigilance.push(`Construction ${a} — ancien, vigilance sur structure et isolation`);
     }
 
-    // Fallback : si rien généré, on garde les valeurs démo
-    if (forts.length === 0) forts.push(...avisValeur.pointsForts);
-    if (vigilance.length === 0) vigilance.push(...avisValeur.pointsVigilance);
-
+    // Mode live : on retourne ce qu'on a trouvé (peut être vide).
+    // L'utilisateur ajoutera ses propres points si besoin.
     return { forts, vigilance };
   }, [activeBien, hasRealLocation]);
 
@@ -1095,6 +1099,31 @@ export default function Step5AvisValeur() {
 
   const demandColor = ratio >= 0.5 ? '#46B962' : ratio >= 0.25 ? '#f5a623' : '#e74c3c';
 
+  // Labels du panneau crit\u00e8res : d\u00e9riv\u00e9s du bien actif en mode live,
+  // statiques (wireframe) en d\u00e9mo. Pas de fake data en live.
+  const typeLabelCrit = hasRealLocation && activeBien?.bien?.pieces
+    ? `Cherchent un T${activeBien.bien.pieces}`
+    : 'Cherchent un T3';
+  const surfBienLive = Number(activeBien?.bien?.surface);
+  const surfLabelCrit = hasRealLocation && Number.isFinite(surfBienLive) && surfBienLive > 0
+    ? `Surface ${Math.round(surfBienLive * 0.85)}-${Math.round(surfBienLive * 1.15)}m\u00B2`
+    : 'Surface 60-85m\u00B2';
+  const surfDetailCrit = hasRealLocation && Number.isFinite(surfBienLive) && surfBienLive > 0
+    ? `fourchette ${surfBienLive}m\u00B2`
+    : 'fourchette 72.5m\u00B2';
+  const locLabelCrit = hasRealLocation && activeBien?.adresse?.city
+    ? `${activeBien.adresse.city} / proches`
+    : 'Lyon 3 / proches';
+  const locDetailCrit = hasRealLocation && activeBien?.adresse?.city
+    ? activeBien.adresse.city
+    : 'Lyon 3, 6, 7, 8';
+  const dpeLabelCrit = hasRealLocation && activeBien?.bien?.dpe
+    ? `Acceptent DPE ${String(activeBien.bien.dpe).toUpperCase()}`
+    : 'Acceptent DPE D';
+  const dpeDetailCrit = hasRealLocation && activeBien?.bien?.dpe
+    ? `DPE ${String(activeBien.bien.dpe).toUpperCase()} ou sans filtre`
+    : 'DPE D ou sans filtre';
+
   const criteriaData = [
     {
       id: 'budget', label: 'Budget compatible', value: budgetMatch,
@@ -1105,7 +1134,7 @@ export default function Step5AvisValeur() {
       ),
     },
     {
-      id: 'type', label: 'Cherchent un T3', value: typeMatch,
+      id: 'type', label: typeLabelCrit, value: typeMatch,
       detail: 'T3 ou T2-T4 flexible',
       pct: Math.round((typeMatch / totalAcquereurs) * 100),
       icon: (
@@ -1113,24 +1142,24 @@ export default function Step5AvisValeur() {
       ),
     },
     {
-      id: 'surface', label: 'Surface 60-85m\u00B2', value: surfMatch,
-      detail: 'fourchette 72.5m\u00B2',
+      id: 'surface', label: surfLabelCrit, value: surfMatch,
+      detail: surfDetailCrit,
       pct: Math.round((surfMatch / totalAcquereurs) * 100),
       icon: (
         <svg viewBox="0 0 16 16" fill="none"><path d="M2 14V4l5-2v12M9 6l5-2v12M2 14h12" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
       ),
     },
     {
-      id: 'loc', label: 'Lyon 3 / proches', value: locMatch,
-      detail: 'Lyon 3, 6, 7, 8',
+      id: 'loc', label: locLabelCrit, value: locMatch,
+      detail: locDetailCrit,
       pct: Math.round((locMatch / totalAcquereurs) * 100),
       icon: (
         <svg viewBox="0 0 16 16" fill="none"><path d="M8 1.5C5.5 1.5 3.5 3.5 3.5 6c0 3.5 4.5 8.5 4.5 8.5s4.5-5 4.5-8.5c0-2.5-2-4.5-4.5-4.5z" stroke="currentColor" strokeWidth="1.3"/><circle cx="8" cy="6" r="1.8" stroke="currentColor" strokeWidth="1.2"/></svg>
       ),
     },
     {
-      id: 'dpe', label: 'Acceptent DPE D', value: dpeMatch,
-      detail: 'DPE D ou sans filtre',
+      id: 'dpe', label: dpeLabelCrit, value: dpeMatch,
+      detail: dpeDetailCrit,
       pct: Math.round((dpeMatch / totalAcquereurs) * 100),
       icon: (
         <svg viewBox="0 0 16 16" fill="none"><path d="M9 1L4 9h4l-1 6 5-8H8l1-6z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -1164,14 +1193,81 @@ export default function Step5AvisValeur() {
     verdictDesc = `\u00C0 ${formatPrice(sliderValue)}, aucun acqu\u00E9reur n'a le budget. Ce prix est d\u00E9connect\u00E9 du march\u00E9 acqu\u00E9reur actuel.`;
   }
 
-  /* ---- Strategy pricing ---- */
-  const strategies = [
-    { label: 'Agressif', prix: 310000, description: 'Haut de fourchette. Capitalise sur la tension forte.', duration: 'Dur\u00E9e estim\u00E9e: 35-50 jours' },
-    { label: 'March\u00E9', prix: 300000, description: '\u00C9quilibre valorisation et liquidit\u00E9.', duration: 'Dur\u00E9e estim\u00E9e: 40-55 jours', recommended: true },
-    { label: 'Prudent', prix: 285000, description: 'Bas de fourchette. Maximise la rapidit\u00E9.', duration: 'Dur\u00E9e estim\u00E9e: 25-35 jours' },
-  ];
+  /* ---- Strategy pricing ----
+   * En mode démo : valeurs fixes du wireframe.
+   * En mode live : dérivées de priceRef.
+   *   - Agressif = prixHaut (haut de fourchette)
+   *   - Marché   = prixMedian (recommandé)
+   *   - Prudent  = prixBas (bas de fourchette)
+   */
+  const strategies = useMemo(() => {
+    if (!hasRealLocation) {
+      return [
+        { label: 'Agressif', prix: 310000, description: 'Haut de fourchette. Capitalise sur la tension forte.', duration: 'Dur\u00E9e estim\u00E9e: 35-50 jours' },
+        { label: 'March\u00E9', prix: 300000, description: '\u00C9quilibre valorisation et liquidit\u00E9.', duration: 'Dur\u00E9e estim\u00E9e: 40-55 jours', recommended: true },
+        { label: 'Prudent', prix: 285000, description: 'Bas de fourchette. Maximise la rapidit\u00E9.', duration: 'Dur\u00E9e estim\u00E9e: 25-35 jours' },
+      ];
+    }
+    return [
+      { label: 'Agressif', prix: priceRef.prixHaut, description: 'Haut de fourchette. Pour test d\u2019app\u00e9tence avec marge de n\u00e9gociation.', duration: 'Dur\u00e9e estim\u00e9e : 35-50 jours' },
+      { label: 'March\u00e9', prix: priceRef.prixMedian, description: '\u00c9quilibre valorisation / liquidit\u00e9. Aligne le bien sur la m\u00e9diane march\u00e9.', duration: 'Dur\u00e9e estim\u00e9e : 40-55 jours', recommended: true },
+      { label: 'Prudent', prix: priceRef.prixBas, description: 'Bas de fourchette. Maximise la rapidit\u00e9 de transaction.', duration: 'Dur\u00e9e estim\u00e9e : 25-35 jours' },
+    ];
+  }, [hasRealLocation, priceRef]);
 
-  const estimation = 300000;
+  const estimation = hasRealLocation ? priceRef.prixMedian : 300000;
+
+  // Indice de confiance dynamique en mode live :
+  // moyenne pond\u00e9r\u00e9e entre la compl\u00e9tude du bien (10 champs cl\u00e9s)
+  // et la disponibilit\u00e9 des comparables DVF (5 min = optimal).
+  const confidenceScore = useMemo(() => {
+    if (!hasRealLocation) return avisValeur.confiance;
+    const bien = activeBien?.bien || {};
+    const champs = ['type', 'surface', 'pieces', 'etat', 'dpe', 'etage', 'ascenseur', 'exposition', 'parking', 'exterieur'];
+    const renseigne = champs.filter((k) => bien[k] != null && bien[k] !== '').length;
+    const completude = (renseigne / champs.length) * 100;
+    const nbComp = Array.isArray(activeBien?.dvfTopComparables) ? activeBien.dvfTopComparables.length : 0;
+    const volumeScore = Math.min(100, (nbComp / 5) * 100);
+    return Math.round((completude * 0.6) + (volumeScore * 0.4));
+  }, [hasRealLocation, activeBien]);
+
+  const confidenceCompletude = useMemo(() => {
+    if (!hasRealLocation) return 64;
+    const bien = activeBien?.bien || {};
+    const champs = ['type', 'surface', 'pieces', 'etat', 'dpe', 'etage', 'ascenseur', 'exposition', 'parking', 'exterieur'];
+    const renseigne = champs.filter((k) => bien[k] != null && bien[k] !== '').length;
+    return Math.round((renseigne / champs.length) * 100);
+  }, [hasRealLocation, activeBien]);
+
+  const confidenceVolume = useMemo(() => {
+    if (!hasRealLocation) return 'Volume zone';
+    const nb = Array.isArray(activeBien?.dvfTopComparables) ? activeBien.dvfTopComparables.length : 0;
+    return `${nb} comparable${nb > 1 ? 's' : ''}`;
+  }, [hasRealLocation, activeBien]);
+
+  // Date de cr\u00e9ation du bien (mode live) : utilis\u00e9e dans la banni\u00e8re
+  // d\u2019historique. En mode d\u00e9mo on garde la date factice du wireframe.
+  const createdAtLabel = useMemo(() => {
+    if (!hasRealLocation || !activeBien?.createdAt) return '25 mars 2026';
+    const d = new Date(activeBien.createdAt);
+    if (Number.isNaN(d.getTime())) return '25 mars 2026';
+    const months = ['janvier', 'f\u00e9vrier', 'mars', 'avril', 'mai', 'juin',
+      'juillet', 'ao\u00fbt', 'septembre', 'octobre', 'novembre', 'd\u00e9cembre'];
+    return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  }, [hasRealLocation, activeBien]);
+
+  // R\u00e9f\u00e9rence d\u2019estimation pour la sauvegarde. En mode d\u00e9mo on garde
+  // la r\u00e9f\u00e9rence factice du wireframe (LYN-2026-00847). En mode live on
+  // d\u00e9rive depuis l\u2019id du bien stock\u00e9 dans activeBien (sous forme
+  // IDR-YYYY-XXXXX). Stable entre re-renders.
+  const estimationReference = useMemo(() => {
+    if (!hasRealLocation) return 'LYN-2026-00847';
+    const id = activeBien?.id || activeBien?.createdAt || Date.now();
+    const year = new Date(activeBien?.createdAt || Date.now()).getFullYear();
+    const tail = String(id).replace(/[^0-9]/g, '').slice(-5).padStart(5, '0');
+    return `IDR-${year}-${tail}`;
+  }, [hasRealLocation, activeBien]);
+
   const customVal = parseInt((customPrice || '').replace(/\s/g, ''), 10);
   const deltaValid = !isNaN(customVal) && customVal > 0;
   const deltaPct = deltaValid ? (((customVal - estimation) / estimation) * 100).toFixed(1) : null;
@@ -1267,9 +1363,11 @@ export default function Step5AvisValeur() {
                 <circle cx="60" cy="60" r="38" fill="white"/>
               </svg>
               <div className="confidence-text">
-                <div className="confidence-number">{avisValeur.confiance}</div>
+                <div className="confidence-number">{confidenceScore}</div>
                 <div className="confidence-label">Indice de confiance</div>
-                <div className="confidence-details">Compl&eacute;tude 64% &times; Homog&eacute;n&eacute;it&eacute; 92% &times; Volume zone</div>
+                <div className="confidence-details">
+                  Compl&eacute;tude {confidenceCompletude}% &times; {confidenceVolume}
+                </div>
               </div>
             </div>
           )}
@@ -1355,50 +1453,60 @@ export default function Step5AvisValeur() {
           <div className="content-grid-col">
             <div className="card">
               <div className="card-title">Avis de valeur</div>
-              {breakdownLive ? (
-                <>
-                  <div className="decomp-step">
-                    <span className="decomp-label">1. Prix m&eacute;dian de base</span>
-                    <span className="decomp-value">{breakdownLive.prixM2Base.toLocaleString('fr-FR')} &euro;/m&sup2;</span>
+              {hasRealLocation ? (
+                breakdownLive ? (
+                  <>
+                    <div className="decomp-step">
+                      <span className="decomp-label">1. Prix m&eacute;dian de base</span>
+                      <span className="decomp-value">{breakdownLive.prixM2Base.toLocaleString('fr-FR')} &euro;/m&sup2;</span>
+                    </div>
+                    <div className="decomp-detail">
+                      &times; {surface}m&sup2; = {Math.round(breakdownLive.prixM2Base * surface).toLocaleString('fr-FR')} &euro;
+                    </div>
+                    {breakdownLive.breakdown.length > 0 && (
+                      <>
+                        <div className="decomp-step">
+                          <span className="decomp-label">2. Ajustements du bien</span>
+                          <span className={`decomp-value ${breakdownLive.coef >= 1 ? 'pos' : 'neg'}`}>
+                            {breakdownLive.coef >= 1 ? '+' : ''}{((breakdownLive.coef - 1) * 100).toFixed(1)}%
+                          </span>
+                        </div>
+                        {breakdownLive.breakdown.map((b, idx) => {
+                          const pct = ((b.coef - 1) * 100).toFixed(1);
+                          const sign = b.coef >= 1 ? '+' : '';
+                          return (
+                            <div key={idx} className="decomp-detail">
+                              {b.label} {sign}{pct}%
+                            </div>
+                          );
+                        })}
+                        <div className="decomp-detail">
+                          &rarr;{' '}
+                          <strong style={{ color: breakdownLive.coef >= 1 ? '#46B962' : '#e74c3c' }}>
+                            {breakdownLive.coef >= 1 ? '+' : '\u2212'}
+                            {Math.abs(Math.round((breakdownLive.coef - 1) * breakdownLive.prixM2Base * surface)).toLocaleString('fr-FR')} &euro;
+                          </strong>
+                        </div>
+                      </>
+                    )}
+                    <div className="decomp-divider" />
+                    <div className="decomp-step">
+                      <span className="decomp-label decomp-final">AVIS DE VALEUR</span>
+                      <span className="decomp-value decomp-final-value">{formatPrice(priceRef.prixMedian)}</span>
+                    </div>
+                    <div className="decomp-range">
+                      Fourchette: {formatPrice(priceRef.prixBas)} &mdash; {formatPrice(priceRef.prixHaut)}
+                    </div>
+                  </>
+                ) : (
+                  <div className="card-empty-state" style={{ padding: '24px 8px', color: '#6b7280', fontSize: '0.92rem', lineHeight: 1.55 }}>
+                    Pas encore de d&eacute;composition d&eacute;taill&eacute;e pour ce bien.
+                    Le calcul s&rsquo;effectue automatiquement &agrave; la cr&eacute;ation
+                    depuis le formulaire <em>Nouveau bien</em> (m&eacute;diane DVF, ajustements
+                    par caract&eacute;ristique). Si elle est manquante, recr&eacute;ez le bien
+                    en compl&eacute;tant tous les champs.
                   </div>
-                  <div className="decomp-detail">
-                    &times; {surface}m&sup2; = {Math.round(breakdownLive.prixM2Base * surface).toLocaleString('fr-FR')} &euro;
-                  </div>
-                  {breakdownLive.breakdown.length > 0 && (
-                    <>
-                      <div className="decomp-step">
-                        <span className="decomp-label">2. Ajustements du bien</span>
-                        <span className={`decomp-value ${breakdownLive.coef >= 1 ? 'pos' : 'neg'}`}>
-                          {breakdownLive.coef >= 1 ? '+' : ''}{((breakdownLive.coef - 1) * 100).toFixed(1)}%
-                        </span>
-                      </div>
-                      {breakdownLive.breakdown.map((b, idx) => {
-                        const pct = ((b.coef - 1) * 100).toFixed(1);
-                        const sign = b.coef >= 1 ? '+' : '';
-                        return (
-                          <div key={idx} className="decomp-detail">
-                            {b.label} {sign}{pct}%
-                          </div>
-                        );
-                      })}
-                      <div className="decomp-detail">
-                        &rarr;{' '}
-                        <strong style={{ color: breakdownLive.coef >= 1 ? '#46B962' : '#e74c3c' }}>
-                          {breakdownLive.coef >= 1 ? '+' : '\u2212'}
-                          {Math.abs(Math.round((breakdownLive.coef - 1) * breakdownLive.prixM2Base * surface)).toLocaleString('fr-FR')} &euro;
-                        </strong>
-                      </div>
-                    </>
-                  )}
-                  <div className="decomp-divider" />
-                  <div className="decomp-step">
-                    <span className="decomp-label decomp-final">AVIS DE VALEUR</span>
-                    <span className="decomp-value decomp-final-value">{formatPrice(priceRef.prixMedian)}</span>
-                  </div>
-                  <div className="decomp-range">
-                    Fourchette: {formatPrice(priceRef.prixBas)} &mdash; {formatPrice(priceRef.prixHaut)}
-                  </div>
-                </>
+                )
               ) : (
                 <>
                   <div className="decomp-step">
@@ -1433,29 +1541,37 @@ export default function Step5AvisValeur() {
 
             <div className="card">
               <div className="card-title">Comparables utilis&eacute;s</div>
-              {comparablesLive.length > 0 ? (
-                <table className="comp-table">
-                  <thead>
-                    <tr>
-                      <th>Adresse</th>
-                      <th>Prix/m&sup2;</th>
-                      <th>Poids</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {comparablesLive.map((c, i) => (
-                      <tr key={i}>
-                        <td>{c.adresse}</td>
-                        <td>{c.prixM2.toLocaleString('fr-FR')}&euro;</td>
-                        <td>{Math.round(100 / comparablesLive.length)}%</td>
+              {hasRealLocation ? (
+                comparablesLive.length > 0 ? (
+                  <table className="comp-table">
+                    <thead>
+                      <tr>
+                        <th>Adresse</th>
+                        <th>Prix/m&sup2;</th>
+                        <th>Poids</th>
                       </tr>
-                    ))}
-                    <tr className="total">
-                      <td colSpan="2">Moyenne</td>
-                      <td>{comparablesAvg.toLocaleString('fr-FR')}&euro;</td>
-                    </tr>
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {comparablesLive.map((c, i) => (
+                        <tr key={i}>
+                          <td>{c.adresse}</td>
+                          <td>{c.prixM2.toLocaleString('fr-FR')}&euro;</td>
+                          <td>{Math.round(100 / comparablesLive.length)}%</td>
+                        </tr>
+                      ))}
+                      <tr className="total">
+                        <td colSpan="2">Moyenne</td>
+                        <td>{comparablesAvg.toLocaleString('fr-FR')}&euro;</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="card-empty-state" style={{ padding: '24px 8px', color: '#6b7280', fontSize: '0.92rem', lineHeight: 1.55 }}>
+                    Aucune transaction DVF comparable n&rsquo;a &eacute;t&eacute; trouv&eacute;e
+                    pour ce bien. V&eacute;rifiez la base DVF ou ajoutez des comparables
+                    manuellement &agrave; l&rsquo;&eacute;tape 3.
+                  </div>
+                )
               ) : (
                 <table className="comp-table">
                   <thead>
@@ -1588,7 +1704,7 @@ export default function Step5AvisValeur() {
                       <span className="strategy-name">{s.label} &mdash; {formatPrice(s.prix)}</span>
                     </div>
                     <div className="strategy-desc">{s.description}</div>
-                    {avisValeur.confiance >= 90 && (
+                    {confidenceScore >= 90 && (
                       <div className="strategy-duration">&#128197; {s.duration}</div>
                     )}
                     {s.recommended && <div className="badge-rec">&#10003; Recommand&eacute;</div>}
@@ -1618,22 +1734,40 @@ export default function Step5AvisValeur() {
               <div className="actions-card">
                 <button className="action-btn secondary" onClick={() => {
                   const estimations = JSON.parse(localStorage.getItem('ideeri_estimations') || '[]');
-                  const exists = estimations.find(e => e.reference === 'LYN-2026-00847');
+                  // Mode d\u00e9mo : payload statique du wireframe.
+                  // Mode live : payload d\u00e9riv\u00e9 du bien actif (zero fake data).
+                  const payload = hasRealLocation
+                    ? {
+                        id: Date.now(),
+                        reference: estimationReference,
+                        adresse: activeBien?.adresse?.label || '',
+                        description: heroDescription,
+                        agent: '',
+                        date: new Date().toLocaleDateString('fr-FR'),
+                        heure: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+                        statut: 'sauvegarde',
+                        prix: formatPrice(priceRef.prixMedian),
+                      }
+                    : {
+                        id: Date.now(),
+                        reference: 'LYN-2026-00847',
+                        adresse: '12 rue des Lilas, 69003 Lyon',
+                        description: 'Appartement T3, 72.5 m\u00b2',
+                        agent: 'Marie Dupont',
+                        date: new Date().toLocaleDateString('fr-FR'),
+                        heure: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+                        statut: 'sauvegarde',
+                        prix: '300 000 \u20ac',
+                      };
+                  const exists = estimations.find((e) => e.reference === payload.reference);
                   if (!exists) {
-                    estimations.unshift({
-                      id: Date.now(),
-                      reference: 'LYN-2026-00847',
-                      adresse: '12 rue des Lilas, 69003 Lyon',
-                      description: 'Appartement T3, 72.5 m\u00b2',
-                      agent: 'Marie Dupont',
-                      date: new Date().toLocaleDateString('fr-FR'),
-                      heure: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-                      statut: 'sauvegarde',
-                      prix: '300 000 \u20ac',
-                    });
+                    estimations.unshift(payload);
                   } else {
-                    exists.date = new Date().toLocaleDateString('fr-FR');
-                    exists.heure = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                    exists.date = payload.date;
+                    exists.heure = payload.heure;
+                    exists.adresse = payload.adresse;
+                    exists.description = payload.description;
+                    exists.prix = payload.prix;
                   }
                   localStorage.setItem('ideeri_estimations', JSON.stringify(estimations));
                   navigate('/');
@@ -1669,7 +1803,7 @@ export default function Step5AvisValeur() {
 
         {/* ============ HISTORY BANNER ============ */}
         <div className="history-banner">
-          &#128203; Ceci est la <strong>&nbsp;V1&nbsp;</strong> de l&apos;estimation &middot; Cr&eacute;&eacute;e le <strong>&nbsp;25 mars 2026&nbsp;</strong> &middot; Aucune version pr&eacute;c&eacute;dente
+          &#128203; Ceci est la <strong>&nbsp;V1&nbsp;</strong> de l&apos;estimation &middot; Cr&eacute;&eacute;e le <strong>&nbsp;{createdAtLabel}&nbsp;</strong> &middot; Aucune version pr&eacute;c&eacute;dente
         </div>
 
         {/* ============ FOOTER ============ */}
