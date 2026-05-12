@@ -185,22 +185,31 @@ export default function CompteRendu() {
   // effComparables : priorité à ce que l'agent a sélectionné en Step3
   // (reportState.comparablesSelectionnes) + comparables saisis à la main
   // (manualComps) ; sinon fallback sur dvfTopComparables.
+  //
+  // Les comparables Step3 ont des formes hétérogènes (DVF promu, manual,
+  // legacy avant patch d'enrichissement). On extrait donc agressivement
+  // depuis tous les containers possibles : champs racine, c.fields,
+  // c._dvfRaw, c.meta string, c.title string.
   const effComparables = useMemo(() => {
     if (!isLive) return comparables;
     const sel = Array.isArray(reportState.comparablesSelectionnes)
       ? reportState.comparablesSelectionnes
       : [];
     const dvfTop = Array.isArray(activeBien.dvfTopComparables) ? activeBien.dvfTopComparables : [];
-    // Helpers locaux : extraction tolérante depuis les formes hétérogènes
-    // (selected Step3, manual Step3, dvfTop activeBien).
+
+    // ─── Helpers d'extraction tolérants ─────────────────────────────────
     const toNum = (v) => {
       if (v === null || v === undefined || v === '') return 0;
-      if (typeof v === 'number') return v;
-      const cleaned = String(v).replace(/[^\d,.]/g, '').replace(/\s/g, '').replace(',', '.');
+      if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+      const s = String(v);
+      // Gère "295k€" → 295000
+      const kMatch = s.match(/(\d+(?:[.,]\d+)?)\s*k/i);
+      if (kMatch) return Math.round(parseFloat(kMatch[1].replace(',', '.')) * 1000);
+      const cleaned = s.replace(/[^\d,.]/g, '').replace(/\s/g, '').replace(',', '.');
       const n = parseFloat(cleaned);
       return Number.isFinite(n) ? n : 0;
     };
-    // Tente d'extraire surface / pieces / type depuis un title type "T3 65m² — adresse".
+    // Extrait surface / pieces / type d'un titre type "T3 65m² — adresse".
     const parseTitle = (title) => {
       if (!title || typeof title !== 'string') return {};
       const out = {};
@@ -209,11 +218,35 @@ export default function CompteRendu() {
       const piecesMatch = title.match(/T\s*(\d+)/i);
       if (piecesMatch) out.pieces = Number(piecesMatch[1]);
       if (/maison/i.test(title)) out.type = 'maison';
-      else if (/appartement|^T\d/i.test(title)) out.type = 'appartement';
+      else if (/appartement|^T\s*\d/i.test(title)) out.type = 'appartement';
+      return out;
+    };
+    // Extrait prix, prixM2, distance, date depuis la string meta type
+    // "DVF · 295k€ · 4 214€/m² · 750m · Mar. 2025".
+    const parseMeta = (meta) => {
+      if (!meta || typeof meta !== 'string') return {};
+      const parts = meta.split(/\s+·\s+/);
+      const out = {};
+      parts.forEach((p) => {
+        const s = p.trim();
+        // prix/m²
+        if (/€\/m²|€ ?\/m²/i.test(s)) {
+          out.prixM2 = toNum(s);
+        } else if (/€/.test(s)) {
+          out.prix = toNum(s);
+        } else if (/^\d+(?:[.,]\d+)?\s*(?:km|m)$/i.test(s)) {
+          // distance "750m" ou "1.2km"
+          const km = /km/i.test(s);
+          const n = parseFloat(s.replace(',', '.').replace(/[^\d.]/g, ''));
+          out.distance = km ? Math.round(n * 1000) : Math.round(n);
+        } else if (/^(Janv|Févr|Mars|Avr|Mai|Juin|Juil|Août|Sept|Oct|Nov|Déc)/i.test(s)) {
+          out.dateLabel = s;
+        }
+      });
       return out;
     };
     const formatDate = (d) => {
-      if (!d) return '—';
+      if (!d) return '';
       if (typeof d === 'string' && d.includes('-')) {
         try {
           return new Date(d).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
@@ -223,49 +256,72 @@ export default function CompteRendu() {
       }
       return String(d);
     };
-    // Normalise un comparable (forme variable selon source) vers la forme
-    // attendue par le rapport (champs identiques aux mocks de propertyData).
+    const formatDistance = (raw) => {
+      if (raw === null || raw === undefined || raw === '') return '';
+      if (typeof raw === 'number') return raw >= 1000 ? `${(raw / 1000).toFixed(1)} km` : `${raw} m`;
+      const s = String(raw);
+      // Si déjà formatée ("750m" / "1.2km" / "1,2 km")
+      if (/m|km/i.test(s)) return s.replace(/(\d)(km|m)/i, '$1 $2');
+      const n = parseFloat(s.replace(',', '.'));
+      return Number.isFinite(n) ? (n >= 1000 ? `${(n / 1000).toFixed(1)} km` : `${Math.round(n)} m`) : '';
+    };
+
+    // ─── Normalisation d'un comparable hétérogène ────────────────────────
     const normalize = (c, idx, fallbackSource = 'dvf') => {
       const src = c.source || fallbackSource;
       const raw = c._dvfRaw || {};
       const f = c.fields || {};
-      const parsed = parseTitle(c.title);
+      const parsedT = parseTitle(c.title);
+      const parsedM = parseMeta(c.meta);
 
-      const surfaceN = toNum(c.surface ?? f.surface ?? raw.surface ?? parsed.surface);
-      const piecesN = toNum(c.pieces ?? f.pieces ?? raw.pieces ?? parsed.pieces);
-      const typeStr = c.type || f.type || raw.type || parsed.type || 'appartement';
-      const prixN = toNum(c.prixRaw ?? f.prix ?? raw.prix ?? c.prix);
-      const prixM2N = toNum(c.prixM2Raw ?? f.prixM2 ?? raw.prixM2 ?? c.prixM2)
+      const surfaceN = toNum(c.surface ?? f.surface ?? raw.surface ?? parsedT.surface);
+      const piecesN = toNum(c.pieces ?? f.pieces ?? raw.pieces ?? parsedT.pieces);
+      const typeStr = c.type || f.type || raw.type || parsedT.type || 'appartement';
+      const prixN = toNum(c.prixRaw ?? f.prix ?? raw.prix ?? c.prix ?? parsedM.prix);
+      const prixM2N = toNum(c.prixM2Raw ?? f.prixM2 ?? raw.prixM2 ?? c.prixM2 ?? parsedM.prixM2)
         || (surfaceN && prixN ? Math.round(prixN / surfaceN) : 0);
-      const adresseStr = c.addr || c.adresse || raw.adresse || raw.commune || '—';
-      const dateStr = c.dateLabel || formatDate(c.date || raw.date || raw.date_mutation);
-      const distanceStr = c.distance != null && c.distance !== '' ? String(c.distance) : '—';
+      const adresseStr = c.addr || c.adresse || raw.adresse
+        || (raw.commune ? `${raw.cp || ''} ${raw.commune}`.trim() : '')
+        || '';
+      const dateStr = c.dateLabel || parsedM.dateLabel || formatDate(c.date || raw.date || raw.date_mutation);
+      const distanceN = c.distance ?? parsedM.distance ?? raw.distance;
+      const distanceLabel = formatDistance(distanceN);
 
       const typeLabel = typeStr === 'maison' ? 'Maison'
         : typeStr === 'appartement' ? 'Appartement'
         : typeStr.charAt(0).toUpperCase() + typeStr.slice(1);
+
+      const etageVal = c.etage ?? f.etage ?? raw.etage;
+      const etageMaxVal = c.etagesTotal ?? c.etageMax ?? f.etageMax ?? raw.etagesTotal;
+      const dpeVal = c.dpe || f.dpe || raw.dpe || '';
+      const etatVal = c.etat || c.infosGenerales?.etatGeneral || f.etat || '';
+      const expoVal = c.exposition || c.orientation || f.exposition || f.orientation || '';
+      const anneeVal = c.anneeConstruction || c.annee || f.anneeConstruction
+        || f.annee || raw.anneeConstruction || raw.annee || '';
 
       return {
         id: c.id || `${src}-${idx}`,
         source: src,
         sourceLabel: c.sourceLabel || (src === 'dvf' ? 'DVF' : src === 'ideeri' ? 'Ideeri' : src === 'encours' ? 'En cours' : 'Portail'),
         type: typeLabel,
-        surface: surfaceN || '—',
-        pieces: piecesN || '—',
-        adresse: adresseStr,
-        prix: prixN,
-        prixM2: prixM2N,
-        prixM2Raw: prixM2N,
-        date: dateStr,
-        distance: distanceStr,
-        etage: c.etage ?? f.etage ?? '—',
-        etageMax: c.etagesTotal ?? c.etageMax ?? '—',
+        typeRaw: typeStr,
+        surface: surfaceN || 0,
+        pieces: piecesN || 0,
+        adresse: adresseStr || '—',
+        prix: prixN || 0,
+        prixM2: prixM2N || 0,
+        prixM2Raw: prixM2N || 0,
+        date: dateStr || '',
+        distance: distanceLabel || '—',
+        etage: (etageVal === 0 || etageVal) ? etageVal : '—',
+        etageMax: (etageMaxVal === 0 || etageMaxVal) ? etageMaxVal : '—',
         selected: true,
-        dpe: c.dpe || f.dpe || '—',
-        etat: c.etat || c.infosGenerales?.etatGeneral || '—',
+        dpe: dpeVal || '—',
+        etat: etatVal || '—',
         atouts: c.atoutsQualitatifs || c.atouts || [],
-        exposition: c.exposition || c.orientation || '—',
-        anneeConstruction: c.anneeConstruction || f.anneeConstruction || raw.anneeConstruction || '—',
+        exposition: expoVal || '—',
+        anneeConstruction: anneeVal || '—',
+        photoUrl: c.photoUrl || null,
         commentairePertinence: c.commentairePertinence || (c.manual
           ? 'Comparable saisi manuellement par l\'agent.'
           : src === 'dvf'
@@ -276,14 +332,36 @@ export default function CompteRendu() {
       };
     };
 
-    // 1) Priorité : sélectionnés en Step3 (Top 3)
+    // Agrège tous les comparables disponibles, dédupliqués par id.
+    const dedupe = (arr) => {
+      const seen = new Set();
+      const out = [];
+      for (const c of arr) {
+        const id = c?.id;
+        if (!id || !seen.has(id)) {
+          if (id) seen.add(id);
+          out.push(c);
+        }
+      }
+      return out;
+    };
+
+    // Source primaire : les sélectionnés (Top retenu par l'agent).
     if (sel.length > 0) {
-      return sel.map((c, idx) => normalize(c, idx, c.source || 'portail'));
+      // On ajoute aussi les manuels qui n'auraient pas été sélectionnés,
+      // pour qu'ils restent visibles dans la section "Autres biens analysés".
+      const selNorm = sel.map((c, idx) => normalize(c, idx, c.source || 'portail'));
+      const selIds = new Set(selNorm.map((c) => c.id));
+      const extraManual = manualComps
+        .filter((c) => !selIds.has(c.id))
+        .map((c, idx) => ({ ...normalize(c, idx + sel.length, c.source || 'portail'), selected: false }));
+      return dedupe([...selNorm, ...extraManual]);
     }
-    // 2) Sinon : manuels + DVF top
+    // Sinon : manuels + DVF top (tous "sélectionnés" par défaut pour qu'ils
+    // s'affichent dans la grille principale).
     const manualNormalized = manualComps.map((c, idx) => normalize(c, idx, c.source || 'portail'));
     const dvfNormalized = dvfTop.map((c, idx) => normalize(c, idx + manualNormalized.length, 'dvf'));
-    return [...manualNormalized, ...dvfNormalized];
+    return dedupe([...manualNormalized, ...dvfNormalized]);
   }, [isLive, activeBien, reportState, manualComps]);
 
   // effAvisValeur : prix depuis activeBien.result + génération auto des
@@ -1122,50 +1200,78 @@ export default function CompteRendu() {
           de la moyenne pondérée.
         </p>
 
-        <div className="comparables-grid">
-          {selectedComps.map((c) => (
-            <div className="comp-card" key={c.id}>
-              <div className="comp-header">
-                <span className={`comp-source comp-source-${c.source}`}>
-                  {c.sourceLabel}
-                </span>
-                <span className="comp-date">{c.date}</span>
-              </div>
+        {selectedComps.length === 0 ? (
+          <div className="comp-empty">
+            Aucun comparable n'a été retenu en étape 3. L'analyse comparative
+            pourra être complétée ultérieurement.
+          </div>
+        ) : (
+          <div className="comparables-grid">
+            {selectedComps.map((c) => {
+              const surfaceTxt = Number(c.surface) > 0 ? `${c.surface} m²` : null;
+              const piecesTxt = Number(c.pieces) > 0
+                ? `${c.pieces} pièce${Number(c.pieces) > 1 ? 's' : ''}`
+                : null;
+              const titleParts = [c.type, surfaceTxt, piecesTxt].filter(Boolean);
+              const titleLine = titleParts.length > 1
+                ? `${titleParts[0]} — ${titleParts.slice(1).join(', ')}`
+                : titleParts[0] || '—';
+              const distTxt = c.distance && c.distance !== '—' ? c.distance : null;
+              const addressLine = [c.adresse !== '—' ? c.adresse : null, distTxt]
+                .filter(Boolean)
+                .join(' · ');
+              const etageDisplay = (c.etage === '—' && c.etageMax === '—')
+                ? '—'
+                : `${c.etage}${c.etageMax !== '—' ? '/' + c.etageMax : ''}`;
+              const prixNum = Number(c.prix) || 0;
+              const prixM2Num = Number(c.prixM2) || 0;
+              return (
+                <div className="comp-card" key={c.id}>
+                  <div className="comp-header">
+                    <span className={`comp-source comp-source-${c.source}`}>
+                      {c.sourceLabel}
+                    </span>
+                    {c.date && <span className="comp-date">{c.date}</span>}
+                  </div>
 
-              <div className="comp-title">
-                {c.type} — {c.surface} m², {c.pieces} pièce{c.pieces > 1 ? 's' : ''}
-              </div>
-              <div className="comp-address">
-                {c.adresse} · {c.distance} m
-              </div>
+                  <div className="comp-title">{titleLine}</div>
+                  {addressLine && <div className="comp-address">{addressLine}</div>}
 
-              <div className="comp-grid">
-                <div><span>Étage</span><strong>{c.etage}/{c.etageMax}</strong></div>
-                <div>
-                  <span>DPE</span>
-                  <strong className={`dpe-badge dpe-${c.dpe}`}>{c.dpe}</strong>
+                  <div className="comp-grid">
+                    <div><span>Étage</span><strong>{etageDisplay}</strong></div>
+                    <div>
+                      <span>DPE</span>
+                      <strong className={`dpe-badge dpe-${c.dpe}`}>{c.dpe}</strong>
+                    </div>
+                    <div><span>État</span><strong>{c.etat}</strong></div>
+                    <div><span>Atouts</span><strong>{(c.atouts || []).join(', ') || '—'}</strong></div>
+                    <div><span>Exposition</span><strong>{c.exposition}</strong></div>
+                    <div><span>Année</span><strong>{c.anneeConstruction}</strong></div>
+                  </div>
+
+                  <div className="comp-price">
+                    <div>
+                      <strong>
+                        {prixNum > 0 ? `${prixNum.toLocaleString('fr-FR')} €` : '—'}
+                      </strong>
+                      {prixM2Num > 0 && (
+                        <span className="comp-m2"> · {prixM2Num.toLocaleString('fr-FR')} €/m²</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="comp-reliability">
+                    <ReliabilityBadge comparable={c} size="sm" />
+                  </div>
+
+                  {c.commentairePertinence && (
+                    <p className="comp-comment">{c.commentairePertinence}</p>
+                  )}
                 </div>
-                <div><span>État</span><strong>{c.etat}</strong></div>
-                <div><span>Atouts</span><strong>{c.atouts.join(', ') || '—'}</strong></div>
-                <div><span>Exposition</span><strong>{c.exposition}</strong></div>
-                <div><span>Année</span><strong>{c.anneeConstruction}</strong></div>
-              </div>
-
-              <div className="comp-price">
-                <div>
-                  <strong>{c.prix.toLocaleString('fr-FR')} €</strong>
-                  <span className="comp-m2"> · {c.prixM2.toLocaleString('fr-FR')} €/m²</span>
-                </div>
-              </div>
-
-              <div className="comp-reliability">
-                <ReliabilityBadge comparable={c} size="sm" />
-              </div>
-
-              <p className="comp-comment">{c.commentairePertinence}</p>
-            </div>
-          ))}
-        </div>
+              );
+            })}
+          </div>
+        )}
 
         {effComparables.some((c) => !c.selected) && (
           <div className="comp-others">
@@ -1173,22 +1279,25 @@ export default function CompteRendu() {
             <div className="comp-others-list">
               {effComparables
                 .filter((c) => !c.selected)
-                .map((c) => (
-                  <div className="comp-other-row" key={c.id}>
-                    <div className="cor-main">
-                      <strong className="cor-address">{c.adresse}</strong>
-                      <span className="cor-typo">
-                        {c.type} · {c.surface} m²
-                      </span>
+                .map((c) => {
+                  const surfaceTxt = Number(c.surface) > 0 ? `${c.surface} m²` : null;
+                  const typoParts = [c.type, surfaceTxt].filter(Boolean).join(' · ');
+                  const prixM2Num = Number(c.prixM2) || 0;
+                  return (
+                    <div className="comp-other-row" key={c.id}>
+                      <div className="cor-main">
+                        <strong className="cor-address">{c.adresse}</strong>
+                        {typoParts && <span className="cor-typo">{typoParts}</span>}
+                      </div>
+                      <div className="cor-side">
+                        <span className="cor-price">
+                          {prixM2Num > 0 ? `${prixM2Num.toLocaleString('fr-FR')} €/m²` : '—'}
+                        </span>
+                        {c.raisonEcart && <span className="cor-reason">{c.raisonEcart}</span>}
+                      </div>
                     </div>
-                    <div className="cor-side">
-                      <span className="cor-price">
-                        {c.prixM2.toLocaleString('fr-FR')} €/m²
-                      </span>
-                      <span className="cor-reason">{c.raisonEcart}</span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
             </div>
           </div>
         )}
@@ -1635,6 +1744,7 @@ const reportCss = `
   .comp-intro { font-size: 14px; color: var(--secondary); line-height: 1.6; margin: 0 0 18px; }
   .comp-intro strong { color: var(--primary); }
   .comparables-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+  .comp-empty { padding: 18px 20px; border: 1px dashed #d4d4d4; border-radius: 10px; background: #fafafa; color: #6b6b6b; font-size: 13px; line-height: 1.6; }
   .comp-card { border: 1px solid #e5e5e5; border-radius: 10px; padding: 20px; background: #fff; }
   .comp-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
   .comp-source { display: inline-block; padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
