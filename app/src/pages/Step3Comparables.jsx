@@ -2529,15 +2529,36 @@ export default function Step3Comparables() {
     const liveAddr = comp._dvfRaw?.commune
       ? `${comp._dvfRaw.cp || ''} ${comp._dvfRaw.commune}`.trim()
       : null;
+    // Champs structurés conservés pour le rapport CompteRendu (sinon le
+    // /report affichait "—" partout : surface, pieces, type, date…).
+    const f = comp.fields || {};
+    const raw = comp._dvfRaw || {};
+    const surfaceNum = Number(f.surface ?? raw.surface) || null;
+    const piecesNum = Number(f.pieces ?? raw.pieces) || null;
+    const typeStr = f.type || raw.type || null;
+    const prixRawNum = Number(f.prix ?? raw.prix) || Number(parseInt(prixNum)) || 0;
+    const prixM2RawNum = Number(f.prixM2 ?? raw.prixM2)
+      || (surfaceNum && prixRawNum ? Math.round(prixRawNum / surfaceNum) : 0);
+    const dateRaw = raw.date || raw.date_mutation || null;
+    const dateLabel = dateRaw
+      ? new Date(dateRaw).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })
+      : null;
     // Build a full selected-format object
     const promoted = {
       id: comp.id,
       title: comp.title,
-      addr: liveAddr || 'Lyon 3\u00e8me',
+      addr: liveAddr || raw.adresse || 'Lyon 3\u00e8me',
       source: comp.source,
       sourceLabel,
       prix: parseInt(prixNum).toLocaleString('fr-FR').replace(/,/g, ' ').replace(/\./g, ' '),
       prixM2: prixM2Str.replace('/m\u00b2', '').replace('\u20ac', '').trim(),
+      // Versions numériques pour CompteRendu (calculs + rendu propre)
+      prixRaw: prixRawNum,
+      prixM2Raw: prixM2RawNum,
+      surface: surfaceNum,
+      pieces: piecesNum,
+      type: typeStr,
+      dateLabel,
       distance: distanceStr,
       // Préserve les coords (DVF live a tx.lat/tx.lon ; mocks utilisent COMP_COORDS)
       coords: comp.coords || COMP_COORDS[comp.id],

@@ -191,35 +191,81 @@ export default function CompteRendu() {
       ? reportState.comparablesSelectionnes
       : [];
     const dvfTop = Array.isArray(activeBien.dvfTopComparables) ? activeBien.dvfTopComparables : [];
+    // Helpers locaux : extraction tolérante depuis les formes hétérogènes
+    // (selected Step3, manual Step3, dvfTop activeBien).
+    const toNum = (v) => {
+      if (v === null || v === undefined || v === '') return 0;
+      if (typeof v === 'number') return v;
+      const cleaned = String(v).replace(/[^\d,.]/g, '').replace(/\s/g, '').replace(',', '.');
+      const n = parseFloat(cleaned);
+      return Number.isFinite(n) ? n : 0;
+    };
+    // Tente d'extraire surface / pieces / type depuis un title type "T3 65m² — adresse".
+    const parseTitle = (title) => {
+      if (!title || typeof title !== 'string') return {};
+      const out = {};
+      const surfMatch = title.match(/(\d+(?:[.,]\d+)?)\s*m²/i);
+      if (surfMatch) out.surface = toNum(surfMatch[1]);
+      const piecesMatch = title.match(/T\s*(\d+)/i);
+      if (piecesMatch) out.pieces = Number(piecesMatch[1]);
+      if (/maison/i.test(title)) out.type = 'maison';
+      else if (/appartement|^T\d/i.test(title)) out.type = 'appartement';
+      return out;
+    };
+    const formatDate = (d) => {
+      if (!d) return '—';
+      if (typeof d === 'string' && d.includes('-')) {
+        try {
+          return new Date(d).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
+        } catch {
+          return d;
+        }
+      }
+      return String(d);
+    };
     // Normalise un comparable (forme variable selon source) vers la forme
     // attendue par le rapport (champs identiques aux mocks de propertyData).
     const normalize = (c, idx, fallbackSource = 'dvf') => {
-      // selected (Step3) → fields parsés à plat ; manual (Step3) → coordonnées + prixRaw
       const src = c.source || fallbackSource;
-      const surface = c.surface ?? c.fields?.surface ?? '—';
-      const pieces = c.pieces ?? c.fields?.pieces ?? '—';
-      const prix = c.prixRaw ?? c.prix ?? (typeof c.prix === 'string' ? Number(String(c.prix).replace(/[^\d]/g, '')) : 0) ?? 0;
-      const prixM2 = c.prixM2Raw ?? c.prixM2 ?? (surface && prix ? Math.round(prix / Number(surface)) : 0);
+      const raw = c._dvfRaw || {};
+      const f = c.fields || {};
+      const parsed = parseTitle(c.title);
+
+      const surfaceN = toNum(c.surface ?? f.surface ?? raw.surface ?? parsed.surface);
+      const piecesN = toNum(c.pieces ?? f.pieces ?? raw.pieces ?? parsed.pieces);
+      const typeStr = c.type || f.type || raw.type || parsed.type || 'appartement';
+      const prixN = toNum(c.prixRaw ?? f.prix ?? raw.prix ?? c.prix);
+      const prixM2N = toNum(c.prixM2Raw ?? f.prixM2 ?? raw.prixM2 ?? c.prixM2)
+        || (surfaceN && prixN ? Math.round(prixN / surfaceN) : 0);
+      const adresseStr = c.addr || c.adresse || raw.adresse || raw.commune || '—';
+      const dateStr = c.dateLabel || formatDate(c.date || raw.date || raw.date_mutation);
+      const distanceStr = c.distance != null && c.distance !== '' ? String(c.distance) : '—';
+
+      const typeLabel = typeStr === 'maison' ? 'Maison'
+        : typeStr === 'appartement' ? 'Appartement'
+        : typeStr.charAt(0).toUpperCase() + typeStr.slice(1);
+
       return {
         id: c.id || `${src}-${idx}`,
         source: src,
         sourceLabel: c.sourceLabel || (src === 'dvf' ? 'DVF' : src === 'ideeri' ? 'Ideeri' : src === 'encours' ? 'En cours' : 'Portail'),
-        type: c.type || c.fields?.type || 'Appartement',
-        surface,
-        pieces,
-        adresse: c.addr || c.adresse || '—',
-        prix: typeof prix === 'number' ? prix : Number(prix) || 0,
-        prixM2: typeof prixM2 === 'number' ? prixM2 : Number(prixM2) || 0,
-        date: c.dateLabel || c.date || '—',
-        distance: c.distance || '—',
-        etage: c.etage ?? c.fields?.etage ?? '—',
+        type: typeLabel,
+        surface: surfaceN || '—',
+        pieces: piecesN || '—',
+        adresse: adresseStr,
+        prix: prixN,
+        prixM2: prixM2N,
+        prixM2Raw: prixM2N,
+        date: dateStr,
+        distance: distanceStr,
+        etage: c.etage ?? f.etage ?? '—',
         etageMax: c.etagesTotal ?? c.etageMax ?? '—',
         selected: true,
-        dpe: c.dpe || c.fields?.dpe || '—',
+        dpe: c.dpe || f.dpe || '—',
         etat: c.etat || c.infosGenerales?.etatGeneral || '—',
         atouts: c.atoutsQualitatifs || c.atouts || [],
         exposition: c.exposition || c.orientation || '—',
-        anneeConstruction: c.anneeConstruction || c.fields?.anneeConstruction || '—',
+        anneeConstruction: c.anneeConstruction || f.anneeConstruction || raw.anneeConstruction || '—',
         commentairePertinence: c.commentairePertinence || (c.manual
           ? 'Comparable saisi manuellement par l\'agent.'
           : src === 'dvf'
