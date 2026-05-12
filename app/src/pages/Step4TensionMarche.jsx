@@ -827,9 +827,29 @@ export default function Step4TensionMarche() {
   const hasRealLocation = !!(activeBien && activeBien.adresse && activeBien.adresse.label);
   const prixEstime = useMemo(() => {
     if (!activeBien || !activeBien.bien) return null;
+    // 1) Prix retenu par l'agent en Step5 (customPrice persisté)
+    const reportRaw = (typeof window !== 'undefined')
+      ? (window.localStorage.getItem('ideeri_report_state') || '')
+      : '';
+    let custom = null;
+    if (reportRaw) {
+      try {
+        const parsed = JSON.parse(reportRaw);
+        if (parsed && typeof parsed.customPrice === 'number' && parsed.customPrice > 0) {
+          custom = parsed.customPrice;
+        }
+      } catch { /* ignore */ }
+    }
+    if (custom) return custom;
+    // 2) Prix médian calculé par la cascade (activeBien.result.prix)
+    const r = activeBien.result || {};
+    if (typeof r.prix === 'number' && r.prix > 0) return r.prix;
+    if (typeof r.prixBas === 'number' && typeof r.prixHaut === 'number' && r.prixHaut > 0) {
+      return Math.round((r.prixBas + r.prixHaut) / 2);
+    }
+    // 3) Fallback : surface × 4 500 €/m² (estimation indicative)
     const surface = Number(activeBien.bien.surface);
     if (!Number.isFinite(surface) || surface <= 0) return null;
-    // Estimation indicative (4 500 €/m² par défaut si pas de prix calculé)
     return Math.round(surface * 4500);
   }, [activeBien]);
 

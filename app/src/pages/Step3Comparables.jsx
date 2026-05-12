@@ -2581,8 +2581,14 @@ export default function Step3Comparables() {
       adjTotalClass: 'pos',
       adjustments: [],
       description: '',
-      noPhoto: comp.source === 'dvf',
-      photoUrl: comp.source !== 'dvf' ? `https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=520&h=140&fit=crop&crop=center&seed=${comp.id}` : undefined,
+      noPhoto: comp.source === 'dvf' && !(Array.isArray(comp.photos) && comp.photos.length > 0),
+      // Priorité : photo réelle saisie par l'agent (manual / portail) →
+      // placeholder unsplash pour non-DVF → undefined pour DVF (transaction).
+      photoUrl: (Array.isArray(comp.photos) && comp.photos[0])
+        || (comp.source !== 'dvf' ? `https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=520&h=140&fit=crop&crop=center&seed=${comp.id}` : undefined),
+      // On préserve aussi le tableau complet et l'URL de l'annonce source.
+      photos: Array.isArray(comp.photos) ? comp.photos : [],
+      urlAnnonce: comp.urlAnnonce || comp.urlSource || null,
       portalName: comp.portalName || (comp.source === 'portail' ? randomPortalName() : undefined),
     };
     setOthers(prev => prev.filter(c => c.id !== compId));

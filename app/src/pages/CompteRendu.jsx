@@ -321,7 +321,13 @@ export default function CompteRendu() {
         atouts: c.atoutsQualitatifs || c.atouts || [],
         exposition: expoVal || '—',
         anneeConstruction: anneeVal || '—',
-        photoUrl: c.photoUrl || null,
+        // Photo : priorité au tableau saisi par l'agent, puis photoUrl
+        // unique, sinon null (la card affiche un placeholder texte).
+        photoUrl: (Array.isArray(c.photos) && c.photos[0])
+          || c.photoUrl
+          || null,
+        photos: Array.isArray(c.photos) ? c.photos : (c.photoUrl ? [c.photoUrl] : []),
+        urlAnnonce: c.urlAnnonce || c.urlSource || null,
         commentairePertinence: c.commentairePertinence || (c.manual
           ? 'Comparable saisi manuellement par l\'agent.'
           : src === 'dvf'
@@ -535,8 +541,36 @@ export default function CompteRendu() {
   // une liste plate des acquéreurs réels dans la section 6.
   const personasList = Object.values(personasAcquereurs);
   const [activePersonaKey, setActivePersonaKey] = useState(personasList[0].key);
+
+  // Prix de référence pour le filtre acquéreur : on prend le prix retenu
+  // par l'agent (customPrice → médiane) ; on ne considère un acquéreur
+  // comme "compatible budget" que si son plafond couvre ce prix.
+  const prixReference = isLive
+    ? (typeof reportState.customPrice === 'number' && reportState.customPrice > 0
+        ? reportState.customPrice
+        : (activeBien.result?.prix || 0))
+    : 0;
+  // Partitionnement : compatibles (budgetMax * 1000 >= prixReference) vs
+  // hors budget. Si l'acquéreur n'a pas de budgetMax → considéré inconnu
+  // donc on l'affiche (pas d'exclusion arbitraire).
+  const acquereursCompatibles = isLive
+    ? realAcquereurs.filter((a) => {
+        const bm = Number(a.budgetMax);
+        if (!Number.isFinite(bm) || bm <= 0) return true;
+        if (!prixReference) return true;
+        return bm * 1000 >= prixReference;
+      })
+    : [];
+  const acquereursHorsBudget = isLive
+    ? realAcquereurs.filter((a) => {
+        const bm = Number(a.budgetMax);
+        if (!Number.isFinite(bm) || bm <= 0) return false;
+        if (!prixReference) return false;
+        return bm * 1000 < prixReference;
+      })
+    : [];
   const totalProjets = isLive
-    ? realAcquereurs.length
+    ? acquereursCompatibles.length
     : personasList.reduce((sum, p) => sum + p.count, 0);
 
   return (
@@ -1056,26 +1090,62 @@ export default function CompteRendu() {
         <h2 className="section-title">Profils d'acquéreurs en recherche</h2>
         <p className="section-intro">
           {isLive ? (
-            totalProjets > 0 ? (
-              <><strong>{totalProjets} projet{totalProjets > 1 ? 's' : ''} d'achat actif{totalProjets > 1 ? 's' : ''}</strong> dans votre fichier acquéreurs correspond{totalProjets > 1 ? 'ent' : ''} aux critères de votre bien.</>
-            ) : (
+            realAcquereurs.length === 0 ? (
               <>Aucun acquéreur n'a été enregistré pour ce bien. Ajoutez-en depuis l'étape 4.</>
+            ) : totalProjets > 0 ? (
+              <>
+                <strong>{totalProjets} projet{totalProjets > 1 ? 's' : ''} d'achat actif{totalProjets > 1 ? 's' : ''}</strong> dans votre fichier acquéreurs
+                {prixReference > 0 ? (
+                  <> dont le budget max couvre le prix de {prixReference.toLocaleString('fr-FR')} €</>
+                ) : null}
+                .
+                {acquereursHorsBudget.length > 0 && (
+                  <> {acquereursHorsBudget.length} autre{acquereursHorsBudget.length > 1 ? 's' : ''} acquéreur{acquereursHorsBudget.length > 1 ? 's' : ''} hors budget (voir ci-dessous).</>
+                )}
+              </>
+            ) : (
+              <>
+                Aucun acquéreur de votre fichier ne couvre le prix de {prixReference.toLocaleString('fr-FR')} €.
+                {acquereursHorsBudget.length > 0 && (
+                  <> {acquereursHorsBudget.length} acquéreur{acquereursHorsBudget.length > 1 ? 's sont' : ' est'} hors budget — voir ci-dessous.</>
+                )}
+              </>
             )
           ) : (
             <><strong>{totalProjets} projets d'achat actifs</strong> dans votre périmètre matchent les critères de votre bien. Ils se répartissent en 5 profils-types.</>
           )}
         </p>
 
-        {isLive && realAcquereurs.length > 0 && (
+        {isLive && acquereursCompatibles.length > 0 && (
           <div className="live-acquereurs-list">
+            <h4 className="live-acquereurs-title">Acquéreurs compatibles ({acquereursCompatibles.length})</h4>
             <ul>
-              {realAcquereurs.map((a, i) => (
+              {acquereursCompatibles.map((a, i) => (
                 <li key={a.id || i} style={{ marginBottom: '8px' }}>
                   <strong>{a.prenom || ''} {a.nom || `Acquéreur ${i + 1}`}</strong>
                   {a.budgetMax && <> · Budget max <strong>{(Number(a.budgetMax) * 1000).toLocaleString('fr-FR')} €</strong></>}
                   {a.surfaceMin && <> · Surface min <strong>{a.surfaceMin} m²</strong></>}
                   {a.type && a.type !== 'indifferent' && <> · Type {a.type}</>}
                   {a.dpeMin && <> · DPE min {a.dpeMin}</>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {isLive && acquereursHorsBudget.length > 0 && (
+          <div className="live-acquereurs-list live-acquereurs-out">
+            <h4 className="live-acquereurs-title">Acquéreurs hors budget ({acquereursHorsBudget.length})</h4>
+            <p className="live-acquereurs-note">
+              Ces acquéreurs ont un budget max inférieur au prix retenu
+              ({prixReference.toLocaleString('fr-FR')} €) — ils ne sont
+              comptés ni dans les projets actifs ni dans le score de tension.
+            </p>
+            <ul>
+              {acquereursHorsBudget.map((a, i) => (
+                <li key={a.id || i} style={{ marginBottom: '6px', opacity: 0.65 }}>
+                  <strong>{a.prenom || ''} {a.nom || `Acquéreur ${i + 1}`}</strong>
+                  {a.budgetMax && <> · Budget max <strong>{(Number(a.budgetMax) * 1000).toLocaleString('fr-FR')} €</strong> (manque {((prixReference - Number(a.budgetMax) * 1000)).toLocaleString('fr-FR')} €)</>}
                 </li>
               ))}
             </ul>
@@ -1227,6 +1297,17 @@ export default function CompteRendu() {
               const prixM2Num = Number(c.prixM2) || 0;
               return (
                 <div className="comp-card" key={c.id}>
+                  {c.photoUrl && (
+                    <div className="comp-photo">
+                      <img
+                        src={c.photoUrl}
+                        alt={titleLine}
+                        loading="lazy"
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      />
+                    </div>
+                  )}
+
                   <div className="comp-header">
                     <span className={`comp-source comp-source-${c.source}`}>
                       {c.sourceLabel}
@@ -1266,6 +1347,17 @@ export default function CompteRendu() {
 
                   {c.commentairePertinence && (
                     <p className="comp-comment">{c.commentairePertinence}</p>
+                  )}
+
+                  {c.urlAnnonce && (
+                    <a
+                      className="comp-link"
+                      href={c.urlAnnonce}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Voir l'annonce d'origine ↗
+                    </a>
                   )}
                 </div>
               );
@@ -1746,6 +1838,10 @@ const reportCss = `
   .comparables-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
   .comp-empty { padding: 18px 20px; border: 1px dashed #d4d4d4; border-radius: 10px; background: #fafafa; color: #6b6b6b; font-size: 13px; line-height: 1.6; }
   .comp-card { border: 1px solid #e5e5e5; border-radius: 10px; padding: 20px; background: #fff; }
+  .comp-photo { margin: -20px -20px 14px; overflow: hidden; border-radius: 10px 10px 0 0; background: #f4f4f4; max-height: 200px; }
+  .comp-photo img { display: block; width: 100%; height: 180px; object-fit: cover; }
+  .comp-link { display: inline-block; margin-top: 10px; font-size: 12px; color: var(--primary); text-decoration: none; font-weight: 600; }
+  .comp-link:hover { text-decoration: underline; }
   .comp-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
   .comp-source { display: inline-block; padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
   .comp-source-DVF { background: #e8f4fd; color: #1976d2; }
