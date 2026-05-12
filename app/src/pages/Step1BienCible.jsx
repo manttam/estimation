@@ -10,6 +10,7 @@ import { bienCibleCategories as bienCibleCategoriesBase } from '../data/property
 import { getActiveBien, buildBienCibleCategories } from '../utils/activeBien';
 import { getAllPhotos, deletePhoto } from '../utils/photosStore';
 import CadastrePLUCards from '../components/CadastrePLUCards';
+import { mergeReportSection, getReportSection, slugifyKey } from '../utils/reportStore';
 
 // Fix default Leaflet marker icon issue in React
 delete L.Icon.Default.prototype._getIconUrl;
@@ -1097,7 +1098,53 @@ export default function Step1BienCible() {
   const defaultOpenIdx = bienCibleCategories.findIndex((c) => c.defaultOpen);
   const initialOpen = defaultOpenIdx >= 0 ? defaultOpenIdx : 1;
   const [openSection, setOpenSection] = useState(initialOpen);
-  const [toggleStates, setToggleStates] = useState({});
+
+  // Construit la clé stable d'un champ pour reportStore : "${catSlug}__${fieldSlug}".
+  const fieldKey = (cat, field) => `${slugifyKey(cat.title)}__${slugifyKey(field.label)}`;
+
+  // bienDetails persisté : on hydrate l'état local à partir de reportStore
+  // (saisies précédentes), sinon avec les valeurs/toggles par défaut du
+  // schéma propertyData/buildBienCibleCategories.
+  const [bienDetails, setBienDetails] = useState(() => {
+    const stored = getReportSection('bienDetails', {});
+    const init = { ...stored };
+    bienCibleCategories.forEach((cat) => {
+      (cat.fields || []).forEach((field) => {
+        const key = fieldKey(cat, field);
+        if (init[key] === undefined) {
+          if (field.type === 'toggle') init[key] = !!field.on;
+          else if (field.value !== undefined && field.value !== '') init[key] = field.value;
+        }
+      });
+    });
+    return init;
+  });
+
+  // Snapshot dérivé : toggleStates pour conserver la signature de
+  // getToggleState (catIdx-fieldIdx) sans toucher au rendu.
+  const [toggleStates, setToggleStates] = useState(() => {
+    const out = {};
+    bienCibleCategories.forEach((cat, catIdx) => {
+      (cat.fields || []).forEach((field, fIdx) => {
+        if (field.type !== 'toggle') return;
+        const key = fieldKey(cat, field);
+        const stored = bienDetails[key];
+        out[`${catIdx}-${fIdx}`] = stored !== undefined ? !!stored : !!field.on;
+      });
+    });
+    return out;
+  });
+
+  // Persiste toutes les saisies à chaque modification (rapport y lit).
+  useEffect(() => {
+    mergeReportSection('bienDetails', bienDetails);
+  }, [bienDetails]);
+
+  // Setter générique appelé par les inputs/selects/toggles.
+  const setFieldValue = (cat, field, value) => {
+    const key = fieldKey(cat, field);
+    setBienDetails((prev) => ({ ...prev, [key]: value }));
+  };
 
   // Photos : filtre par type + index lightbox -----------------------------
   const [photoFilter, setPhotoFilter] = useState('all');
@@ -1166,10 +1213,14 @@ export default function Step1BienCible() {
 
   const handleToggle = (catIdx, fieldIdx, currentOn) => {
     const key = `${catIdx}-${fieldIdx}`;
-    setToggleStates((prev) => ({
-      ...prev,
-      [key]: prev[key] !== undefined ? !prev[key] : !currentOn,
-    }));
+    setToggleStates((prev) => {
+      const newVal = prev[key] !== undefined ? !prev[key] : !currentOn;
+      // Persiste aussi dans bienDetails (clé sémantique)
+      const cat = bienCibleCategories[catIdx];
+      const field = cat?.fields?.[fieldIdx];
+      if (cat && field) setFieldValue(cat, field, newVal);
+      return { ...prev, [key]: newVal };
+    });
   };
 
   const getToggleState = (catIdx, fieldIdx, defaultOn) => {
@@ -1234,30 +1285,25 @@ export default function Step1BienCible() {
                             ) : field.type === 'select' ? (
                               <select
                                 className={`form-select${field.error ? ' error' : ''}`}
-                                defaultValue={field.value || ''}
+                                value={bienDetails[fieldKey(cat, field)] ?? field.value ?? ''}
+                                onChange={(e) => setFieldValue(cat, field, e.target.value)}
                               >
-                                {field.value ? (
-                                  <option value={field.value}>{field.value}</option>
-                                ) : (
-                                  <option value="">
-                                    {field.placeholder || '-- Choisir --'}
+                                <option value="">
+                                  {field.placeholder || '-- Choisir --'}
+                                </option>
+                                {field.options && field.options.map((o, oi) => (
+                                  <option key={oi} value={o}>
+                                    {o}
                                   </option>
-                                )}
-                                {field.options &&
-                                  field.options
-                                    .filter((o) => o !== field.value)
-                                    .map((o, oi) => (
-                                      <option key={oi} value={o}>
-                                        {o}
-                                      </option>
-                                    ))}
+                                ))}
                               </select>
                             ) : (
                               <input
                                 className={`form-input${field.error ? ' error' : ''}`}
                                 type={field.type || 'text'}
-                                defaultValue={field.value}
+                                value={bienDetails[fieldKey(cat, field)] ?? field.value ?? ''}
                                 placeholder={field.placeholder || ''}
+                                onChange={(e) => setFieldValue(cat, field, e.target.value)}
                               />
                             )}
                           </div>

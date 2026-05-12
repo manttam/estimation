@@ -107,46 +107,80 @@ export default function CompteRendu() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLive]);
 
+  // Lookup tolérant : trouve une valeur dans bienDetails par fin de clé
+  // (les clés sont slugifiées "${catSlug}__${fieldSlug}" mais on cherche
+  // souvent par fieldSlug seul).
+  const findDetail = (bd, ...fieldSlugs) => {
+    if (!bd) return undefined;
+    const keys = Object.keys(bd);
+    for (const slug of fieldSlugs) {
+      const hit = keys.find((k) => k.endsWith(`__${slug}`) || k === slug);
+      if (hit && bd[hit] !== undefined && bd[hit] !== '' && bd[hit] !== null) return bd[hit];
+    }
+    return undefined;
+  };
+
   // effProperty : forme identique à property{} mais dérivée d'activeBien
+  // + enrichie par les saisies détaillées de Step1 (reportState.bienDetails).
   const effProperty = useMemo(() => {
     if (!isLive) return property;
     const b = activeBien.bien || {};
     const adr = activeBien.adresse || {};
+    const bd = reportState.bienDetails || {};
     return {
       ...property,
       adresse: adr.label || '',
-      surface: b.surface ?? '—',
-      pieces: b.pieces ?? '—',
-      chambres: b.chambres ?? '—',
-      etage: b.etage != null ? b.etage : '—',
-      annee: b.annee ?? '—',
-      dpe: b.dpe || '—',
-      reference: `IDR-${new Date(activeBien.createdAt || Date.now()).getFullYear()}-${String(Math.floor(Math.random() * 90000) + 10000)}`,
+      surface: b.surface ?? findDetail(bd, 'surface_carrez_m', 'surface_totale_m', 'surface') ?? '—',
+      pieces: b.pieces ?? findDetail(bd, 'nombre_de_pieces') ?? '—',
+      chambres: b.chambres ?? findDetail(bd, 'nombre_de_chambres') ?? '—',
+      etage: b.etage != null ? b.etage : (findDetail(bd, 'etage_du_bien') ?? '—'),
+      annee: b.annee ?? findDetail(bd, 'annee_de_construction') ?? '—',
+      dpe: b.dpe || findDetail(bd, 'classe_dpe', 'dpe') || '—',
+      ges: findDetail(bd, 'classe_ges', 'ges') || '',
+      chauffage: findDetail(bd, 'type_de_chauffage') || '',
+      // Référence stable : dérivée de createdAt (sinon elle changeait à chaque
+      // rafraîchissement de la page à cause de Math.random).
+      reference: (() => {
+        const dt = new Date(activeBien.createdAt || Date.now());
+        const y = dt.getFullYear();
+        const seed = Math.abs(dt.getTime()) % 90000 + 10000;
+        return `IDR-${y}-${seed}`;
+      })(),
     };
-  }, [isLive, activeBien]);
+  }, [isLive, activeBien, reportState]);
 
-  // effContexteZone : marché local depuis dvfStats si dispo
+  // effContexteZone : marché local depuis reportState.contexteMarche (Step2)
+  // si dispo, sinon depuis dvfStats du bien actif, sinon fallback contexteZone.
   const effContexteZone = useMemo(() => {
     if (!isLive) return contexteZone;
-    const dvf = activeBien.dvfStats || {};
+    const ctx = reportState.contexteMarche || {};
+    const dvfLive = ctx.dvfLive || {};
+    const dvf = (activeBien.dvfStats && activeBien.dvfStats.median) ? activeBien.dvfStats : dvfLive;
     const city = activeBien.adresse?.city || '';
+
+    // Format helpers
+    const fmt = (n) => (typeof n === 'number' ? n.toLocaleString('fr-FR') : (n || '—'));
+    const fourchetteFromDvf = (d) => (d.p25 && d.p75 ? `${fmt(d.p25)} – ${fmt(d.p75)}` : (d.fourchette || ctx.fourchette || '—'));
+
     return {
       ...contexteZone,
-      zoneLabel: city ? `${city} (secteur du bien)` : 'Secteur du bien',
-      rayonMetres: contexteZone.rayonMetres,
+      zoneLabel: ctx.zoneLabel || (city ? `${city} (secteur du bien)` : 'Secteur du bien'),
+      rayonMetres: ctx.rayon || contexteZone.rayonMetres,
       market: {
         ...contexteZone.market,
-        prixM2: dvf.median ? Math.round(dvf.median).toLocaleString('fr-FR') : '—',
-        evolution: dvf.evolution || '—',
-        transactions: dvf.count ?? '—',
-        delai: dvf.delaiMoyen || '—',
-        fourchette: dvf.fourchette || '—',
+        prixM2: ctx.prixM2Median || (dvf.median ? Math.round(dvf.median).toLocaleString('fr-FR') : '—'),
+        evolution: ctx.evolution || dvf.evolution || '—',
+        transactions: ctx.transactions ?? dvf.count ?? '—',
+        delai: ctx.delaiMoyen || dvf.delaiMoyen || '—',
+        fourchette: ctx.fourchette || fourchetteFromDvf(dvf),
       },
-      tensionLabel: dvf.tensionLabel || '—',
-      tensionScore: dvf.tensionScore ?? '—',
-      commodites: [], // pas de POI collectés en live pour l'instant
+      tensionLabel: dvf.tensionLabel || ctx.tensionLabel || '—',
+      tensionScore: dvf.tensionScore ?? ctx.tensionScore ?? '—',
+      commodites: [], // POI rendus dans une section dédiée plus bas
+      poi: ctx.poi || null,
+      risques: ctx.risques || null,
     };
-  }, [isLive, activeBien]);
+  }, [isLive, activeBien, reportState]);
 
   // effComparables : priorité à ce que l'agent a sélectionné en Step3
   // (reportState.comparablesSelectionnes) + comparables saisis à la main
@@ -305,9 +339,47 @@ export default function CompteRendu() {
     };
   }, [isLive, activeBien, realAcquereurs, reportState]);
 
+  // Identités effectives — on prend en priorité les saisies persistées
+  // (reportState.agence/agent/mandant), et on retombe sur les mocks
+  // propertyData pour tout champ vide. Cela permet à l'agent de
+  // surcharger n'importe quel champ depuis une fiche de réglages sans
+  // perdre les valeurs par défaut de démo.
+  const effAgence = useMemo(() => {
+    const persisted = (reportState.agence && typeof reportState.agence === 'object')
+      ? reportState.agence : {};
+    const merged = { ...agence };
+    Object.keys(persisted).forEach((k) => {
+      const v = persisted[k];
+      if (v !== undefined && v !== null && v !== '') merged[k] = v;
+    });
+    return merged;
+  }, [reportState]);
+
+  const effAgent = useMemo(() => {
+    const persisted = (reportState.agent && typeof reportState.agent === 'object')
+      ? reportState.agent : {};
+    const merged = { ...agent };
+    Object.keys(persisted).forEach((k) => {
+      const v = persisted[k];
+      if (v !== undefined && v !== null && v !== '') merged[k] = v;
+    });
+    return merged;
+  }, [reportState]);
+
+  const effMandant = useMemo(() => {
+    const persisted = (reportState.mandant && typeof reportState.mandant === 'object')
+      ? reportState.mandant : {};
+    const merged = { ...mandant };
+    Object.keys(persisted).forEach((k) => {
+      const v = persisted[k];
+      if (v !== undefined && v !== null && v !== '') merged[k] = v;
+    });
+    return merged;
+  }, [reportState]);
+
   const themeStyle = {
-    '--primary': agence.couleurPrimaire,
-    '--secondary': agence.couleurSecondaire,
+    '--primary': effAgence.couleurPrimaire,
+    '--secondary': effAgence.couleurSecondaire,
   };
 
   const recommendedStrategy = effAvisValeur.strategies.find((s) => s.recommended) || effAvisValeur.strategies[0];
@@ -351,7 +423,7 @@ export default function CompteRendu() {
           SECTION 1 — Couverture
           ============================================================= */}
       <section className="cover">
-        <img src={agence.logo} alt={agence.nom} className="cover-logo" />
+        <img src={effAgence.logo} alt={effAgence.nom} className="cover-logo" />
         <div className="cover-bar" />
         <h1 className="cover-title">ÉTUDE DE MARCHÉ</h1>
         <p className="cover-address">{effProperty.adresse || '—'}</p>
@@ -367,10 +439,10 @@ export default function CompteRendu() {
         <div className="cover-meta">
           <div>Référence : <strong>{effProperty.reference}</strong></div>
           <div>Établi le {dateEdition}</div>
-          <div>Par {agent.nom}, {agent.fonction}</div>
+          <div>Par {effAgent.nom}, {effAgent.fonction}</div>
         </div>
         <div className="cover-footer">
-          Document confidentiel · Établi par {agence.nom} · {dateEdition}
+          Document confidentiel · Établi par {effAgence.nom} · {dateEdition}
         </div>
       </section>
 
@@ -380,25 +452,25 @@ export default function CompteRendu() {
       <section className="letter page-break">
         <div className="letter-header">
           <div className="letter-from">
-            <strong>{agence.nom}</strong>
-            <div>{agence.adresse}</div>
-            <div>{agence.tel}</div>
-            <div>{agence.email}</div>
+            <strong>{effAgence.nom}</strong>
+            <div>{effAgence.adresse}</div>
+            <div>{effAgence.tel}</div>
+            <div>{effAgence.email}</div>
           </div>
           <div className="letter-to">
-            <strong>{mandant.civilite} {mandant.prenom} {mandant.nom}</strong>
-            <div>{mandant.adresseCorrespondance}</div>
+            <strong>{effMandant.civilite} {effMandant.prenom} {effMandant.nom}</strong>
+            <div>{effMandant.adresseCorrespondance}</div>
           </div>
         </div>
 
-        <p className="letter-date">{agence.adresse.split(',').slice(-1)[0].trim().split(' ').slice(-1)[0] /* ville */ ? `Lyon, le ${dateEdition}` : `Le ${dateEdition}`}</p>
+        <p className="letter-date">{(effAgence.adresse || '').split(',').slice(-1)[0].trim().split(' ').slice(-1)[0] /* ville */ ? `Lyon, le ${dateEdition}` : `Le ${dateEdition}`}</p>
 
         <p className="letter-object">
           <strong>Objet :</strong> Étude de marché — {effProperty.adresse || '—'}
         </p>
 
         <div className="letter-body">
-          <p>{mandant.civilite} {mandant.nom},</p>
+          <p>{effMandant.civilite} {effMandant.nom},</p>
           <p>{effAvisValeur.lettre.introParagraphe}</p>
           <p>
             Au terme de notre analyse, nous évaluons la valeur vénale de votre bien
@@ -415,12 +487,12 @@ export default function CompteRendu() {
         </div>
 
         <div className="letter-signature">
-          {agent.signature && (
-            <img src={agent.signature} alt="Signature" className="signature-img" />
+          {effAgent.signature && (
+            <img src={effAgent.signature} alt="Signature" className="signature-img" />
           )}
-          <div><strong>{agent.nom}</strong></div>
-          <div>{agent.fonction}</div>
-          <div>{agent.telDirect} · {agent.email}</div>
+          <div><strong>{effAgent.nom}</strong></div>
+          <div>{effAgent.fonction}</div>
+          <div>{effAgent.telDirect || effAgent.telephone} · {effAgent.email}</div>
         </div>
       </section>
 
@@ -479,10 +551,10 @@ export default function CompteRendu() {
             </div>
             <div className="spec-row">
               <span>GES</span>
-              <strong className="dpe-badge dpe-D">{isLive ? '—' : 'D'}</strong>
+              <strong className={`dpe-badge dpe-${isLive ? (effProperty.ges || 'D') : 'D'}`}>{isLive ? (effProperty.ges || '—') : 'D'}</strong>
             </div>
             <div className="spec-row"><span>Exposition</span><strong>{isLive ? (activeBien?.bien?.exposition || '—') : 'Sud-Est'}</strong></div>
-            <div className="spec-row"><span>Chauffage</span><strong>{isLive ? '—' : 'Individuel gaz'}</strong></div>
+            <div className="spec-row"><span>Chauffage</span><strong>{isLive ? (effProperty.chauffage || '—') : 'Individuel gaz'}</strong></div>
             <div className="spec-row"><span>État</span><strong>{isLive ? (activeBien?.bien?.etat || '—') : 'Bon état'}</strong></div>
             <div className="spec-row"><span>Ascenseur</span><strong>{isLive ? (activeBien?.bien?.ascenseur ? 'Oui' : 'Non') : 'Oui'}</strong></div>
           </div>
@@ -522,6 +594,112 @@ export default function CompteRendu() {
           </div>
         )}
       </section>
+
+      {/* =============================================================
+          SECTION 4 bis — Fiche technique détaillée (mode live)
+          Affiche toutes les saisies des accordéons Step1 (bienDetails),
+          regroupées par catégorie. Seuls les champs non vides sont rendus.
+          ============================================================= */}
+      {isLive && reportState.bienDetails && Object.keys(reportState.bienDetails).length > 0 && (
+        <section className="fiche-technique page-break">
+          <h2 className="section-title">Fiche technique du bien</h2>
+          <p className="section-intro" style={{ marginBottom: 24, color: '#666' }}>
+            Ensemble des caractéristiques relevées lors de la visite et de la saisie
+            du dossier. Ces informations alimentent la valorisation et permettent
+            de qualifier précisément l'état du bien.
+          </p>
+
+          {(() => {
+            // Groupe les clés par préfixe catégorie (`${catSlug}__${fieldSlug}`)
+            const bd = reportState.bienDetails || {};
+            const groups = {};
+            Object.entries(bd).forEach(([key, value]) => {
+              // Filtre : on ignore les valeurs vides / nulles / false (pour les toggles non cochés)
+              if (value === '' || value === null || value === undefined) return;
+              if (value === false) return;
+              const idx = key.indexOf('__');
+              const catSlug = idx > 0 ? key.slice(0, idx) : '_autres';
+              const fieldSlug = idx > 0 ? key.slice(idx + 2) : key;
+              if (!groups[catSlug]) groups[catSlug] = [];
+              groups[catSlug].push({ fieldSlug, value });
+            });
+
+            // Helpers d'affichage : slug -> libellé humain
+            const humanize = (slug) => {
+              if (!slug) return '';
+              return slug
+                .split('_')
+                .filter(Boolean)
+                .map((w, i) => (i === 0 ? w.charAt(0).toUpperCase() + w.slice(1) : w))
+                .join(' ');
+            };
+            const formatValue = (v) => {
+              if (v === true) return 'Oui';
+              if (v === false) return 'Non';
+              if (typeof v === 'number') return v.toLocaleString('fr-FR');
+              return String(v);
+            };
+
+            // Ordre privilégié des catégories
+            const CAT_ORDER = [
+              'identification_juridique',
+              'caracteristiques_generales',
+              'structure',
+              'revetements_muraux',
+              'revetements_de_sol',
+              'menuiseries',
+              'portes',
+              'electrique',
+              'plomberie',
+              'chauffage',
+            ];
+            const catKeys = Object.keys(groups).sort((a, b) => {
+              const ia = CAT_ORDER.indexOf(a);
+              const ib = CAT_ORDER.indexOf(b);
+              if (ia === -1 && ib === -1) return a.localeCompare(b);
+              if (ia === -1) return 1;
+              if (ib === -1) return -1;
+              return ia - ib;
+            });
+
+            return catKeys.map((catKey) => (
+              <div key={catKey} className="fiche-cat" style={{ marginBottom: 28 }}>
+                <h3 style={{
+                  fontSize: 16,
+                  fontWeight: 600,
+                  color: 'var(--primary, #1a3a52)',
+                  marginBottom: 12,
+                  paddingBottom: 6,
+                  borderBottom: '1px solid #e5e7eb',
+                }}>
+                  {humanize(catKey)}
+                </h3>
+                <div className="fiche-grid" style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, 1fr)',
+                  columnGap: 32,
+                  rowGap: 8,
+                }}>
+                  {groups[catKey].map(({ fieldSlug, value }) => (
+                    <div key={fieldSlug} className="fiche-row" style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      padding: '4px 0',
+                      borderBottom: '1px dotted #eee',
+                      fontSize: 14,
+                    }}>
+                      <span style={{ color: '#666' }}>{humanize(fieldSlug)}</span>
+                      <strong style={{ color: '#111', marginLeft: 16, textAlign: 'right' }}>
+                        {formatValue(value)}
+                      </strong>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ));
+          })()}
+        </section>
+      )}
 
       {/* =============================================================
           SECTION 5 — Votre marché local (V2, factuel uniquement)
@@ -591,6 +769,162 @@ export default function CompteRendu() {
       </section>
 
       {/* =============================================================
+          SECTION 5 bis — Commodités à proximité (POI Overpass / Step2)
+          Source : reportState.contexteMarche.poi (persisté par Step2).
+          ============================================================= */}
+      {isLive && effContexteZone.poi && Object.keys(effContexteZone.poi).some((k) => Array.isArray(effContexteZone.poi[k]) && effContexteZone.poi[k].length > 0) && (
+        <section className="commodites page-break">
+          <h2 className="section-title">Commodités à proximité</h2>
+          <p className="section-intro" style={{ marginBottom: 24, color: '#666' }}>
+            Points d'intérêt relevés dans un rayon de {effContexteZone.rayonMetres || 1000} m
+            autour du bien (source OpenStreetMap).
+          </p>
+
+          {(() => {
+            const POI_LABELS = {
+              transports: 'Transports & accessibilité',
+              commerces: 'Commerces & services',
+              education: 'Éducation',
+              sante: 'Santé',
+              environnement: 'Environnement & cadre de vie',
+            };
+            const POI_ORDER = ['transports', 'commerces', 'education', 'sante', 'environnement'];
+            const fmtDist = (d) => {
+              if (d == null) return '—';
+              return d < 1000 ? `${d} m` : `${(d / 1000).toFixed(1)} km`;
+            };
+
+            return POI_ORDER
+              .filter((cat) => Array.isArray(effContexteZone.poi[cat]) && effContexteZone.poi[cat].length > 0)
+              .map((cat) => (
+                <div key={cat} className="poi-cat" style={{ marginBottom: 24 }}>
+                  <h3 style={{
+                    fontSize: 15,
+                    fontWeight: 600,
+                    color: 'var(--primary, #1a3a52)',
+                    marginBottom: 10,
+                    paddingBottom: 6,
+                    borderBottom: '1px solid #e5e7eb',
+                  }}>
+                    {POI_LABELS[cat]}
+                  </h3>
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                    {effContexteZone.poi[cat].slice(0, 6).map((p, i) => (
+                      <li key={i} style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        padding: '5px 0',
+                        borderBottom: '1px dotted #eee',
+                        fontSize: 13,
+                      }}>
+                        <span style={{ color: '#222' }}>{p.name}</span>
+                        <strong style={{ color: '#46B962', marginLeft: 12 }}>{fmtDist(p.distance)}</strong>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ));
+          })()}
+        </section>
+      )}
+
+      {/* =============================================================
+          SECTION 5 ter — Risques & Aléas (Géorisques / Step2)
+          Source : reportState.contexteMarche.risques.
+          ============================================================= */}
+      {isLive && effContexteZone.risques && (() => {
+        const r = effContexteZone.risques;
+        // Au moins une donnée présente
+        return !!(r.inondation || r.argile || r.sismique || r.radon || r.mouvement || r.basias);
+      })() && (
+        <section className="risques page-break">
+          <h2 className="section-title">Risques & Aléas</h2>
+          <p className="section-intro" style={{ marginBottom: 24, color: '#666' }}>
+            Synthèse des risques naturels et technologiques répertoriés sur la commune
+            (source : Géorisques — data.gouv.fr).
+          </p>
+
+          {(() => {
+            const r = effContexteZone.risques;
+            const items = [];
+            if (r.inondation) {
+              items.push({
+                label: 'Inondation (PPRI)',
+                value: r.inondation.present ? (r.inondation.niveau || 'Présent') : 'Aucun',
+                level: r.inondation.present ? 'warn' : 'ok',
+              });
+            }
+            if (r.argile && r.argile.niveau) {
+              const niv = String(r.argile.niveau).toLowerCase();
+              const isBad = /fort|élev/.test(niv);
+              const isWarn = /moy/.test(niv);
+              items.push({
+                label: 'Retrait-gonflement argiles',
+                value: r.argile.niveau,
+                level: isBad ? 'bad' : isWarn ? 'warn' : 'ok',
+              });
+            }
+            if (r.sismique && r.sismique.niveau) {
+              const z = parseInt(r.sismique.zone, 10);
+              const lvl = z >= 4 ? 'bad' : z === 3 ? 'warn' : 'ok';
+              items.push({
+                label: `Sismicité (zone ${r.sismique.zone || '?'})`,
+                value: r.sismique.niveau,
+                level: lvl,
+              });
+            }
+            if (r.radon && r.radon.potentiel) {
+              const lvl = r.radon.potentiel === 'Élevé' ? 'bad' : r.radon.potentiel === 'Moyen' ? 'warn' : 'ok';
+              items.push({
+                label: 'Potentiel radon',
+                value: r.radon.potentiel,
+                level: lvl,
+              });
+            }
+            if (r.mouvement) {
+              items.push({
+                label: 'Mouvements de terrain (500 m)',
+                value: r.mouvement.present ? `${r.mouvement.count} signalé(s)` : 'Aucun',
+                level: r.mouvement.present ? 'warn' : 'ok',
+              });
+            }
+            if (r.basias) {
+              items.push({
+                label: 'Sites BASIAS (500 m)',
+                value: r.basias.present ? `${r.basias.count} signalé(s)` : 'Aucun',
+                level: r.basias.present ? 'warn' : 'ok',
+              });
+            }
+
+            const COLORS = { ok: '#46B962', warn: '#f5a623', bad: '#e74c3c' };
+
+            return (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: 12,
+              }}>
+                {items.map((it, i) => (
+                  <div key={i} style={{
+                    border: '1px solid #e5e7eb',
+                    borderLeft: `4px solid ${COLORS[it.level]}`,
+                    borderRadius: 6,
+                    padding: '10px 14px',
+                    background: '#fff',
+                  }}>
+                    <div style={{ fontSize: 12, color: '#666', marginBottom: 3 }}>{it.label}</div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: COLORS[it.level] }}>
+                      {it.value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+        </section>
+      )}
+
+      {/* =============================================================
           SECTION 6 — Profils d'acquéreurs en recherche
           (5 personas, reprend Acte 2 de Step4 — interactif en web, déplié en PDF)
           ============================================================= */}
@@ -624,7 +958,7 @@ export default function CompteRendu() {
           </div>
         )}
 
-        {!isLive && (
+        {!isLive && !reportState.displayConfig?.hideDemo && (
         <>
         <div className="personas-row">
           {personasList.map((p) => {
@@ -713,6 +1047,7 @@ export default function CompteRendu() {
       {/* =============================================================
           SECTION 7 — Notre méthodologie
           ============================================================= */}
+      {!reportState.displayConfig?.hideConfiance && (
       <section className="methodology">
         <h2 className="section-title">Comment nous avons estimé votre bien</h2>
 
@@ -728,6 +1063,7 @@ export default function CompteRendu() {
           ))}
         </div>
       </section>
+      )}
 
       {/* =============================================================
           SECTION 7 — Comparables retenus (enrichis, avec badge fiabilité)
@@ -813,6 +1149,32 @@ export default function CompteRendu() {
 
         <div className="comp-average">
           Moyenne pondérée retenue : <strong>{(effAvisValeur.prixM2 || 0).toLocaleString('fr-FR')} €/m²</strong>
+          {isLive && reportState.comparablesConfig?.weights && (() => {
+            const w = reportState.comparablesConfig.weights;
+            const sel = Array.isArray(reportState.comparablesSelectionnes)
+              ? reportState.comparablesSelectionnes
+              : [];
+            if (sel.length === 0) return null;
+            let sumW = 0;
+            let sumPxW = 0;
+            sel.forEach((c) => {
+              const id = c.id;
+              const px = Number(c.prixM2Raw ?? c.prixM2) || 0;
+              const wt = Number(w[id]) || 0;
+              if (px > 0 && wt > 0) {
+                sumW += wt;
+                sumPxW += px * wt;
+              }
+            });
+            if (sumW <= 0) return null;
+            const pondereCalc = Math.round(sumPxW / sumW);
+            return (
+              <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
+                Calcul direct depuis les pondérations agent ({sel.length} comparables) :
+                {' '}<strong>{pondereCalc.toLocaleString('fr-FR')} €/m²</strong>
+              </div>
+            );
+          })()}
         </div>
       </section>
 
@@ -872,6 +1234,7 @@ export default function CompteRendu() {
       {/* =============================================================
           SECTION 10 — Proposition commerciale (3 stratégies)
           ============================================================= */}
+      {!reportState.displayConfig?.hideStrategie && (
       <section className="strategies page-break">
         <h2 className="section-title">Notre proposition</h2>
 
@@ -907,6 +1270,7 @@ export default function CompteRendu() {
           </div>
         )}
       </section>
+      )}
 
       {/* =============================================================
           SECTION 11 — Votre interlocuteur
@@ -915,21 +1279,21 @@ export default function CompteRendu() {
         <h2 className="section-title">Votre interlocuteur</h2>
 
         <div className="contact-card">
-          {agent.photo && (
-            <img src={agent.photo} alt={agent.nom} className="agent-photo" />
+          {effAgent.photo && (
+            <img src={effAgent.photo} alt={effAgent.nom} className="agent-photo" />
           )}
           <div className="contact-identity">
-            <div className="agent-name">{agent.nom}</div>
-            <div className="agent-role">{agent.fonction}</div>
-            <div>{agent.telDirect}</div>
-            <div>{agent.email}</div>
+            <div className="agent-name">{effAgent.nom}</div>
+            <div className="agent-role">{effAgent.fonction}</div>
+            <div>{effAgent.telDirect || effAgent.telephone}</div>
+            <div>{effAgent.email}</div>
           </div>
           <div className="contact-agence">
-            <img src={agence.logo} alt={agence.nom} className="agence-logo" />
-            <div><strong>{agence.nom}</strong></div>
-            <div>{agence.adresse}</div>
-            <div>{agence.tel} · {agence.email}</div>
-            <div>{agence.siteWeb}</div>
+            <img src={effAgence.logo} alt={effAgence.nom} className="agence-logo" />
+            <div><strong>{effAgence.nom}</strong></div>
+            <div>{effAgence.adresse}</div>
+            <div>{effAgence.tel} · {effAgence.email}</div>
+            <div>{effAgence.siteWeb}</div>
           </div>
         </div>
       </section>
@@ -945,9 +1309,9 @@ export default function CompteRendu() {
           ))}
         </ul>
         <div className="legal-agence">
-          {agence.carteT} · {agence.rcs}
-          {agence.mentionsComplementaires && (
-            <div>{agence.mentionsComplementaires}</div>
+          {effAgence.carteT} · {effAgence.rcs}
+          {effAgence.mentionsComplementaires && (
+            <div>{effAgence.mentionsComplementaires}</div>
           )}
         </div>
       </footer>

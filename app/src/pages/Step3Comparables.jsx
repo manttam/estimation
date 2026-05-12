@@ -14,7 +14,7 @@ import {
   computeDataCoverage,
   dataCoverageClass,
 } from '../utils/comparableFields';
-import { setReportState } from '../utils/reportStore';
+import { setReportState, mergeReportSection, getReportSection } from '../utils/reportStore';
 
 /* Clé localStorage des overrides de similarité.
  * Format : { [compId: string]: number 0-100 }
@@ -2433,6 +2433,11 @@ export default function Step3Comparables() {
   // Pond\u00e9ration manuelle des comparables (somme = 100, normalis\u00e9e auto).
   // En mode live (selected vide au start), reste vide jusqu'à ce que l'user ajoute des comparables.
   const [weights, setWeights] = useState(() => {
+    // Hydratation depuis reportStore si dispo
+    const persisted = getReportSection('comparablesConfig', {}).weights;
+    if (persisted && typeof persisted === 'object' && Object.keys(persisted).length > 0) {
+      return persisted;
+    }
     if (hasRealLocation) return {};
     const eq = Math.round(100 / Math.max(INITIAL_SELECTED.length, 1));
     const obj = {};
@@ -2441,6 +2446,11 @@ export default function Step3Comparables() {
     });
     return obj;
   });
+
+  // Persiste les weights dans le reportStore
+  useEffect(() => {
+    mergeReportSection('comparablesConfig', { weights });
+  }, [weights]);
 
   // Modifier le poids d'un comparable et re-normaliser les autres pour somme = 100
   const handleWeightChange = (id, newValue) => {
@@ -2606,18 +2616,41 @@ export default function Step3Comparables() {
     return () => { delete window.__addComp; };
   }, []);
 
-  // Filter states
-  const [surfaceMin, setSurfaceMin] = useState(55);
-  const [surfaceMax, setSurfaceMax] = useState(90);
-  const [piecesMin, setPiecesMin] = useState(2);
-  const [piecesMax, setPiecesMax] = useState(4);
-  const [prixMin, setPrixMin] = useState(200000);
-  const [prixMax, setPrixMax] = useState(400000);
-  const [typeFilter, setTypeFilter] = useState('appartement');
-  const [sourceDvf, setSourceDvf] = useState(true);
-  const [sourceIdeeri, setSourceIdeeri] = useState(true);
-  const [sourceEncours, setSourceEncours] = useState(true);
-  const [sourcePortail, setSourcePortail] = useState(true);
+  // Filter states — hydratation depuis reportStore pour persistance inter-pages
+  const persistedFiltres = useMemo(
+    () => getReportSection('comparablesConfig', {}).filtres || {},
+    []
+  );
+  const [surfaceMin, setSurfaceMin] = useState(persistedFiltres.surfaceMin ?? 55);
+  const [surfaceMax, setSurfaceMax] = useState(persistedFiltres.surfaceMax ?? 90);
+  const [piecesMin, setPiecesMin] = useState(persistedFiltres.piecesMin ?? 2);
+  const [piecesMax, setPiecesMax] = useState(persistedFiltres.piecesMax ?? 4);
+  const [prixMin, setPrixMin] = useState(persistedFiltres.prixMin ?? 200000);
+  const [prixMax, setPrixMax] = useState(persistedFiltres.prixMax ?? 400000);
+  const [typeFilter, setTypeFilter] = useState(persistedFiltres.typeFilter ?? 'appartement');
+  const [sourceDvf, setSourceDvf] = useState(persistedFiltres.sourceDvf ?? true);
+  const [sourceIdeeri, setSourceIdeeri] = useState(persistedFiltres.sourceIdeeri ?? true);
+  const [sourceEncours, setSourceEncours] = useState(persistedFiltres.sourceEncours ?? true);
+  const [sourcePortail, setSourcePortail] = useState(persistedFiltres.sourcePortail ?? true);
+
+  // Persiste les filtres dans le reportStore
+  useEffect(() => {
+    mergeReportSection('comparablesConfig', {
+      filtres: {
+        surfaceMin, surfaceMax,
+        piecesMin, piecesMax,
+        prixMin, prixMax,
+        typeFilter,
+        sourceDvf, sourceIdeeri, sourceEncours, sourcePortail,
+        radius, delayDvf, delayIdeeri, delayEncours, delayPortail,
+      },
+    });
+  }, [
+    surfaceMin, surfaceMax, piecesMin, piecesMax,
+    prixMin, prixMax, typeFilter,
+    sourceDvf, sourceIdeeri, sourceEncours, sourcePortail,
+    radius, delayDvf, delayIdeeri, delayEncours, delayPortail,
+  ]);
 
   // Additional optional filters
   const [extraFilters, setExtraFilters] = useState([]);

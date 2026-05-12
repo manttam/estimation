@@ -5,6 +5,7 @@ import Stepper from '../components/Stepper';
 import { contexteZone } from '../data/propertyData';
 import { getActiveBien } from '../utils/activeBien';
 import { getRisquesSynthese } from '../utils/georisquesClient';
+import { mergeReportSection, getReportSection } from '../utils/reportStore';
 
 const COLOR_MAP = {
   green: '#46B962',
@@ -819,16 +820,20 @@ const POI_STYLES = {
 
 export default function Step2ContexteZone() {
   const navigate = useNavigate();
+  // Hydratation depuis reportStore (persistance inter-pages)
+  const persistedContexte = useMemo(() => getReportSection('contexteMarche', {}), []);
   const [openSections, setOpenSections] = useState({});
-  const [radiusMeters, setRadiusMeters] = useState(1000);
+  const [radiusMeters, setRadiusMeters] = useState(
+    typeof persistedContexte.rayon === 'number' ? persistedContexte.rayon : 1000
+  );
   const [activeLayers, setActiveLayers] = useState({ transports: true, commerces: true, education: false, sante: false });
   const [cadastreOn, setCadastreOn] = useState(false);
-  const [realPoi, setRealPoi] = useState(null);     // { transports: [...], commerces: [...], ... } | null
+  const [realPoi, setRealPoi] = useState(persistedContexte.poi || null);
   const [poiLoading, setPoiLoading] = useState(false);
   const [poiError, setPoiError] = useState(null);
-  const [risques, setRisques] = useState(null);     // synthèse Géorisques | null
+  const [risques, setRisques] = useState(persistedContexte.risques || null);
   const [risquesLoading, setRisquesLoading] = useState(false);
-  const [dvfStatsLive, setDvfStatsLive] = useState(null);  // DVF live recalculé en Step2
+  const [dvfStatsLive, setDvfStatsLive] = useState(persistedContexte.dvfLive || null);
   const [dvfLoading, setDvfLoading] = useState(false);
   const [refetchTick, setRefetchTick] = useState(0);
   const [debugOn, setDebugOn] = useState(false);
@@ -1175,6 +1180,42 @@ export default function Step2ContexteZone() {
       if (activeLayers[cat] && !map.hasLayer(group)) group.addTo(map);
     });
   }, [realPoi, activeLayers, activeBien]);
+
+  /* ─── Persistance reportStore : rayon, POI, risques, DVF live, marché ── */
+  useEffect(() => {
+    mergeReportSection('contexteMarche', { rayon: radiusMeters });
+  }, [radiusMeters]);
+
+  useEffect(() => {
+    if (realPoi) mergeReportSection('contexteMarche', { poi: realPoi });
+  }, [realPoi]);
+
+  useEffect(() => {
+    if (risques) mergeReportSection('contexteMarche', { risques });
+  }, [risques]);
+
+  useEffect(() => {
+    if (dvfStatsLive) mergeReportSection('contexteMarche', { dvfLive: dvfStatsLive });
+  }, [dvfStatsLive]);
+
+  /* Persiste la synthèse marché affichée (prixM2 médian, évolution,
+     transactions, délai, fourchette) — utilisée par CompteRendu. */
+  useEffect(() => {
+    if (!marketDisplay) return;
+    const isLiveSrc = marketDisplay.source === 'DVF';
+    mergeReportSection('contexteMarche', {
+      prixM2Median: isLiveSrc ? marketDisplay.prixM2 : undefined,
+      evolution: marketDisplay.evolution,
+      delaiMoyen: marketDisplay.delai,
+      fourchette: marketDisplay.fourchette,
+      transactions: marketDisplay.transactions,
+      source: marketDisplay.source,
+      zoneLabel: activeBien?.adresse?.city
+        ? `${activeBien.adresse.city}${activeBien.adresse.postcode ? ' (' + activeBien.adresse.postcode + ')' : ''}`
+        : undefined,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [marketDisplay]);
 
   return (
     <div className="step2-page">

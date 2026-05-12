@@ -5,7 +5,7 @@ import Stepper from '../components/Stepper';
 import { avisValeur } from '../data/propertyData';
 import { getActiveBien } from '../utils/activeBien';
 import { getAcquereurs } from '../utils/acquereursStore';
-import { setReportState } from '../utils/reportStore';
+import { setReportState, mergeReportSection, getReportSection } from '../utils/reportStore';
 
 const TYPE_LABELS = {
   appartement: 'Appartement',
@@ -994,11 +994,30 @@ export default function Step5AvisValeur() {
   const [customPrice, setCustomPrice] = useState(String(priceRef.prixMedian));
 
   // Visibilité des sections en RDV : true = masqué lors du RDV
-  const [hideConfiance, setHideConfiance] = useState(false);
-  const [hideStrategie, setHideStrategie] = useState(false);
+  // Hydratation depuis le reportStore.displayConfig pour conserver la
+  // préférence agent au refresh.
+  const persistedDisplay = useMemo(() => getReportSection('displayConfig', {}), []);
+  const [hideConfiance, setHideConfiance] = useState(
+    typeof persistedDisplay.hideConfiance === 'boolean' ? persistedDisplay.hideConfiance : false
+  );
+  const [hideStrategie, setHideStrategie] = useState(
+    typeof persistedDisplay.hideStrategie === 'boolean' ? persistedDisplay.hideStrategie : false
+  );
 
   // Toggle "Masquer la démo" en mode live (pour cacher éléments fictifs)
-  const [hideDemo, setHideDemo] = useState(false);
+  const [hideDemo, setHideDemo] = useState(
+    typeof persistedDisplay.hideDemo === 'boolean' ? persistedDisplay.hideDemo : false
+  );
+
+  // Persiste les flags d'affichage dans le reportStore pour que la page
+  // CompteRendu puisse masquer/afficher les sections correspondantes.
+  useEffect(() => {
+    mergeReportSection('displayConfig', {
+      hideConfiance,
+      hideStrategie,
+      hideDemo,
+    });
+  }, [hideConfiance, hideStrategie, hideDemo]);
 
   // Persistance dans le reportStore pour que CompteRendu (/report) puisse
   // afficher les valeurs saisies par l'utilisateur (points forts/vigilance

@@ -10,6 +10,7 @@ import AvisValeurDoc from './pages/AvisValeurDoc';
 import Dashboard from './pages/Dashboard';
 import CreationBien from './pages/CreationBien';
 import ResultatEstimation from './pages/ResultatEstimation';
+import Reglages from './pages/Reglages';
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="/step/5" element={<Step5AvisValeur />} />
           <Route path="/report" element={<CompteRendu />} />
           <Route path="/avis-valeur" element={<AvisValeurDoc />} />
+          <Route path="/reglages" element={<Reglages />} />
         </Route>
       </Routes>
     </HashRouter>
