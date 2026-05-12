@@ -59,6 +59,22 @@ const SECTIONS = [
       { key: 'signature', label: 'URL signature scannée', type: 'url' },
     ],
   },
+  {
+    key: 'lettre',
+    title: 'Lettre d\'accompagnement (page 2)',
+    intro: 'Textes affichés dans la lettre adressée au mandant. Laisser vide pour utiliser les phrases par défaut. Le paragraphe central (prix / fourchette / recommandation) reste dynamique et n\'est pas éditable ici.',
+    fields: [
+      { key: 'objet', label: 'Objet de la lettre', placeholder: 'Étude de marché — {adresse du bien}' },
+      { key: 'formuleAppel', label: 'Formule d\'appel', placeholder: '{civilité} {nom},' },
+      { key: 'introParagraphe', label: 'Paragraphe d\'introduction', type: 'textarea',
+        placeholder: 'Suite à notre rencontre du …, j\'ai le plaisir de vous transmettre notre avis de valeur détaillé.' },
+      { key: 'paragrapheMethodologie', label: 'Paragraphe méthodologie', type: 'textarea',
+        placeholder: 'Notre méthodologie s\'appuie sur l\'analyse de biens comparables, la mesure de la tension de marché dans votre secteur et les caractéristiques propres de votre bien. Vous retrouverez le détail dans les pages suivantes.' },
+      { key: 'cloture', label: 'Paragraphe de clôture', type: 'textarea',
+        placeholder: 'Je reste à votre entière disposition pour échanger sur ce document et définir ensemble la stratégie de commercialisation la plus adaptée à votre projet.' },
+      { key: 'formulePolitesse', label: 'Formule de politesse finale', placeholder: 'Je reste à votre disposition,' },
+    ],
+  },
 ];
 
 export default function Reglages() {
@@ -68,6 +84,7 @@ export default function Reglages() {
     mandant: getReportSection('mandant', {}),
     agence: getReportSection('agence', {}),
     agent: getReportSection('agent', {}),
+    lettre: getReportSection('lettre', {}),
   }), []);
 
   const [state, setState] = useState(initial);
@@ -83,6 +100,9 @@ export default function Reglages() {
   useEffect(() => {
     mergeReportSection('agent', state.agent);
   }, [state.agent]);
+  useEffect(() => {
+    mergeReportSection('lettre', state.lettre);
+  }, [state.lettre]);
 
   const updateField = (sectionKey, fieldKey, value) => {
     setState((prev) => ({
@@ -102,6 +122,7 @@ export default function Reglages() {
     const common = {
       id,
       value,
+      placeholder: field.placeholder || undefined,
       onChange: (e) => updateField(sectionKey, field.key, e.target.value),
       style: {
         width: '100%',
@@ -125,7 +146,7 @@ export default function Reglages() {
     }
 
     if (field.type === 'textarea') {
-      return <textarea {...common} rows={3} />;
+      return <textarea {...common} rows={4} />;
     }
 
     if (field.type === 'color') {

@@ -507,6 +507,30 @@ export default function CompteRendu() {
     return merged;
   }, [reportState]);
 
+  // effLettre : textes de la lettre page 2 saisis dans Réglages, avec
+  // fallback sur les phrases par défaut (propertyData.avisValeur.lettre +
+  // fallbacks hard-codés pour l'objet / la formule d'appel / la formule
+  // de politesse qui n'existaient pas en mock).
+  const effLettre = useMemo(() => {
+    const persisted = (reportState.lettre && typeof reportState.lettre === 'object')
+      ? reportState.lettre : {};
+    const pick = (key, fallback) => {
+      const v = persisted[key];
+      return (typeof v === 'string' && v.trim() !== '') ? v : fallback;
+    };
+    return {
+      objet: pick('objet', null),                             // null → format auto avec adresse
+      formuleAppel: pick('formuleAppel', null),               // null → format auto avec civilité + nom
+      introParagraphe: pick('introParagraphe', avisValeur?.lettre?.introParagraphe || ''),
+      paragrapheMethodologie: pick(
+        'paragrapheMethodologie',
+        "Notre méthodologie s'appuie sur l'analyse de biens comparables, la mesure de la tension de marché dans votre secteur et les caractéristiques propres de votre bien. Vous retrouverez le détail dans les pages suivantes.",
+      ),
+      cloture: pick('cloture', avisValeur?.lettre?.cloture || ''),
+      formulePolitesse: pick('formulePolitesse', 'Je reste à votre disposition,'),
+    };
+  }, [reportState]);
+
   const themeStyle = {
     '--primary': effAgence.couleurPrimaire,
     '--secondary': effAgence.couleurSecondaire,
@@ -624,24 +648,20 @@ export default function CompteRendu() {
         <p className="letter-date">{(effAgence.adresse || '').split(',').slice(-1)[0].trim().split(' ').slice(-1)[0] /* ville */ ? `Lyon, le ${dateEdition}` : `Le ${dateEdition}`}</p>
 
         <p className="letter-object">
-          <strong>Objet :</strong> Étude de marché — {effProperty.adresse || '—'}
+          <strong>Objet :</strong> {effLettre.objet || `Étude de marché — ${effProperty.adresse || '—'}`}
         </p>
 
         <div className="letter-body">
-          <p>{effMandant.civilite} {effMandant.nom},</p>
-          <p>{effAvisValeur.lettre.introParagraphe}</p>
+          <p>{effLettre.formuleAppel || `${effMandant.civilite || ''} ${effMandant.nom || ''}`.trim() + ','}</p>
+          <p>{effLettre.introParagraphe || effAvisValeur.lettre.introParagraphe}</p>
           <p>
             Au terme de notre analyse, nous évaluons la valeur vénale de votre bien
             à <strong>{(effAvisValeur.prixBas || 0).toLocaleString('fr-FR')} € — {(effAvisValeur.prixHaut || 0).toLocaleString('fr-FR')} €</strong>,
             avec une recommandation de prix de présentation à <strong>{(recommendedStrategy?.prix || 0).toLocaleString('fr-FR')} €</strong>.
           </p>
-          <p>
-            Notre méthodologie s'appuie sur l'analyse de biens comparables, la mesure
-            de la tension de marché dans votre secteur et les caractéristiques propres
-            de votre bien. Vous retrouverez le détail dans les pages suivantes.
-          </p>
-          <p>{effAvisValeur.lettre.cloture}</p>
-          <p>Je reste à votre disposition,</p>
+          <p>{effLettre.paragrapheMethodologie}</p>
+          <p>{effLettre.cloture || effAvisValeur.lettre.cloture}</p>
+          <p>{effLettre.formulePolitesse}</p>
         </div>
 
         <div className="letter-signature">
