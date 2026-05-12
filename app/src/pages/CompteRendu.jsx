@@ -127,6 +127,16 @@ export default function CompteRendu() {
     const b = activeBien.bien || {};
     const adr = activeBien.adresse || {};
     const bd = reportState.bienDetails || {};
+    // [DEBUG temporaire] dump des saisies pour diagnostiquer le wiring DPE/Etat
+    try {
+      // eslint-disable-next-line no-console
+      console.debug('[CompteRendu] activeBien.bien =', b);
+      // eslint-disable-next-line no-console
+      console.debug('[CompteRendu] reportState.bienDetails keys =', Object.keys(bd));
+      const dpeKeys = Object.keys(bd).filter((k) => /dpe|etiquette|energie|ges/i.test(k));
+      // eslint-disable-next-line no-console
+      console.debug('[CompteRendu] DPE-related keys =', dpeKeys.map((k) => [k, bd[k]]));
+    } catch (_) { /* silencieux */ }
     return {
       ...property,
       adresse: adr.label || '',
