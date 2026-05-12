@@ -135,9 +135,18 @@ export default function CompteRendu() {
       chambres: b.chambres ?? findDetail(bd, 'nombre_de_chambres') ?? '—',
       etage: b.etage != null ? b.etage : (findDetail(bd, 'etage_du_bien') ?? '—'),
       annee: b.annee ?? findDetail(bd, 'annee_de_construction') ?? '—',
-      dpe: b.dpe || findDetail(bd, 'classe_dpe', 'dpe') || '—',
-      ges: findDetail(bd, 'classe_ges', 'ges') || '',
+      // Les slugs sont dérivés du label exact des champs Step1 par slugifyKey.
+      // Pour DPE/GES, le label réel est "DPE — Étiquette énergie" / "...GES",
+      // d'où les slugs 'dpe_etiquette_energie' et 'dpe_etiquette_ges'. On
+      // garde les anciens slugs en fallback pour la rétrocompatibilité.
+      dpe: b.dpe
+        || findDetail(bd, 'dpe_etiquette_energie', 'classe_dpe', 'dpe')
+        || '—',
+      ges: findDetail(bd, 'dpe_etiquette_ges', 'classe_ges', 'ges') || '',
       chauffage: findDetail(bd, 'type_de_chauffage') || '',
+      // État saisi en Step0 (CreationBien) → activeBien.bien.etat ;
+      // fallback sur "État général" de Step1 si présent.
+      etat: b.etat || findDetail(bd, 'etat_general') || '',
       // Référence stable : dérivée de createdAt (sinon elle changeait à chaque
       // rafraîchissement de la page à cause de Math.random).
       reference: (() => {
@@ -383,7 +392,21 @@ export default function CompteRendu() {
     const surface = activeBien.bien?.surface || 1;
     const prixM2 = r.prixM2 || Math.round(prixMedian / surface);
 
-    const bien = activeBien.bien || {};
+    // Step0 saisit type/surface/pieces/.../etat/exposition mais PAS le DPE
+    // (qui est saisi en Step1 dans la catégorie « Isolation Thermique »).
+    // On enrichit donc 'bien' depuis reportState.bienDetails pour que les
+    // règles auto (points forts / vigilance) voient bien le DPE saisi.
+    const bd = reportState.bienDetails || {};
+    const bienRaw = activeBien.bien || {};
+    const bien = {
+      ...bienRaw,
+      dpe: bienRaw.dpe
+        || findDetail(bd, 'dpe_etiquette_energie', 'classe_dpe', 'dpe')
+        || null,
+      ges: bienRaw.ges
+        || findDetail(bd, 'dpe_etiquette_ges', 'classe_ges', 'ges')
+        || null,
+    };
     const forts = [];
     const vigilance = [];
 
@@ -733,7 +756,7 @@ export default function CompteRendu() {
             </div>
             <div className="spec-row"><span>Exposition</span><strong>{isLive ? (activeBien?.bien?.exposition || '—') : 'Sud-Est'}</strong></div>
             <div className="spec-row"><span>Chauffage</span><strong>{isLive ? (effProperty.chauffage || '—') : 'Individuel gaz'}</strong></div>
-            <div className="spec-row"><span>État</span><strong>{isLive ? (activeBien?.bien?.etat || '—') : 'Bon état'}</strong></div>
+            <div className="spec-row"><span>État</span><strong>{isLive ? (effProperty.etat || '—') : 'Bon état'}</strong></div>
             <div className="spec-row"><span>Ascenseur</span><strong>{isLive ? (activeBien?.bien?.ascenseur ? 'Oui' : 'Non') : 'Oui'}</strong></div>
           </div>
         </div>
