@@ -2430,7 +2430,9 @@ export default function Step3Comparables() {
 
   const clearSimOverrideFor = (id) => setSimOverrideFor(id, null);
 
-  // Pond\u00e9ration manuelle des comparables (somme = 100, normalis\u00e9e auto).
+  // Pond\u00e9ration manuelle des comparables : chaque comparable a son propre
+  // poids (0-100) ind\u00e9pendant des autres. La moyenne pond\u00e9r\u00e9e finale est
+  // calcul\u00e9e en normalisant \u00e0 la somme (peu importe qu'elle vaille 100% ou non).
   // En mode live (selected vide au start), reste vide jusqu'à ce que l'user ajoute des comparables.
   const [weights, setWeights] = useState(() => {
     // Hydratation depuis reportStore si dispo
@@ -2452,64 +2454,20 @@ export default function Step3Comparables() {
     mergeReportSection('comparablesConfig', { weights });
   }, [weights]);
 
-  // Modifier le poids d'un comparable et re-normaliser les autres pour somme = 100
+  // Modifier le poids d'un comparable : poids ind\u00e9pendant, pas de
+  // re-normalisation des autres. Le total des poids n'est pas contraint
+  // \u00e0 100% \u2014 la moyenne pond\u00e9r\u00e9e finale normalise par sumW.
   const handleWeightChange = (id, newValue) => {
-    setWeights((prev) => {
-      const ids = Object.keys(prev);
-      if (ids.length <= 1) return { ...prev, [id]: 100 };
-      const clamped = Math.max(0, Math.min(100, newValue));
-      const otherIds = ids.filter((k) => k !== id);
-      const otherSumOld = otherIds.reduce((s, k) => s + (prev[k] || 0), 0);
-      const remaining = 100 - clamped;
-      const next = { [id]: clamped };
-      if (otherSumOld <= 0) {
-        // Tous les autres \u00e9taient \u00e0 0 \u2192 r\u00e9partition \u00e9gale
-        const each = Math.floor(remaining / otherIds.length);
-        otherIds.forEach((k, i) => {
-          next[k] = i === otherIds.length - 1 ? remaining - each * (otherIds.length - 1) : each;
-        });
-      } else {
-        // R\u00e9partition proportionnelle, derni\u00e8re cl\u00e9 absorbe l'arrondi
-        let allocated = 0;
-        otherIds.forEach((k, i) => {
-          if (i === otherIds.length - 1) {
-            next[k] = Math.max(0, remaining - allocated);
-          } else {
-            const v = Math.round((prev[k] / otherSumOld) * remaining);
-            next[k] = v;
-            allocated += v;
-          }
-        });
-      }
-      return next;
-    });
+    const clamped = Math.max(0, Math.min(100, Number(newValue) || 0));
+    setWeights((prev) => ({ ...prev, [id]: clamped }));
   };
 
-  // Nettoyage du poids associ\u00e9 \u00e0 un comparable supprim\u00e9 (re-normalisation \u00e0 100%)
+  // Nettoyage du poids associ\u00e9 \u00e0 un comparable supprim\u00e9.
+  // Pas de re-normalisation \u2014 les autres poids restent inchang\u00e9s.
   const cleanupWeight = (id) => {
     setWeights((prev) => {
       const { [id]: _removed, ...rest } = prev;
-      const ids = Object.keys(rest);
-      if (ids.length === 0) return {};
-      const sum = ids.reduce((s, k) => s + (rest[k] || 0), 0);
-      if (sum === 0) {
-        const eq = Math.round(100 / ids.length);
-        const next = {};
-        ids.forEach((k, i) => { next[k] = i === ids.length - 1 ? 100 - eq * (ids.length - 1) : eq; });
-        return next;
-      }
-      let allocated = 0;
-      const next = {};
-      ids.forEach((k, i) => {
-        if (i === ids.length - 1) {
-          next[k] = Math.max(0, 100 - allocated);
-        } else {
-          const v = Math.round((rest[k] / sum) * 100);
-          next[k] = v;
-          allocated += v;
-        }
-      });
-      return next;
+      return rest;
     });
   };
 
@@ -3484,14 +3442,9 @@ export default function Step3Comparables() {
                   <td className={`t-adj ${c.adjTotalClass || ''}`}>{c.adjTotal}</td>
                   <td className="t-price">{adjustedM2 ? `${adjustedM2.toLocaleString('fr-FR')} \u20ac` : '\u2014'}</td>
                   <td className="t-adj">
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={weights[c.id] !== undefined ? weights[c.id] : 0}
-                      onChange={(e) => handleWeightChange(c.id, Number(e.target.value))}
-                      className="t-weight-input"
-                    />
+                    {/* Lecture seule : reprend le poids saisi sur la carte
+                        du comparable (slider "Poids dans l'estimation"). */}
+                    <strong>{weights[c.id] !== undefined ? weights[c.id] : 0}</strong>
                     <span style={{ marginLeft: 2, color: '#888', fontSize: 11 }}>%</span>
                   </td>
                   <td style={{ textAlign: 'center' }}>
