@@ -5,7 +5,6 @@ import 'leaflet/dist/leaflet.css';
 import PropertyCard from '../components/PropertyCard';
 import Stepper from '../components/Stepper';
 import ComparableDrawer from '../components/ComparableDrawer';
-import ComparableEditDrawer from '../components/ComparableEditDrawer';
 import ManualComparableDrawer from '../components/ManualComparableDrawer';
 import { getActiveBien, buildBienCibleCategories } from '../utils/activeBien';
 import { bienCibleCategories as bienCibleCategoriesBase } from '../data/propertyData';
@@ -2388,11 +2387,9 @@ export default function Step3Comparables() {
     return () => { cancelled = true; };
   }, [activeBien, targetCoords, manualComps]);
 
-  // Drawer pour afficher le d\u00e9tail d'un comparable
+  // Drawer pour afficher le détail d'un comparable (clic sur la carte
+  // ou clic sur un comparable dans la liste "Autres")
   const [drawerComp, setDrawerComp] = useState(null);
-
-  // Drawer de r\u00e9glage manuel de la similarit\u00e9 (clic sur la carte)
-  const [editComp, setEditComp] = useState(null);
 
   // Overrides de similarit\u00e9 par comparable (id \u2192 valeur 0-100).
   // Chargement initial depuis localStorage (cl\u00e9 ideeri_sim_overrides).
@@ -3375,7 +3372,7 @@ export default function Step3Comparables() {
               key={c.id}
               comp={c}
               onRemove={handleRemoveComparable}
-              onOpenDrawer={setEditComp}
+              onOpenDrawer={setDrawerComp}
               weight={effectiveWeight(c)}
               onWeightChange={handleWeightChange}
             />
@@ -3404,7 +3401,7 @@ export default function Step3Comparables() {
               <>
                 {visibleOthers.length > 0 && <div className="section-label others">Autres ({visibleOthers.length})</div>}
                 {visibleOthers.map((c) => (
-                  <CompactCompCard key={c.id} comp={c} onAdd={addToSelected} onOpenEdit={setEditComp} />
+                  <CompactCompCard key={c.id} comp={c} onAdd={addToSelected} onOpenEdit={setDrawerComp} />
                 ))}
               </>
             );
@@ -3532,27 +3529,11 @@ export default function Step3Comparables() {
         <ComparableDrawer comp={drawerComp} onClose={() => setDrawerComp(null)} />
       )}
 
-      {/* Drawer de r\u00e9glage manuel de la similarit\u00e9 (clic carte) */}
-      {editComp && (
-        <ComparableEditDrawer
-          comp={editComp}
-          autoSimilarity={editComp._autoSim !== undefined ? editComp._autoSim : (editComp.similarite || 0)}
-          overrideValue={simOverrides[editComp.id]}
-          onClose={() => setEditComp(null)}
-          onCommit={(value) => {
-            setSimOverrideFor(editComp.id, value);
-            setEditComp(null);
-          }}
-          onReset={() => {
-            clearSimOverrideFor(editComp.id);
-            setEditComp(null);
-          }}
-          onViewDetail={(c) => {
-            setEditComp(null);
-            setDrawerComp(c);
-          }}
-        />
-      )}
+      {/* Le drawer d'override manuel de la similarité a été retiré :
+          le clic sur une carte ouvre désormais directement le drawer
+          détail du comparable (ComparableDrawer ci-dessus). La similarité
+          calculée reste consultable sur la carte (toggle "Pertinence"),
+          et le poids dans l'estimation s'ajuste via le slider de la carte. */}
 
       {/* Drawer de saisie manuelle d'un comparable */}
       <ManualComparableDrawer
