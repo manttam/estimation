@@ -2455,20 +2455,14 @@ export default function Step3Comparables() {
     mergeReportSection('comparablesConfig', { weights });
   }, [weights]);
 
-  // Garde-fou : pour tout comparable sélectionné sans poids défini
-  // (ex. ajouté dans une session précédente), on initialise son poids
-  // à sa pertinence. Évite l'affichage à 0% par défaut.
-  useEffect(() => {
-    const missing = selected.filter((c) => weights[c.id] === undefined);
-    if (missing.length === 0) return;
-    setWeights((prev) => {
-      const next = { ...prev };
-      missing.forEach((c) => {
-        next[c.id] = Math.round((c.similarite || 0) * 0.6 + (c.donnees || 0) * 0.4);
-      });
-      return next;
-    });
-  }, [selected]);
+  // Poids par défaut d'un comparable = sa pertinence (Sim x0.6 + Donn x0.4).
+  // Utilisé comme fallback partout où weights[c.id] est undefined : slider,
+  // cellule récap, calcul de moyenne pondérée. Garantit qu'on n'affiche
+  // jamais 0% par défaut — chaque comparable part avec son propre score.
+  const defaultWeightFor = (c) =>
+    Math.round((Number(c.similarite) || 0) * 0.6 + (Number(c.donnees) || 0) * 0.4);
+  const effectiveWeight = (c) =>
+    weights[c.id] !== undefined ? weights[c.id] : defaultWeightFor(c);
 
   // Modifier le poids d'un comparable : poids ind\u00e9pendant, pas de
   // re-normalisation des autres. Le total des poids n'est pas contraint
@@ -3382,7 +3376,7 @@ export default function Step3Comparables() {
               comp={c}
               onRemove={handleRemoveComparable}
               onOpenDrawer={setEditComp}
-              weight={weights[c.id] !== undefined ? weights[c.id] : 0}
+              weight={effectiveWeight(c)}
               onWeightChange={handleWeightChange}
             />
           ))}
@@ -3468,8 +3462,9 @@ export default function Step3Comparables() {
                   <td className="t-price">{adjustedM2 ? `${adjustedM2.toLocaleString('fr-FR')} \u20ac` : '\u2014'}</td>
                   <td className="t-adj">
                     {/* Lecture seule : reprend le poids saisi sur la carte
-                        du comparable (slider "Poids dans l'estimation"). */}
-                    <strong>{weights[c.id] !== undefined ? weights[c.id] : 0}</strong>
+                        du comparable (slider "Poids dans l'estimation").
+                        Fallback : pertinence (Sim x0.6 + Donn x0.4). */}
+                    <strong>{effectiveWeight(c)}</strong>
                     <span style={{ marginLeft: 2, color: '#888', fontSize: 11 }}>%</span>
                   </td>
                   <td style={{ textAlign: 'center' }}>
@@ -3497,7 +3492,7 @@ export default function Step3Comparables() {
               let sumW = 0;
               let sumWP = 0;
               selected.forEach((c) => {
-                const w = weights[c.id] || 0;
+                const w = effectiveWeight(c);
                 const m2Num = parseInt(String(c.prixM2).replace(/\D/g, ''), 10) || 0;
                 const adjPctMatch = String(c.adjTotal || '0%').replace(',', '.').match(/-?\d+(\.\d+)?/);
                 const adjPct = adjPctMatch ? parseFloat(adjPctMatch[0]) * (String(c.adjTotal).startsWith('\u2212') ? -1 : 1) : 0;
