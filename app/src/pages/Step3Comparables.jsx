@@ -2441,10 +2441,11 @@ export default function Step3Comparables() {
       return persisted;
     }
     if (hasRealLocation) return {};
-    const eq = Math.round(100 / Math.max(INITIAL_SELECTED.length, 1));
+    // Poids par défaut = pertinence (similarité × 0.6 + données × 0.4)
+    // Chaque comparable part avec son propre score, pas une répartition uniforme.
     const obj = {};
-    INITIAL_SELECTED.forEach((c, i) => {
-      obj[c.id] = i === INITIAL_SELECTED.length - 1 ? 100 - eq * (INITIAL_SELECTED.length - 1) : eq;
+    INITIAL_SELECTED.forEach((c) => {
+      obj[c.id] = Math.round((c.similarite || 0) * 0.6 + (c.donnees || 0) * 0.4);
     });
     return obj;
   });
@@ -2453,6 +2454,21 @@ export default function Step3Comparables() {
   useEffect(() => {
     mergeReportSection('comparablesConfig', { weights });
   }, [weights]);
+
+  // Garde-fou : pour tout comparable sélectionné sans poids défini
+  // (ex. ajouté dans une session précédente), on initialise son poids
+  // à sa pertinence. Évite l'affichage à 0% par défaut.
+  useEffect(() => {
+    const missing = selected.filter((c) => weights[c.id] === undefined);
+    if (missing.length === 0) return;
+    setWeights((prev) => {
+      const next = { ...prev };
+      missing.forEach((c) => {
+        next[c.id] = Math.round((c.similarite || 0) * 0.6 + (c.donnees || 0) * 0.4);
+      });
+      return next;
+    });
+  }, [selected]);
 
   // Modifier le poids d'un comparable : poids ind\u00e9pendant, pas de
   // re-normalisation des autres. Le total des poids n'est pas contraint
@@ -2551,6 +2567,15 @@ export default function Step3Comparables() {
     };
     setOthers(prev => prev.filter(c => c.id !== compId));
     setSelected(prev => [...prev, promoted]);
+    // Poids par défaut du nouveau comparable = sa pertinence
+    // (similarité × 0.6 + données × 0.4). L'utilisateur peut ensuite
+    // ajuster manuellement via le slider sur la carte.
+    setWeights(prev => ({
+      ...prev,
+      [promoted.id]: prev[promoted.id] !== undefined
+        ? prev[promoted.id]
+        : Math.round((promoted.similarite || 0) * 0.6 + (promoted.donnees || 0) * 0.4),
+    }));
   };
 
   const removeFromSelected = (compId) => {
