@@ -7,6 +7,7 @@ import PropertyCard from '../components/PropertyCard';
 import Stepper from '../components/Stepper';
 import PhotoUploader from '../components/PhotoUploader';
 import { bienCibleCategories as bienCibleCategoriesBase } from '../data/propertyData';
+import { PROPERTY_PHOTOS } from '../data/propertyPhotos';
 import { getActiveBien, buildBienCibleCategories } from '../utils/activeBien';
 import { getAllPhotos, deletePhoto } from '../utils/photosStore';
 import CadastrePLUCards from '../components/CadastrePLUCards';
@@ -28,22 +29,6 @@ const missingCriticalFields = [
   'Type de vitrage',
 ];
 
-// Photos du bien (donn\u00e9es fictives) ---------------------------------
-// Catalogue de photos avec type de pi\u00e8ce associ\u00e9, pour le filtrage et le lightbox
-const PROPERTY_PHOTOS = [
-  { id: 1,  type: 'salon',     label: 'Salon principal',         url: 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=1400&q=80&auto=format&fit=crop' },
-  { id: 2,  type: 'salon',     label: 'Salon vue chemin\u00e9e',         url: 'https://images.unsplash.com/photo-1567767292278-a4f21aa2d36e?w=1400&q=80&auto=format&fit=crop' },
-  { id: 3,  type: 'salon',     label: 'S\u00e9jour traversant',           url: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=1400&q=80&auto=format&fit=crop' },
-  { id: 4,  type: 'cuisine',   label: 'Cuisine \u00e9quip\u00e9e',            url: 'https://images.unsplash.com/photo-1565538810643-b5bdb714032a?w=1400&q=80&auto=format&fit=crop' },
-  { id: 5,  type: 'cuisine',   label: 'Plan de travail',          url: 'https://images.unsplash.com/photo-1556911220-bff31c812dba?w=1400&q=80&auto=format&fit=crop' },
-  { id: 6,  type: 'chambre',   label: 'Chambre parentale',        url: 'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=1400&q=80&auto=format&fit=crop' },
-  { id: 7,  type: 'chambre',   label: 'Chambre 2',                url: 'https://images.unsplash.com/photo-1540518614846-7eded433c457?w=1400&q=80&auto=format&fit=crop' },
-  { id: 8,  type: 'sdb',       label: 'Salle de bain',            url: 'https://images.unsplash.com/photo-1620626011761-996317b8d101?w=1400&q=80&auto=format&fit=crop' },
-  { id: 9,  type: 'wc',        label: 'WC s\u00e9par\u00e9',                  url: 'https://images.unsplash.com/photo-1564540583246-934409427776?w=1400&q=80&auto=format&fit=crop' },
-  { id: 10, type: 'bureau',    label: 'Bureau / coin lecture',    url: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1400&q=80&auto=format&fit=crop' },
-  { id: 11, type: 'exterieur', label: 'Balcon / vue rue',         url: 'https://images.unsplash.com/photo-1502005229762-cf1b2da7c5d6?w=1400&q=80&auto=format&fit=crop' },
-  { id: 12, type: 'autre',     label: 'Entr\u00e9e / couloir',          url: 'https://images.unsplash.com/photo-1503602642458-232111445657?w=1400&q=80&auto=format&fit=crop' },
-];
 
 // Photos custom du bien actif : Vite scanne le dossier au build et inclut
 // chaque image dans le bundle (avec hash de cache busting). Pour ajouter des
