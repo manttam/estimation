@@ -5,7 +5,7 @@ import Stepper from '../components/Stepper';
 import { avisValeur } from '../data/propertyData';
 import { getActiveBien } from '../utils/activeBien';
 import { getAcquereurs } from '../utils/acquereursStore';
-import { setReportState, mergeReportSection, getReportSection } from '../utils/reportStore';
+import { setReportState, mergeReportSection, getReportSection, getReportState } from '../utils/reportStore';
 
 const TYPE_LABELS = {
   appartement: 'Appartement',
@@ -410,6 +410,43 @@ const cssStyles = `
   .card.strengths { border-left: 3px solid #46B962; }
   .card.weaknesses { border-left: 3px solid #e74c3c; }
   .card.strategy { border-left: 3px solid #f5a623; }
+  .card.seller-opinion { border-left: 3px solid #6c8cd5; }
+
+  /* ---- Avis du vendeur (saisie libre) ---- */
+  .seller-opinion-input {
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 90px;
+    padding: 10px 12px;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    background: #fafbfd;
+    font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #333;
+    resize: vertical;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .seller-opinion-input:hover {
+    border-color: #cfd6e4;
+  }
+  .seller-opinion-input:focus {
+    outline: none;
+    border-color: #6c8cd5;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(108,140,213,0.12);
+  }
+  .seller-opinion-input::placeholder {
+    color: #b5b5b5;
+    font-style: italic;
+  }
+  .seller-opinion-meta {
+    margin-top: 6px;
+    font-size: 10px;
+    color: #999;
+    text-align: right;
+  }
   .card-title {
     font-size: 13px;
     font-weight: 500;
@@ -993,6 +1030,16 @@ export default function Step5AvisValeur() {
   const [pointsVigilance, setPointsVigilance] = useState(autoPoints.vigilance);
   const [customPrice, setCustomPrice] = useState(String(priceRef.prixMedian));
 
+  // Avis du vendeur : zone de texte libre saisie manuellement par l'agent
+  // pendant le RDV pour capter la perception / le ressenti du propriétaire
+  // sur son bien (prix espéré, motivation, points qu'il souligne…).
+  // Hydratation depuis le reportStore pour persister entre les sessions.
+  const persistedAvisVendeur = useMemo(() => {
+    const state = getReportState();
+    return typeof state.avisVendeur === 'string' ? state.avisVendeur : '';
+  }, []);
+  const [avisVendeur, setAvisVendeur] = useState(persistedAvisVendeur);
+
   // Visibilité des sections en RDV : true = masqué lors du RDV
   // Hydratation depuis le reportStore.displayConfig pour conserver la
   // préférence agent au refresh.
@@ -1035,6 +1082,9 @@ export default function Step5AvisValeur() {
   useEffect(() => {
     setReportState({ selectedStrategy });
   }, [selectedStrategy]);
+  useEffect(() => {
+    setReportState({ avisVendeur });
+  }, [avisVendeur]);
 
   /* ---- Demand computation (matching HTML wireframe logic) ---- */
   // Mock acquéreur data (mode démo) — utilisé quand pas d'acquéreurs réels
@@ -1685,6 +1735,22 @@ export default function Step5AvisValeur() {
                 ))}
               </div>
               <button className="add-item-btn" onClick={addPointVigilance}>+ Ajouter un point de vigilance</button>
+            </div>
+
+            <div className="card seller-opinion">
+              <div className="card-title">
+                Avis du vendeur <span className="card-title-hint">(perception du propri&eacute;taire)</span>
+              </div>
+              <textarea
+                className="seller-opinion-input"
+                value={avisVendeur}
+                onChange={(e) => setAvisVendeur(e.target.value)}
+                placeholder="Notez ici ce que le vendeur pense de son bien : ressenti, points qu'il souligne, prix qu'il espère, motivation de vente, contraintes…"
+                rows={6}
+              />
+              {avisVendeur.trim().length > 0 && (
+                <div className="seller-opinion-meta">{avisVendeur.trim().length} caract&egrave;res saisis</div>
+              )}
             </div>
           </div>
 

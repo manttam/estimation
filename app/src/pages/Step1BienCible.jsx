@@ -1132,7 +1132,9 @@ export default function Step1BienCible() {
   };
 
   // Photos : filtre par type + index lightbox -----------------------------
-  const [photoFilter, setPhotoFilter] = useState('all');
+  // Par defaut on verrouille sur Salon/Sejour pour n'afficher qu'une seule
+  // photo a l'ouverture de l'etape (catalogue demo : 1 seul item de type salon).
+  const [photoFilter, setPhotoFilter] = useState('salon');
   const [lightboxIndex, setLightboxIndex] = useState(null); // null = ferm\u00e9
 
   const filteredPhotos = photoFilter === 'all'
