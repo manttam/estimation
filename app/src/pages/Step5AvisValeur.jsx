@@ -803,70 +803,6 @@ const cssStyles = `
     color: white;
   }
   .btn-primary:hover { background: #1aa564; }
-
-  /* RDV Eye toggle (masquer en RDV) */
-  .rdv-eye-btn {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    background: #fff;
-    border: 1px solid #e5e5e5;
-    border-radius: 50%;
-    width: 30px;
-    height: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    color: #666;
-    transition: all 0.15s;
-    z-index: 5;
-    padding: 0;
-  }
-  .rdv-eye-btn:hover {
-    border-color: #46B962;
-    color: #46B962;
-    background: #f6faf7;
-  }
-  .rdv-eye-btn.is-hidden {
-    background: #fff5f5;
-    color: #c0392b;
-    border-color: #f3d4d4;
-  }
-  .rdv-eye-btn.inline {
-    position: static;
-    width: 22px;
-    height: 22px;
-    margin-left: 8px;
-    vertical-align: middle;
-    display: inline-flex;
-  }
-  .confidence-wrap, .card.strategy {
-    position: relative;
-  }
-  /* Section enti\u00e8rement repli\u00e9e en mode RDV : ne reste que l'\u0153il + label discret */
-  .rdv-collapsed {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 14px;
-    background: #fafafa;
-    border: 1px dashed #d8d8d8;
-    border-radius: 10px;
-    margin: 12px 0;
-  }
-  .rdv-collapsed.card-collapsed {
-    margin: 0;
-  }
-  .rdv-collapsed .rdv-eye-btn {
-    position: static;
-    flex-shrink: 0;
-  }
-  .rdv-collapsed-label {
-    font-size: 11px;
-    color: #888;
-    font-style: italic;
-  }
 `;
 
 /* ---------- helpers ---------- */
@@ -1040,18 +976,10 @@ export default function Step5AvisValeur() {
   }, []);
   const [avisVendeur, setAvisVendeur] = useState(persistedAvisVendeur);
 
-  // Visibilité des sections en RDV : true = masqué lors du RDV
+  // Toggle "Masquer la démo" en mode live (pour cacher éléments fictifs)
   // Hydratation depuis le reportStore.displayConfig pour conserver la
   // préférence agent au refresh.
   const persistedDisplay = useMemo(() => getReportSection('displayConfig', {}), []);
-  const [hideConfiance, setHideConfiance] = useState(
-    typeof persistedDisplay.hideConfiance === 'boolean' ? persistedDisplay.hideConfiance : false
-  );
-  const [hideStrategie, setHideStrategie] = useState(
-    typeof persistedDisplay.hideStrategie === 'boolean' ? persistedDisplay.hideStrategie : false
-  );
-
-  // Toggle "Masquer la démo" en mode live (pour cacher éléments fictifs)
   const [hideDemo, setHideDemo] = useState(
     typeof persistedDisplay.hideDemo === 'boolean' ? persistedDisplay.hideDemo : false
   );
@@ -1059,12 +987,8 @@ export default function Step5AvisValeur() {
   // Persiste les flags d'affichage dans le reportStore pour que la page
   // CompteRendu puisse masquer/afficher les sections correspondantes.
   useEffect(() => {
-    mergeReportSection('displayConfig', {
-      hideConfiance,
-      hideStrategie,
-      hideDemo,
-    });
-  }, [hideConfiance, hideStrategie, hideDemo]);
+    mergeReportSection('displayConfig', { hideDemo });
+  }, [hideDemo]);
 
   // Persistance dans le reportStore pour que CompteRendu (/report) puisse
   // afficher les valeurs saisies par l'utilisateur (points forts/vigilance
@@ -1412,52 +1336,22 @@ export default function Step5AvisValeur() {
           <div className="price-meta">
             <span className="price-meta-item"><strong>{priceRef.prixM2.toLocaleString('fr-FR')} &euro;/m&sup2;</strong></span>
           </div>
-          {hideConfiance ? (
-            <div className="rdv-collapsed">
-              <button
-                type="button"
-                className="rdv-eye-btn is-hidden"
-                onClick={() => setHideConfiance(false)}
-                title="Afficher en RDV"
-                aria-label="Afficher en RDV"
-              >
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                  <line x1="1" y1="1" x2="23" y2="23"/>
-                </svg>
-              </button>
-              <span className="rdv-collapsed-label">Indice de confiance &mdash; masqu&eacute; en RDV</span>
-            </div>
-          ) : (
-            <div className="confidence-wrap">
-              <button
-                type="button"
-                className="rdv-eye-btn"
-                onClick={() => setHideConfiance(true)}
-                title="Masquer en RDV"
-                aria-label="Masquer en RDV"
-              >
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                  <circle cx="12" cy="12" r="3"/>
-                </svg>
-              </button>
-              <svg className="confidence-gauge" viewBox="0 0 120 120" style={{ transform: 'rotate(-90deg)' }}>
-                <circle cx="60" cy="60" r="50" fill="none" stroke="#eee" strokeWidth="10"/>
-                <circle cx="60" cy="60" r="50" fill="none" stroke="#46B962" strokeWidth="10"
-                  strokeDasharray="245" strokeDashoffset="54"
-                  strokeLinecap="round"/>
-                <circle cx="60" cy="60" r="38" fill="white"/>
-              </svg>
-              <div className="confidence-text">
-                <div className="confidence-number">{confidenceScore}</div>
-                <div className="confidence-label">Indice de confiance</div>
-                <div className="confidence-details">
-                  Compl&eacute;tude {confidenceCompletude}% &times; {confidenceVolume}
-                </div>
+          <div className="confidence-wrap">
+            <svg className="confidence-gauge" viewBox="0 0 120 120" style={{ transform: 'rotate(-90deg)' }}>
+              <circle cx="60" cy="60" r="50" fill="none" stroke="#eee" strokeWidth="10"/>
+              <circle cx="60" cy="60" r="50" fill="none" stroke="#46B962" strokeWidth="10"
+                strokeDasharray="245" strokeDashoffset="54"
+                strokeLinecap="round"/>
+              <circle cx="60" cy="60" r="38" fill="white"/>
+            </svg>
+            <div className="confidence-text">
+              <div className="confidence-number">{confidenceScore}</div>
+              <div className="confidence-label">Indice de confiance</div>
+              <div className="confidence-details">
+                Compl&eacute;tude {confidenceCompletude}% &times; {confidenceVolume}
               </div>
             </div>
-          )}
+          </div>
         </div>
 
         {/* ============ DEMAND vs PRICE SLIDER ============ */}
@@ -1756,39 +1650,8 @@ export default function Step5AvisValeur() {
 
           {/* --- Column 3: Strategy + Actions --- */}
           <div className="content-grid-col">
-            {hideStrategie ? (
-              <div className="rdv-collapsed card-collapsed">
-                <button
-                  type="button"
-                  className="rdv-eye-btn is-hidden"
-                  onClick={() => setHideStrategie(false)}
-                  title="Afficher en RDV"
-                  aria-label="Afficher en RDV"
-                >
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                    <line x1="1" y1="1" x2="23" y2="23"/>
-                  </svg>
-                </button>
-                <span className="rdv-collapsed-label">Strat&eacute;gie de prix &mdash; masqu&eacute;e en RDV</span>
-              </div>
-            ) : (
             <div className="card strategy">
-              <div className="card-title">
-                Strat&eacute;gie de prix
-                <button
-                  type="button"
-                  className="rdv-eye-btn inline"
-                  onClick={() => setHideStrategie(true)}
-                  title="Masquer en RDV"
-                  aria-label="Masquer en RDV"
-                >
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                    <circle cx="12" cy="12" r="3"/>
-                  </svg>
-                </button>
-              </div>
+              <div className="card-title">Strat&eacute;gie de prix</div>
               {strategies.map((s, i) => {
                 const isSelected = selectedStrategy === i;
                 return (
@@ -1830,7 +1693,6 @@ export default function Step5AvisValeur() {
                 )}
               </div>
             </div>
-            )}
 
             <div className="card">
               <div className="card-title">Actions</div>
