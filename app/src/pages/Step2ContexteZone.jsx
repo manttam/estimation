@@ -77,153 +77,511 @@ const cssStyles = `
   .score-num.orange { color: var(--orange); }
   .score-num.red { color: var(--red); }
 
-  /* ═══ MAP + MARKET GRID ═══ */
-  .grid-top {
-    display: grid;
-    grid-template-columns: 1fr 240px;
+  /* ═══ MARCHÉ LOCAL — bandeau horizontal ═══ */
+  .step2-page .market-bar {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 16px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .step2-page .market-bar-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .step2-page .market-bar-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .step2-page .market-bar-price {
+    flex-shrink: 0;
+    padding-right: 18px;
+    border-right: 1px solid #f0f0f0;
+  }
+  .step2-page .market-bar-price .big {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--green);
+  }
+  .step2-page .market-bar-price .unit {
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .step2-page .market-bar-stats {
+    display: flex;
     gap: 10px;
-    margin-bottom: 14px;
+    flex: 1;
+    min-width: 0;
+  }
+  .step2-page .market-bar-stats .market-stat {
+    flex: 1;
+    background: #f7f7f8;
+    border-radius: 6px;
+    padding: 6px 10px;
+    text-align: center;
+  }
+  .step2-page .market-bar-stats .val {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .step2-page .market-bar-stats .val.up { color: var(--green); }
+  .step2-page .market-bar-stats .lbl {
+    font-size: 9px;
+    color: #666;
+    margin-top: 1px;
   }
 
-  /* MAP CARD */
-  .map-card {
+  /* ═══ MAP ROW ═══ */
+  /* ═══ WORKSPACE 2 COLONNES (Carte / Commodités) ═══
+   * Grid avec une poignée centrale draggable. Largeurs pilotées par les
+   * variables --col-map / --col-poi modifiées au drag (cf. startResize). */
+  .step2-page .workspace-2col {
+    display: grid;
+    grid-template-columns:
+      minmax(0, var(--col-map, 62%))
+      10px
+      minmax(0, var(--col-poi, 38%));
+    gap: 0;
+    margin-bottom: 14px;
+    height: 460px;
+    min-height: 360px;
+  }
+  .step2-page .workspace-2col.is-resizing {
+    cursor: col-resize;
+    user-select: none;
+  }
+  .step2-page .workspace-2col.is-resizing .map-container,
+  .step2-page .workspace-2col.is-resizing .poi-panel-body {
+    pointer-events: none;
+  }
+  .step2-page .ws-col {
     background: #fff;
-    border-radius: 10px;
     border: 1px solid var(--border);
+    border-radius: 10px;
     overflow: hidden;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .step2-page .ws-col-map { position: relative; }
+  .step2-page .map-stage-inner {
     position: relative;
+    flex: 1;
+    min-height: 0;
   }
   .map-container {
-    height: 340px;
+    height: 100%;
     width: 100%;
     z-index: 0;
+  }
+
+  /* Poignée de redimensionnement (style Step3) */
+  .step2-page .col-resize-handle {
+    cursor: col-resize;
+    background: transparent;
+    position: relative;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+    border: none;
+    padding: 0;
+  }
+  .step2-page .col-resize-handle::before {
+    content: '';
+    width: 2px;
+    height: 36px;
+    background: #d8d8d8;
+    border-radius: 2px;
+    transition: background 0.15s, height 0.15s;
+  }
+  .step2-page .col-resize-handle:hover { background: rgba(70, 185, 98, 0.06); }
+  .step2-page .col-resize-handle:hover::before {
+    background: var(--green);
+    height: 64px;
+  }
+  .step2-page .col-resize-handle.is-dragging { background: rgba(70, 185, 98, 0.12); }
+  .step2-page .col-resize-handle.is-dragging::before {
+    background: var(--green);
+    height: 96px;
+  }
+
+  /* ═══ COLONNE COMMODITÉS — liste complète des POI ═══ */
+  .step2-page .ws-col-poi { overflow-y: auto; }
+  .step2-page .poi-panel-header {
+    position: sticky;
+    top: 0;
+    background: #fff;
+    z-index: 5;
+    padding: 16px 18px 12px;
+    border-bottom: 1px solid #eee;
+  }
+  .step2-page .poi-panel-header-text { min-width: 0; }
+  .step2-page .poi-panel-title {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0 0 4px;
+    color: var(--text);
+  }
+  .step2-page .poi-panel-subtitle {
+    font-size: 12px;
+    color: #666;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .step2-page .poi-panel-body { padding: 12px 16px 24px; }
+
+  /* Séparateur de section dans la colonne commodités */
+  .step2-page .poi-sections-sep {
+    margin: 18px 0 10px;
+    padding-top: 14px;
+    border-top: 1px solid #eee;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--muted);
+  }
+
+  .step2-page .poi-cat { margin-bottom: 14px; }
+  .step2-page .poi-cat-head {
+    display: grid;
+    grid-template-columns: 20px 12px 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    background: #fff;
+    border: 1.5px solid #ececec;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .step2-page .poi-cat-head:hover {
+    border-color: var(--green);
+    background: #effaf2;
+  }
+  .step2-page .poi-cat-head.active {
+    border-color: #d4ead8;
+    background: #f7fbf8;
+  }
+  .step2-page .poi-cat-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .step2-page .poi-cat-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .step2-page .poi-cat-count {
+    font-size: 11px;
+    font-weight: 700;
+    color: #666;
+    background: #f5f5f5;
+    padding: 2px 9px;
+    border-radius: 10px;
+    min-width: 24px;
+    text-align: center;
+  }
+  .step2-page .poi-cat-head.active .poi-cat-count {
+    color: var(--green);
+    background: #e8f6ec;
+  }
+  .step2-page .poi-list {
+    list-style: none;
+    margin: 6px 0 0;
+    padding: 0 0 0 6px;
+  }
+  .step2-page .poi-item {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 6px 8px;
+    border-bottom: 1px solid #f4f4f4;
+  }
+  .step2-page .poi-item:last-child { border-bottom: none; }
+  .step2-page .poi-item-bullet {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    transform: translateY(-1px);
+  }
+  .step2-page .poi-item-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    flex-shrink: 0;
+  }
+  .step2-page .poi-item-detail {
+    font-size: 11px;
+    color: var(--muted);
+    margin-left: auto;
+    text-align: right;
+  }
+  .step2-page .poi-list-empty {
+    font-size: 12px;
+    color: var(--muted);
+    font-style: italic;
+    margin: 6px 0 0 6px;
   }
   @keyframes pulse {
     0% { transform: scale(1); opacity: 0.4; }
     50% { transform: scale(1.15); opacity: 0.15; }
     100% { transform: scale(1); opacity: 0.4; }
   }
-  .map-controls {
+  /* ─── Contrôles carte refondus (langage visuel Step3) ─── */
+  .step2-page .map-controls {
     border-top: 1px solid var(--border);
-  }
-  .map-controls-row {
-    padding: 8px 12px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  .map-controls-row + .map-controls-row {
-    border-top: 1px solid #f0f0f0;
-  }
-  .map-controls label {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 11px;
-    cursor: pointer;
-    color: var(--muted);
-  }
-  .map-controls input[type="checkbox"] {
-    width: 13px;
-    height: 13px;
-    accent-color: var(--green);
-  }
-  .radius-label {
-    font-size: 10px;
-    font-weight: 600;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
+    background: #fff;
     flex-shrink: 0;
   }
-  .radius-btns {
-    display: flex;
-    gap: 4px;
+  .step2-page .mc-section {
+    padding: 12px 14px;
   }
-  .radius-btn {
-    padding: 3px 8px;
-    border: 1px solid var(--border);
-    border-radius: 5px;
-    background: #fff;
-    font-size: 10px;
-    cursor: pointer;
-    color: var(--muted);
-    font-family: 'Open Sans', sans-serif;
+  .step2-page .mc-section + .mc-section {
+    border-top: 1px solid #f0f0f0;
   }
-  .radius-btn.active {
-    background: var(--green);
-    color: white;
-    border-color: var(--green);
-  }
-  .radius-slider {
-    flex: 1;
-    -webkit-appearance: none;
-    appearance: none;
-    height: 6px;
-    border-radius: 3px;
-    background: var(--border);
-    outline: none;
-  }
-  .radius-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: var(--green);
-    border: 2px solid white;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
-    cursor: pointer;
-  }
-  .radius-slider::-moz-range-thumb {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: var(--green);
-    border: 2px solid white;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
-    cursor: pointer;
-  }
-  .plu-link {
-    font-size: 11px;
-    color: var(--blue);
-    text-decoration: none;
-    font-weight: 500;
-    padding: 3px 6px;
-    border-radius: 4px;
-    transition: background 0.15s;
-  }
-  .plu-link:hover {
-    background: #eef1ff;
-    text-decoration: underline;
-  }
-  .poi-status {
-    font-size: 10px;
-    color: var(--muted);
-    margin-left: auto;
-    font-style: italic;
-  }
-
-  /* MARKET CARD */
-  .market-card {
-    background: #fff;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    padding: 10px;
-    display: flex;
-    flex-direction: column;
-    position: relative;
-  }
-  .market-title {
-    font-size: 10px;
-    font-weight: 600;
-    margin-bottom: 6px;
-    color: var(--text);
+  .step2-page .mc-section-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .step2-page .mc-section-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .step2-page .mc-count-pill {
+    font-size: 11px;
+    color: #666;
+    background: #f5f5f5;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-weight: 600;
+  }
+
+  /* Rangées-cards commodités */
+  .step2-page .mc-poi-rows {
+    display: flex;
+    flex-direction: column;
     gap: 6px;
   }
+  .step2-page .mc-poi-row {
+    display: grid;
+    grid-template-columns: 20px 12px 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: #fff;
+    border: 1.5px solid #ececec;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .step2-page .mc-poi-row:hover {
+    border-color: var(--green);
+    background: #effaf2;
+  }
+  .step2-page .mc-poi-row.active {
+    border-color: #d4ead8;
+    background: #f7fbf8;
+  }
+  .step2-page .mc-poi-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .step2-page .mc-poi-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .step2-page .mc-poi-count {
+    font-size: 11px;
+    font-weight: 700;
+    color: #666;
+    background: #f5f5f5;
+    padding: 2px 9px;
+    border-radius: 10px;
+    min-width: 24px;
+    text-align: center;
+  }
+  .step2-page .mc-poi-row.active .mc-poi-count {
+    color: var(--green);
+    background: #e8f6ec;
+  }
+
+  /* Checkbox custom carrée arrondie animée */
+  .step2-page .mc-check {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    border: 2px solid #d0d6dd;
+    background: #fff;
+    position: relative;
+    flex-shrink: 0;
+    transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  }
+  .step2-page .mc-check.checked {
+    background: var(--green);
+    border-color: var(--green);
+    box-shadow: 0 2px 6px rgba(70, 185, 98, 0.35);
+  }
+  .step2-page .mc-check.checked::after {
+    content: '';
+    position: absolute;
+    left: 6px;
+    top: 2px;
+    width: 5px;
+    height: 10px;
+    border: solid #fff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+    animation: mc-check-pop 0.18s ease;
+  }
+  @keyframes mc-check-pop {
+    0% { transform: rotate(45deg) scale(0.4); opacity: 0; }
+    100% { transform: rotate(45deg) scale(1); opacity: 1; }
+  }
+
+  /* Rayon — ligne compacte : label + chips presets */
+  .step2-page .mc-radius-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .step2-page .mc-radius-row .mc-section-title {
+    flex-shrink: 0;
+  }
+  .step2-page .mc-radius-chips {
+    display: flex;
+    gap: 6px;
+    flex: 1;
+  }
+  .step2-page .mc-chip {
+    flex: 1;
+    padding: 5px 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--muted);
+    font-family: var(--font);
+    transition: all 0.15s;
+  }
+  .step2-page .mc-chip:hover {
+    border-color: var(--green);
+    color: var(--green);
+  }
+  .step2-page .mc-chip.active {
+    background: var(--green);
+    color: #fff;
+    border-color: var(--green);
+  }
+
+  /* Toolbar couches & sources */
+  .step2-page .mc-toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .step2-page .mc-toggle {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 5px 10px;
+    border: 1.5px solid #ececec;
+    border-radius: 8px;
+    background: #fff;
+    transition: border-color 0.15s, background 0.15s, color 0.15s;
+  }
+  .step2-page .mc-toggle:hover {
+    border-color: var(--green);
+  }
+  .step2-page .mc-toggle.active {
+    color: var(--text);
+    border-color: #d4ead8;
+    background: #f7fbf8;
+  }
+  .step2-page .mc-toggle .mc-check {
+    width: 16px;
+    height: 16px;
+    border-radius: 5px;
+  }
+  .step2-page .mc-toggle .mc-check.checked::after {
+    left: 4px;
+    top: 1px;
+    width: 4px;
+    height: 8px;
+  }
+  .step2-page .mc-plu-chip {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--blue);
+    text-decoration: none;
+    padding: 5px 10px;
+    border: 1.5px solid #dfe5f5;
+    border-radius: 8px;
+    background: #f5f7ff;
+    transition: background 0.15s;
+  }
+  .step2-page .mc-plu-chip:hover {
+    background: #eef1ff;
+  }
+  .step2-page .mc-status {
+    font-size: 11px;
+    color: var(--muted);
+    font-style: italic;
+    margin-left: auto;
+  }
+  .step2-page .mc-reload {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: var(--font);
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .step2-page .mc-reload:hover:not(:disabled) {
+    border-color: var(--green);
+    color: var(--green);
+  }
+  .step2-page .mc-reload:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+
+  /* Badge source du marché (réutilisé par le bandeau) */
   .market-source {
     font-size: 8px;
     font-weight: 700;
@@ -244,48 +602,17 @@ const cssStyles = `
     background: #f0f0f0;
     color: var(--muted);
   }
-  .market-price {
-    text-align: center;
-    padding: 6px 0;
-    margin-bottom: 6px;
-  }
-  .market-price .big {
-    font-size: 20px;
-    font-weight: 700;
-    color: var(--green);
-  }
-  .market-price .unit {
-    font-size: 11px;
-    color: var(--muted);
-  }
-  .market-stats {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 4px;
-    flex: 1;
-  }
-  .market-stat {
-    background: #f7f7f8;
-    border-radius: 5px;
-    padding: 6px;
-  }
-  .market-stat .val {
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--text);
-  }
-  .market-stat .val.up {
-    color: var(--green);
-  }
-  .market-stat .lbl {
-    font-size: 8px;
-    color: #666;
-    margin-top: 1px;
-  }
 
   /* ═══ COLLAPSIBLE SECTIONS ═══ */
   .section-group {
     margin-bottom: 14px;
+  }
+  /* Dans la colonne commodités étroite : autoriser le retour à la ligne */
+  .step2-page .ws-col-poi .section-group { margin-bottom: 0; }
+  .step2-page .ws-col-poi .collapse-header-left {
+    flex-wrap: wrap;
+    min-width: 0;
+    row-gap: 2px;
   }
   .collapse-card {
     background: #fff;
@@ -836,7 +1163,6 @@ export default function Step2ContexteZone() {
   const [dvfStatsLive, setDvfStatsLive] = useState(persistedContexte.dvfLive || null);
   const [dvfLoading, setDvfLoading] = useState(false);
   const [refetchTick, setRefetchTick] = useState(0);
-  const [debugOn, setDebugOn] = useState(false);
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const circleRef = useRef(null);
@@ -846,6 +1172,51 @@ export default function Step2ContexteZone() {
 
   const toggleSection = (idx) => {
     setOpenSections((prev) => ({ ...prev, [idx]: !prev[idx] }));
+  };
+
+  /* ═══ WORKSPACE 2 COLONNES (Carte / Commodités) ═══
+   * Largeurs en % de la rect du workspace, modifiées au drag de la poignée
+   * centrale. Même logique que la Step3 mais avec une seule poignée :
+   * quand on agrandit la carte, la colonne commodités rétrécit, et inversement. */
+  const [colWidths, setColWidths] = useState({ map: 62, poi: 38 });
+  const [isResizing, setIsResizing] = useState(false);
+  const workspaceRef = useRef(null);
+
+  const startResize = (e) => {
+    e.preventDefault();
+    setIsResizing(true);
+    const rect = workspaceRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    // Throttle invalidateSize via rAF pour éviter la zone grise des tuiles
+    let rafId = null;
+    const requestMapInvalidate = () => {
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        const m = mapInstanceRef.current;
+        if (m) { try { m.invalidateSize({ animate: false, pan: false }); } catch { /* noop */ } }
+      });
+    };
+
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    const handleMove = (mv) => {
+      if (!rect.width) return;
+      const ratio = ((mv.clientX - rect.left) / rect.width) * 100;
+      const newMap = clamp(ratio, 35, 75);
+      setColWidths({ map: newMap, poi: 100 - newMap });
+      requestMapInvalidate();
+    };
+    const handleUp = () => {
+      setIsResizing(false);
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      const m = mapInstanceRef.current;
+      if (m) { try { m.invalidateSize({ animate: false }); } catch { /* noop */ } }
+    };
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
   };
 
   /* ─── Bien actif : coords / adresse / dvfStats ─────────────────────── */
@@ -962,8 +1333,12 @@ export default function Step2ContexteZone() {
     if (!L || !mapRef.current) return;
 
     const map = L.map(mapRef.current, { zoomControl: false }).setView(targetCoords, 15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap',
+    // Fond CARTO Positron : gris pâle épuré, sans POI parasites → contraste max
+    // pour les marqueurs de commodités. Gratuit, sans clé API.
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap &copy; CARTO',
+      subdomains: 'abcd',
+      maxZoom: 20,
     }).addTo(map);
     L.control.zoom({ position: 'topright' }).addTo(map);
 
@@ -1023,6 +1398,14 @@ export default function Step2ContexteZone() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /* ─── Recalcul des tuiles quand la largeur de la colonne carte change ─── */
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    const t = setTimeout(() => map.invalidateSize({ animate: false }), 60);
+    return () => clearTimeout(t);
+  }, [colWidths.map]);
 
   /* ─── Toggle cadastre IGN ───────────────────────────────────────────── */
   useEffect(() => {
@@ -1230,253 +1613,223 @@ export default function Step2ContexteZone() {
         <span>Donn&eacute;es enrichies automatiquement &middot; 33 sources data.gouv / INSEE &middot; MAJ : 25 mars 2026</span>
       </div>
 
-      {/* Map + Market Card */}
-      <div className="grid-top">
-        <div className="map-card">
-          <div ref={mapRef} className="map-container" id="leaflet-map-zone" />
+      {/* Marché local — bandeau horizontal pleine largeur */}
+      <div className="market-bar">
+        <div className="market-bar-head">
+          <span className="market-bar-title">{marketTitle}</span>
+          <span className={`market-source ${marketDisplay.source}`}>
+            {marketDisplay.source === 'DVF'
+              ? (dvfLoading ? 'DVF…' : 'DVF')
+              : marketDisplay.source === 'indispo'
+              ? (dvfLoading ? 'chargement…' : 'indispo')
+              : 'démo'}
+          </span>
+        </div>
+        <div className="market-bar-price">
+          <span className="big">{marketDisplay.prixM2} &euro;</span>
+          <span className="unit">/m&sup2;</span>
+        </div>
+        <div className="market-bar-stats">
+          <div className="market-stat">
+            <div className="val up">{marketDisplay.evolution}</div>
+            <div className="lbl">&Eacute;volution 12 mois</div>
+          </div>
+          <div className="market-stat">
+            <div className="val">{marketDisplay.transactions}</div>
+            <div className="lbl">Transactions{marketDisplay.source === 'DVF' ? ' (24 mois)' : '/an'}</div>
+          </div>
+          <div className="market-stat">
+            <div className="val">{marketDisplay.delai}</div>
+            <div className="lbl">D&eacute;lai moyen vente</div>
+          </div>
+          <div className="market-stat">
+            <div className="val">{marketDisplay.fourchette} &euro;</div>
+            <div className="lbl">Fourchette P25&ndash;P75/m&sup2;</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Carte + contrôles */}
+      <div
+        className={`workspace-2col ${isResizing ? 'is-resizing' : ''}`}
+        ref={workspaceRef}
+        style={{ '--col-map': `${colWidths.map}%`, '--col-poi': `${colWidths.poi}%` }}
+      >
+        {/* ─── Colonne 1 : carte + contrôles ─────────────────────────── */}
+        <div className="ws-col ws-col-map">
+          <div className="map-stage-inner">
+            <div ref={mapRef} className="map-container" id="leaflet-map-zone" />
+          </div>
           <div className="map-controls">
-            {/* Ligne 1 : catégories POI */}
-            <div className="map-controls-row">
-              {Object.entries(POI_STYLES).map(([cat, style]) => (
-                <label key={cat} style={{ color: activeLayers[cat] ? style.color : 'var(--muted)' }}>
-                  <input type="checkbox" checked={activeLayers[cat]} onChange={() => toggleCategory(cat)} />
-                  {style.label}
-                </label>
-              ))}
-            </div>
-            {/* Ligne 2 : rayon — presets + slider + champ */}
-            <div className="map-controls-row">
-              <span className="radius-label">Rayon</span>
-              <div className="radius-btns">
+            {/* Rayon — presets compacts en ligne */}
+            <div className="mc-section mc-radius-row">
+              <span className="mc-section-title">Rayon</span>
+              <div className="mc-radius-chips">
                 {RADIUS_PRESETS.map((r) => (
                   <button
                     key={r.label}
-                    className={`radius-btn ${radiusMeters === r.value ? 'active' : ''}`}
+                    className={`mc-chip ${radiusMeters === r.value ? 'active' : ''}`}
                     onClick={() => setRadius(r.value)}
                   >
                     {r.label}
                   </button>
                 ))}
               </div>
-              <input
-                type="range"
-                className="radius-slider"
-                min={100}
-                max={3000}
-                step={50}
-                value={radiusMeters}
-                onChange={(e) => setRadius(parseInt(e.target.value, 10))}
-              />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
-                <input
-                  type="number"
-                  min={100}
-                  max={5000}
-                  step={50}
-                  value={radiusMeters}
-                  onChange={(e) => {
-                    const v = parseInt(e.target.value, 10);
-                    if (v >= 100 && v <= 5000) setRadius(v);
-                  }}
-                  style={{
-                    width: 56,
-                    padding: '3px 4px',
-                    border: '1px solid var(--border)',
-                    borderRadius: 5,
-                    fontSize: 11,
-                    fontFamily: 'Open Sans, sans-serif',
-                    textAlign: 'center',
-                    color: 'var(--text)',
-                  }}
-                />
-                <span style={{ fontSize: 10, color: 'var(--muted)' }}>m</span>
+            </div>
+
+            {/* Couches & sources — cadastre, PLU, statut */}
+            <div className="mc-section">
+              <div className="mc-toolbar">
+                <div
+                  className={`mc-toggle ${cadastreOn ? 'active' : ''}`}
+                  onClick={() => setCadastreOn((v) => !v)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCadastreOn((v) => !v); } }}
+                >
+                  <span className={`mc-check ${cadastreOn ? 'checked' : ''}`} />
+                  <span>Cadastre IGN</span>
+                </div>
+                <a
+                  href={pluUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mc-plu-chip"
+                  title="Ouvrir le PLU de la commune sur le Géoportail Urbanisme"
+                >
+                  PLU / GPU ↗
+                </a>
+                <span className="mc-status">
+                  {poiLoading
+                    ? 'POI : chargement…'
+                    : poiError
+                    ? poiError
+                    : realPoi
+                    ? 'POI : OSM'
+                    : 'POI : démo'}
+                  {!risquesLoading && risques && ' · Risques : Géorisques'}
+                </span>
+                <button
+                  type="button"
+                  className="mc-reload"
+                  onClick={() => setRefetchTick((t) => t + 1)}
+                  disabled={poiLoading}
+                  title="Forcer un nouveau fetch Overpass"
+                >
+                  {poiLoading ? '↻…' : '↻ Recharger'}
+                </button>
               </div>
             </div>
-            {/* Ligne 3 : cadastre + PLU + statut POI */}
-            <div className="map-controls-row">
-              <label style={{ color: cadastreOn ? 'var(--text)' : 'var(--muted)' }}>
-                <input
-                  type="checkbox"
-                  checked={cadastreOn}
-                  onChange={(e) => setCadastreOn(e.target.checked)}
-                />
-                Cadastre IGN
-              </label>
-              <a
-                href={pluUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="plu-link"
-                title="Ouvrir le PLU de la commune sur le Géoportail Urbanisme"
-              >
-                PLU / GPU &nearr;
-              </a>
-              <span className="poi-status">
-                {poiLoading
-                  ? 'POI : chargement…'
-                  : poiError
-                  ? poiError
-                  : realPoi
-                  ? `POI : OSM (${Object.values(realPoi).reduce((s, a) => s + a.length, 0)})`
-                  : 'POI : démo'}
-                {risquesLoading && ' · Risques : chargement…'}
-                {!risquesLoading && risques && ' · Risques : Géorisques'}
-              </span>
-            </div>
-            {/* Ligne 4 : actions debug — bouton recharger + toggle panneau debug */}
-            <div className="map-controls-row">
-              <button
-                type="button"
-                className="radius-btn"
-                onClick={() => setRefetchTick((t) => t + 1)}
-                disabled={poiLoading}
-                title="Forcer un nouveau fetch Overpass"
-                style={{ fontSize: 11 }}
-              >
-                {poiLoading ? '↻ chargement…' : '↻ Recharger POI'}
-              </button>
-              <label style={{ color: debugOn ? 'var(--text)' : 'var(--muted)' }}>
-                <input
-                  type="checkbox"
-                  checked={debugOn}
-                  onChange={(e) => setDebugOn(e.target.checked)}
-                />
-                🐞 Debug
-              </label>
-            </div>
-            {/* Panneau debug — visible uniquement si toggle activé */}
-            {debugOn && (
-              <div
-                style={{
-                  padding: '10px 12px',
-                  borderTop: '1px solid #f0f0f0',
-                  fontSize: 11,
-                  fontFamily: 'monospace',
-                  background: '#fafafa',
-                  color: 'var(--text)',
-                  lineHeight: 1.5,
-                }}
-              >
-                <div style={{ fontWeight: 700, marginBottom: 4, color: '#666' }}>
-                  Diagnostic
-                </div>
-                <div>
-                  <strong>activeBien.label</strong> : {activeBien?.adresse?.label || '(aucun)'}
-                </div>
-                <div>
-                  <strong>activeBien.citycode</strong> : {activeBien?.adresse?.citycode || '(aucun)'}
-                </div>
-                <div>
-                  <strong>targetCoords</strong> : [
-                  {Array.isArray(targetCoords) ? targetCoords.map((n) => Number(n).toFixed(5)).join(', ') : '?'}
-                  ]
-                </div>
-                <div>
-                  <strong>radiusMeters</strong> : {radiusMeters}m · <strong>refetchTick</strong> : {refetchTick}
-                </div>
-                <div>
-                  <strong>poiLoading</strong> : {String(poiLoading)} ·{' '}
-                  <strong>poiError</strong> : {poiError || 'null'}
-                </div>
-                <div>
-                  <strong>realPoi</strong> :{' '}
+          </div>
+        </div>
+
+        {/* ─── Poignée de redimensionnement ───────────────────────────── */}
+        <button
+          type="button"
+          className={`col-resize-handle ${isResizing ? 'is-dragging' : ''}`}
+          onMouseDown={startResize}
+          onDoubleClick={() => setColWidths({ map: 62, poi: 38 })}
+          title="Glisser pour redimensionner · double-clic pour réinitialiser"
+          aria-label="Redimensionner carte / commodités"
+        />
+
+        {/* ─── Colonne 2 : commodités (liste complète des POI) ────────── */}
+        <div className="ws-col ws-col-poi">
+          <div className="poi-panel-header">
+            <div className="poi-panel-header-text">
+              <h3 className="poi-panel-title">Commodités à proximité</h3>
+              <div className="poi-panel-subtitle">
+                <span>
                   {realPoi
-                    ? Object.entries(realPoi)
-                        .map(([k, v]) => `${k}=${Array.isArray(v) ? v.length : '?'}`)
-                        .join(' · ')
-                    : 'null'}
-                </div>
-                <div>
-                  <strong>risquesLoading</strong> : {String(risquesLoading)} ·{' '}
-                  <strong>risques</strong> :{' '}
-                  {risques ? Object.keys(risques).join(', ') : 'null'}
-                </div>
-                <div>
-                  <strong>dvfStats (Step1)</strong> :{' '}
-                  {dvfStats?.median ? `median=${dvfStats.median} count=${dvfStats.count}` : 'null'}
-                </div>
-                <div>
-                  <strong>dvfStatsLive (Step2)</strong> :{' '}
-                  {dvfLoading ? 'chargement…' : dvfStatsLive?.median ? `median=${dvfStatsLive.median} count=${dvfStatsLive.count}` : 'null'}
-                </div>
-                <div style={{ marginTop: 6, color: 'var(--muted)', fontStyle: 'italic' }}>
-                  Ouvre la console (F12) pour voir les logs [Overpass] / [Géorisques] / [DVF].
-                </div>
+                    ? `${Object.values(realPoi).reduce((s, a) => s + a.length, 0)} points trouvés`
+                    : poiLoading
+                    ? 'Chargement…'
+                    : 'Données de démonstration'}
+                </span>
+                <span>· Rayon {radiusMeters >= 1000 ? `${(radiusMeters / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} km` : `${radiusMeters} m`}</span>
               </div>
-            )}
-          </div>
-        </div>
-
-        <div className="market-card">
-          <div className="market-title">
-            {marketTitle}
-            <span className={`market-source ${marketDisplay.source}`}>
-              {marketDisplay.source === 'DVF'
-                ? (dvfLoading ? 'DVF…' : 'DVF')
-                : marketDisplay.source === 'indispo'
-                ? (dvfLoading ? 'chargement…' : 'indispo')
-                : 'démo'}
-            </span>
-          </div>
-          <div className="market-price">
-            <span className="big">{marketDisplay.prixM2} &euro;</span>
-            <span className="unit">/m&sup2;</span>
-          </div>
-          <div className="market-stats">
-            <div className="market-stat">
-              <div className="val up">{marketDisplay.evolution}</div>
-              <div className="lbl">&Eacute;volution 12 mois</div>
-            </div>
-            <div className="market-stat">
-              <div className="val">{marketDisplay.transactions}</div>
-              <div className="lbl">Transactions{marketDisplay.source === 'DVF' ? ' (24 mois)' : '/an'}</div>
-            </div>
-            <div className="market-stat">
-              <div className="val">{marketDisplay.delai}</div>
-              <div className="lbl">D&eacute;lai moyen vente</div>
-            </div>
-            <div className="market-stat">
-              <div className="val">{marketDisplay.fourchette} &euro;</div>
-              <div className="lbl">Fourchette P25&ndash;P75/m&sup2;</div>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Collapsible Sections */}
-      <div className="section-group">
-        {sections.map((section, idx) => {
-          const isOpen = !!openSections[idx];
-          return (
-            <div key={idx} className="collapse-card">
-              <div className="collapse-header" onClick={() => toggleSection(idx)}>
-                <div className="collapse-header-left">
-                  {section.dotColor && (
-                    <span className={`collapse-dot ${section.dotColor}`} />
-                  )}
-                  <span className="collapse-title">{section.title}</span>
-                  <span className="collapse-summary">{section.summary}</span>
-                </div>
-                <div className="collapse-header-right">
-                  <span className={`collapse-arrow ${isOpen ? 'open' : ''}`}>&#9662;</span>
-                </div>
-              </div>
-              {isOpen && (
-                <div className="collapse-body">
-                  {section.rows.map((row, rIdx) => (
+          <div className="poi-panel-body">
+              {Object.entries(POI_STYLES).map(([cat, style]) => {
+                const list = realPoi && Array.isArray(realPoi[cat]) ? realPoi[cat] : [];
+                const on = activeLayers[cat];
+                return (
+                  <div key={cat} className="poi-cat">
                     <div
-                      key={rIdx}
-                      className={`d-row ${row.isImpact ? 'risk-impact' : ''}`}
+                      className={`poi-cat-head ${on ? 'active' : ''}`}
+                      onClick={() => toggleCategory(cat)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleCategory(cat); } }}
                     >
-                      <span className="lbl">{row.lbl}</span>
-                      <span className={`val ${row.type || ''}`}>{row.val}</span>
+                      <span className={`mc-check ${on ? 'checked' : ''}`} />
+                      <span className="poi-cat-dot" style={{ background: style.color }} />
+                      <span className="poi-cat-label">{style.label}</span>
+                      <span className="poi-cat-count">{list.length}</span>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
+                    {on && (
+                      list.length > 0 ? (
+                        <ul className="poi-list">
+                          {list.map((p, i) => (
+                            <li key={i} className="poi-item">
+                              <span
+                                className="poi-item-bullet"
+                                style={{ background: style.color }}
+                              />
+                              <span className="poi-item-name">{p.name}</span>
+                              <span className="poi-item-detail">{p.detail}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="poi-list-empty">
+                          {poiLoading ? 'Chargement…' : 'Aucun point trouvé dans ce rayon.'}
+                        </p>
+                      )
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* ─── Sections dépliables (caractéristiques de zone / risques) ─── */}
+              <div className="poi-sections-sep">Caractéristiques de la zone</div>
+              <div className="section-group">
+                {sections.map((section, idx) => {
+                  const isOpen = !!openSections[idx];
+                  return (
+                    <div key={idx} className="collapse-card">
+                      <div className="collapse-header" onClick={() => toggleSection(idx)}>
+                        <div className="collapse-header-left">
+                          {section.dotColor && (
+                            <span className={`collapse-dot ${section.dotColor}`} />
+                          )}
+                          <span className="collapse-title">{section.title}</span>
+                          <span className="collapse-summary">{section.summary}</span>
+                        </div>
+                        <div className="collapse-header-right">
+                          <span className={`collapse-arrow ${isOpen ? 'open' : ''}`}>&#9662;</span>
+                        </div>
+                      </div>
+                      {isOpen && (
+                        <div className="collapse-body">
+                          {section.rows.map((row, rIdx) => (
+                            <div
+                              key={rIdx}
+                              className={`d-row ${row.isImpact ? 'risk-impact' : ''}`}
+                            >
+                              <span className="lbl">{row.lbl}</span>
+                              <span className={`val ${row.type || ''}`}>{row.val}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+          </div>
+        </div>
       </div>
 
       {/* Override Note */}
