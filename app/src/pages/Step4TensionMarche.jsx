@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import PropertyCard from '../components/PropertyCard';
 import Stepper from '../components/Stepper';
 import AcquereurEditDrawer from '../components/AcquereurEditDrawer';
-import { getActiveBien } from '../utils/activeBien';
+import { getActiveBien, isNewEstimationFlow } from '../utils/activeBien';
 import {
   parseAcquereursCsv,
   buildAcquereurCsvTemplate,
@@ -825,6 +825,9 @@ export default function Step4TensionMarche() {
   /* ─── Mode live : "Mes acquéreurs" (CSV + saisie manuelle) ─── */
   const activeBien = useMemo(() => getActiveBien(), []);
   const hasRealLocation = !!(activeBien && activeBien.adresse && activeBien.adresse.label);
+  // "Mes acquereurs" (ajout/import) n'est propose que pendant la saisie d'un
+  // nouveau bien (flux "Nouvelle estimation"), pas dans la consultation Step4.
+  const isNewFlow = useMemo(() => isNewEstimationFlow(), []);
   const prixEstime = useMemo(() => {
     if (!activeBien || !activeBien.bien) return null;
     // 1) Prix retenu par l'agent en Step5 (customPrice persisté)
@@ -950,8 +953,8 @@ export default function Step4TensionMarche() {
       <PropertyCard />
       <Stepper currentStep={4} />
 
-      {/* ═══ MES ACQUÉREURS (mode live uniquement) ═══ */}
-      {hasRealLocation && (
+      {/* ═══ MES ACQUÉREURS (saisie d'un nouveau bien uniquement) ═══ */}
+      {hasRealLocation && isNewFlow && (
         <section className="my-acq-section">
           <div className="my-acq-header">
             <h2 className="my-acq-title">
