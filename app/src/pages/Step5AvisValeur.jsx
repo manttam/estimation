@@ -238,24 +238,93 @@ const cssStyles = `
     min-width: 80px;
     text-align: center;
   }
-  .demand-big-number.offers {
-    color: var(--blue);
-  }
-  .demand-vs {
-    font-size: 14px;
-    font-weight: 600;
-    color: #aaa;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    align-self: center;
-    margin-top: -10px;
-  }
   .demand-big-label {
     font-size: 11px;
     color: #666;
     text-align: center;
     margin-top: 2px;
   }
+
+  /* ---- Bloc Tension du marché : ratio acheteurs / bien en vedette ---- */
+  .tension-block {
+    flex: 0 0 auto;
+    min-width: 200px;
+    padding: 12px 16px 14px;
+    border-radius: 12px;
+    background: #fafafa;
+    border: 1px solid var(--border);
+    border-left: 3px solid #aaa;
+    transition: border-color 0.3s, background 0.3s;
+  }
+  .tension-block.high { background: #f1faf3; border-left-color: var(--green); }
+  .tension-block.mid  { background: #fff8ef; border-left-color: var(--orange); }
+  .tension-block.low  { background: #fdf1f1; border-left-color: var(--red); }
+  .tension-cap {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: #999;
+    margin-bottom: 4px;
+  }
+  .tension-ratio-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .tension-ratio {
+    font-size: 40px;
+    font-weight: 800;
+    line-height: 1;
+    transition: color 0.3s;
+  }
+  .tension-block.high .tension-ratio { color: var(--green); }
+  .tension-block.mid  .tension-ratio { color: #d98e1a; }
+  .tension-block.low  .tension-ratio { color: var(--red); }
+  .tension-unit {
+    font-size: 10px;
+    line-height: 1.2;
+    color: #666;
+    font-weight: 500;
+  }
+  .tension-sources {
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+  }
+  .tension-source {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+  .tension-source-num {
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .tension-source.demand .tension-source-num { color: var(--green); }
+  .tension-source.offer  .tension-source-num { color: var(--blue); }
+  .tension-source-lbl {
+    font-size: 9px;
+    color: #777;
+    margin-top: 3px;
+  }
+  .tension-source-sep {
+    width: 1px;
+    background: rgba(0, 0, 0, 0.08);
+  }
+  .tension-verdict {
+    margin-top: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    transition: color 0.3s;
+  }
+  .tension-block.high .tension-verdict { color: var(--green); }
+  .tension-block.mid  .tension-verdict { color: #b8860b; }
+  .tension-block.low  .tension-verdict { color: var(--red); }
   .demand-gauge-wrap {
     flex: 1;
   }
@@ -1215,6 +1284,23 @@ export default function Step5AvisValeur() {
 
   const demandColor = ratio >= 0.5 ? '#46B962' : ratio >= 0.25 ? '#f5a623' : '#e74c3c';
 
+  /* ---- Tension du marché : nombre d'acheteurs budget-compatibles par bien en vente ----
+     C'est la donnée la plus actionnable pour le vendeur :
+       > 1,5  → marché tendu, position de force vendeur
+       0,8–1,5 → marché équilibré
+       < 0,8  → marché détendu, l'acheteur a le choix (négociation) */
+  const tensionRatio = offresImmo > 0 ? budgetMatch / offresImmo : budgetMatch;
+  const tensionLevel = tensionRatio >= 1.5 ? 'high' : tensionRatio >= 0.8 ? 'mid' : 'low';
+  const tensionLabel = tensionLevel === 'high'
+    ? 'March\u00e9 favorable au vendeur'
+    : tensionLevel === 'mid'
+      ? 'March\u00e9 \u00e9quilibr\u00e9'
+      : 'March\u00e9 favorable aux acqu\u00e9reurs';
+  const tensionRatioLabel = tensionRatio.toLocaleString('fr-FR', {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
+
   // Labels du panneau crit\u00e8res : d\u00e9riv\u00e9s du bien actif en mode live,
   // statiques (wireframe) en d\u00e9mo. Pas de fake data en live.
   const typeLabelCrit = hasRealLocation && activeBien?.bien?.pieces
@@ -1465,18 +1551,31 @@ export default function Step5AvisValeur() {
           </div>
 
           <div className="demand-hero-row">
-            <div className="demand-big-wrap">
-              <div className="demand-big-number" style={{ color: demandColor }}>{budgetMatch}</div>
-              <div className="demand-big-label">projets<br/>d&apos;achat</div>
-            </div>
-            {!hideDemo && (
-              <>
-                <div className="demand-vs">vs</div>
-                <div className="demand-big-wrap">
-                  <div className="demand-big-number offers">{offresImmo}</div>
-                  <div className="demand-big-label">biens similaires<br/>en vente</div>
+            {!hideDemo ? (
+              <div className={`tension-block ${tensionLevel}`}>
+                <div className="tension-cap">Tension du march&eacute;</div>
+                <div className="tension-ratio-row">
+                  <span className="tension-ratio">{tensionRatioLabel}</span>
+                  <span className="tension-unit">acheteur{tensionRatio >= 2 ? 's' : ''}<br/>par bien en vente</span>
                 </div>
-              </>
+                <div className="tension-sources">
+                  <div className="tension-source demand">
+                    <span className="tension-source-num">{budgetMatch}</span>
+                    <span className="tension-source-lbl">projets d&apos;achat</span>
+                  </div>
+                  <div className="tension-source-sep" />
+                  <div className="tension-source offer">
+                    <span className="tension-source-num">{offresImmo}</span>
+                    <span className="tension-source-lbl">biens similaires en vente</span>
+                  </div>
+                </div>
+                <div className="tension-verdict">{tensionLabel}</div>
+              </div>
+            ) : (
+              <div className="demand-big-wrap">
+                <div className="demand-big-number" style={{ color: demandColor }}>{budgetMatch}</div>
+                <div className="demand-big-label">projets<br/>d&apos;achat</div>
+              </div>
             )}
             <div className="demand-gauge-wrap">
               <div className="demand-price-display">
