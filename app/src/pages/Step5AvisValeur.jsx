@@ -66,33 +66,6 @@ const cssStyles = `
     letter-spacing: 0.5px;
     margin-bottom: 20px;
   }
-  /* Bouton "Masquer la démo" en mode live */
-  .hide-demo-toggle {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    font-size: 11px;
-    font-weight: 600;
-    color: #555;
-    background: #fafafa;
-    border: 1px solid #e0e0e0;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.15s ease;
-  }
-  .hide-demo-toggle:hover {
-    background: #f0f0f0;
-    border-color: #c0c0c0;
-  }
-  .hide-demo-toggle.active {
-    background: #fff7e6;
-    border-color: #ffd591;
-    color: #d46b08;
-  }
   .hero-prices {
     display: flex;
     align-items: center;
@@ -1061,19 +1034,9 @@ export default function Step5AvisValeur() {
   }, []);
   const [avisVendeur, setAvisVendeur] = useState(persistedAvisVendeur);
 
-  // Toggle "Masquer la démo" en mode live (pour cacher éléments fictifs)
-  // Hydratation depuis le reportStore.displayConfig pour conserver la
-  // préférence agent au refresh.
-  const persistedDisplay = useMemo(() => getReportSection('displayConfig', {}), []);
-  const [hideDemo, setHideDemo] = useState(
-    typeof persistedDisplay.hideDemo === 'boolean' ? persistedDisplay.hideDemo : false
-  );
-
-  // Persiste les flags d'affichage dans le reportStore pour que la page
-  // CompteRendu puisse masquer/afficher les sections correspondantes.
-  useEffect(() => {
-    mergeReportSection('displayConfig', { hideDemo });
-  }, [hideDemo]);
+  // Les sections de démonstration (comparables fictifs, biens similaires
+  // simulés…) sont toujours affichées : le bouton de masquage a été retiré.
+  const hideDemo = false;
 
   /* Largeurs (en %) redimensionnables au drag des poignées (inspiré de
    * Step3). Persistées dans reportStore.displayConfig.step5Cols.
@@ -1446,17 +1409,6 @@ export default function Step5AvisValeur() {
       <div className="step5-section">
         {/* ============ HERO SECTION ============ */}
         <div className="hero-section">
-          {hasRealLocation && (
-            <button
-              type="button"
-              className={`hide-demo-toggle${hideDemo ? ' active' : ''}`}
-              onClick={() => setHideDemo((v) => !v)}
-              title={hideDemo ? 'R\u00e9afficher les sections d\u00e9mo (comparables, biens similaires en vente\u2026)' : 'Masquer les sections d\u00e9mo (comparables fictifs, biens similaires en vente simul\u00e9s\u2026)'}
-            >
-              <span aria-hidden="true">{hideDemo ? '\uD83D\uDC41\uFE0F' : '\uD83D\uDEAB'}</span>
-              {hideDemo ? ' R\u00e9afficher la d\u00e9mo' : ' Masquer la d\u00e9mo'}
-            </button>
-          )}
           <div className="hero-label">
             ESTIMATION &mdash; {heroDescription}
           </div>

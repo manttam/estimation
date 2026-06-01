@@ -865,7 +865,6 @@ export default function Step4TensionMarche() {
   };
   const [drawerAcq, setDrawerAcq] = useState(null);
   const [csvErrors, setCsvErrors] = useState([]);
-  const [hideDemo, setHideDemo] = useState(false);
   const fileInputRef = useRef(null);
 
   const handleAddManual = () => {
@@ -982,15 +981,6 @@ export default function Step4TensionMarche() {
               <button type="button" className="my-acq-btn primary" onClick={handleAddManual}>
                 <span aria-hidden="true">+</span> Ajouter manuellement
               </button>
-              <button
-                type="button"
-                className="my-acq-btn ghost"
-                onClick={() => setHideDemo((v) => !v)}
-                title={hideDemo ? 'Afficher à nouveau les acquéreurs et projets de démonstration' : 'Masquer les acquéreurs et projets fictifs (démo)'}
-              >
-                <span aria-hidden="true">{hideDemo ? '👁️' : '🚫'}</span>
-                {hideDemo ? ' Réafficher la démo' : ' Masquer la démo'}
-              </button>
             </div>
           </div>
 
@@ -1087,8 +1077,6 @@ export default function Step4TensionMarche() {
         />
       )}
 
-      {!hideDemo && (
-      <>
       {/* ═══ ACTE 1 ═══ */}
       <section className="act act-1">
         <div className="pdf-toggle">
@@ -1398,8 +1386,6 @@ export default function Step4TensionMarche() {
           </div>
         </div>
       </section>
-      </>
-      )}
 
       {/* FOOTER */}
       <div className="footer-buttons">
