@@ -4526,6 +4526,20 @@ export default function Step3Comparables() {
     tile.setUrl(urls[mapStyle] || urls.plan);
   }, [mapStyle]);
 
+  /* Synchronise le cercle de rayon sur la carte avec le slider. Le cercle est
+   * créé une fois (radius: 1000) ; ici on met à jour son rayon réel + on ajuste
+   * la vue pour qu'il reste entièrement visible quand on élargit. */
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const circle = radiusCircleRef.current;
+    if (!map || !circle) return;
+    circle.setRadius(radius);
+    // Ne recadre que si le cercle est affiché (pas de zone dessinée manuelle)
+    if (map.hasLayer(circle)) {
+      map.fitBounds(circle.getBounds(), { padding: [24, 24], animate: true });
+    }
+  }, [radius]);
+
   /* ─── Render markers comparables (selected + others) ──────────────────────
    * Effect dynamique — réagit aux changements de selected/others (par ex.
    * arrivée des transactions DVF live après fetch). Vide la layer puis
