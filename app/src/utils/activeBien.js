@@ -10,6 +10,10 @@
  */
 
 const STORAGE_KEY = 'ideeri_active_bien';
+// Drapeau de session : positionne quand l'utilisateur saisit un NOUVEAU bien
+// (flux "Nouvelle estimation" -> /nouveau-bien -> setActiveBien). Lu par Step4
+// pour n'afficher la saisie d'acquereurs que pendant la creation d'un bien.
+const NEW_FLOW_KEY = 'ideeri_new_estimation_flow';
 
 /**
  * Sauvegarde le bien actif (toutes les donnees saisies + resultat d'estimation).
@@ -28,9 +32,32 @@ const STORAGE_KEY = 'ideeri_active_bien';
 export function setActiveBien(payload) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    // Saisie d'un nouveau bien : on ouvre le flux "nouvelle estimation".
+    sessionStorage.setItem(NEW_FLOW_KEY, '1');
   } catch (err) {
     console.error('[activeBien] setActiveBien error', err);
   }
+}
+
+/**
+ * Indique si l'on est dans le flux de saisie d'un nouveau bien
+ * (declenche par "Nouvelle estimation" depuis l'historique).
+ */
+export function isNewEstimationFlow() {
+  try {
+    return sessionStorage.getItem(NEW_FLOW_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Termine le flux de saisie d'un nouveau bien.
+ */
+export function clearNewEstimationFlow() {
+  try {
+    sessionStorage.removeItem(NEW_FLOW_KEY);
+  } catch { /* ignore */ }
 }
 
 /**
@@ -53,6 +80,8 @@ export function getActiveBien() {
 export function clearActiveBien() {
   try {
     localStorage.removeItem(STORAGE_KEY);
+    // Consultation d'un bien existant : on sort du flux "nouvelle estimation".
+    sessionStorage.removeItem(NEW_FLOW_KEY);
   } catch (err) {
     console.error('[activeBien] clearActiveBien error', err);
   }
