@@ -43,10 +43,9 @@ const cssStyles = `
     color: var(--text);
   }
 
+  /* Pleine largeur comme Step2/3/4 : le Layout fournit déjà le padding latéral. */
   .step5-section {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 20px;
+    width: 100%;
   }
 
   /* ---- Hero Section ---- */
@@ -245,86 +244,46 @@ const cssStyles = `
     margin-top: 2px;
   }
 
-  /* ---- Bloc Tension du marché : ratio acheteurs / bien en vedette ---- */
-  .tension-block {
+  /* ---- Bloc demande : projets d'achat en vedette, tension en note secondaire ---- */
+  .demand-lead-block {
     flex: 0 0 auto;
-    min-width: 200px;
-    padding: 12px 16px 14px;
-    border-radius: 12px;
-    background: #fafafa;
-    border: 1px solid var(--border);
-    border-left: 3px solid #aaa;
-    transition: border-color 0.3s, background 0.3s;
-  }
-  .tension-block.high { background: #f1faf3; border-left-color: var(--green); }
-  .tension-block.mid  { background: #fff8ef; border-left-color: var(--orange); }
-  .tension-block.low  { background: #fdf1f1; border-left-color: var(--red); }
-  .tension-cap {
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.8px;
-    text-transform: uppercase;
-    color: #999;
-    margin-bottom: 4px;
-  }
-  .tension-ratio-row {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-  }
-  .tension-ratio {
-    font-size: 40px;
-    font-weight: 800;
-    line-height: 1;
-    transition: color 0.3s;
-  }
-  .tension-block.high .tension-ratio { color: var(--green); }
-  .tension-block.mid  .tension-ratio { color: #d98e1a; }
-  .tension-block.low  .tension-ratio { color: var(--red); }
-  .tension-unit {
-    font-size: 10px;
-    line-height: 1.2;
-    color: #666;
-    font-weight: 500;
-  }
-  .tension-sources {
-    display: flex;
-    align-items: stretch;
-    gap: 10px;
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid rgba(0, 0, 0, 0.06);
-  }
-  .tension-source {
     display: flex;
     flex-direction: column;
-    flex: 1;
+    align-items: center;
+    gap: 10px;
   }
-  .tension-source-num {
-    font-size: 18px;
-    font-weight: 700;
-    line-height: 1;
+  .demand-lead-main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
-  .tension-source.demand .tension-source-num { color: var(--green); }
-  .tension-source.offer  .tension-source-num { color: var(--blue); }
-  .tension-source-lbl {
-    font-size: 9px;
-    color: #777;
-    margin-top: 3px;
+  /* Note de tension : petite ligne discrète sous le chiffre vedette */
+  .tension-note {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 200px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: #f4f4f4;
+    font-size: 10px;
+    line-height: 1.3;
+    color: #666;
+    text-align: center;
+    transition: background 0.3s, color 0.3s;
   }
-  .tension-source-sep {
-    width: 1px;
-    background: rgba(0, 0, 0, 0.08);
+  .tension-note.high { background: #ecf8f0; color: #2f8f4e; }
+  .tension-note.mid  { background: #fdf4e7; color: #b8860b; }
+  .tension-note.low  { background: #fcefef; color: #d4452f; }
+  .tension-note strong { font-weight: 800; }
+  .tension-note-dot {
+    flex: 0 0 auto;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
   }
-  .tension-verdict {
-    margin-top: 10px;
-    font-size: 11px;
-    font-weight: 600;
-    transition: color 0.3s;
-  }
-  .tension-block.high .tension-verdict { color: var(--green); }
-  .tension-block.mid  .tension-verdict { color: #b8860b; }
-  .tension-block.low  .tension-verdict { color: var(--red); }
+  .tension-note-text { min-width: 0; }
   .demand-gauge-wrap {
     flex: 1;
   }
@@ -1552,24 +1511,17 @@ export default function Step5AvisValeur() {
 
           <div className="demand-hero-row">
             {!hideDemo ? (
-              <div className={`tension-block ${tensionLevel}`}>
-                <div className="tension-cap">Tension du march&eacute;</div>
-                <div className="tension-ratio-row">
-                  <span className="tension-ratio">{tensionRatioLabel}</span>
-                  <span className="tension-unit">acheteur{tensionRatio >= 2 ? 's' : ''}<br/>par bien en vente</span>
+              <div className="demand-lead-block">
+                <div className="demand-lead-main">
+                  <div className="demand-big-number" style={{ color: demandColor }}>{budgetMatch}</div>
+                  <div className="demand-big-label">projets<br/>d&apos;achat</div>
                 </div>
-                <div className="tension-sources">
-                  <div className="tension-source demand">
-                    <span className="tension-source-num">{budgetMatch}</span>
-                    <span className="tension-source-lbl">projets d&apos;achat</span>
-                  </div>
-                  <div className="tension-source-sep" />
-                  <div className="tension-source offer">
-                    <span className="tension-source-num">{offresImmo}</span>
-                    <span className="tension-source-lbl">biens similaires en vente</span>
-                  </div>
+                <div className={`tension-note ${tensionLevel}`}>
+                  <span className="tension-note-dot" />
+                  <span className="tension-note-text">
+                    <strong>{tensionRatioLabel}</strong> acheteur{tensionRatio >= 2 ? 's' : ''} pour {offresImmo} bien{offresImmo > 1 ? 's' : ''} en vente &middot; {tensionLabel}
+                  </span>
                 </div>
-                <div className="tension-verdict">{tensionLabel}</div>
               </div>
             ) : (
               <div className="demand-big-wrap">
