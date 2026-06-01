@@ -3771,7 +3771,7 @@ export default function Step3Comparables() {
     // seule fois ; le filtrage par rayon courant se fait ensuite côté front
     // (passesLiveFilters + communesInRadius), sans re-fetch au drag du curseur.
     const [tLat, tLon] = targetCoords || [];
-    const dvfUrl = `/api/dvf-zone?lat=${encodeURIComponent(tLat)}&lon=${encodeURIComponent(tLon)}&radius=5000${type ? `&type=${encodeURIComponent(type)}` : ''}`;
+    const dvfUrl = `/api/dvf-zone?lat=${encodeURIComponent(tLat)}&lon=${encodeURIComponent(tLon)}&radius=10000${type ? `&type=${encodeURIComponent(type)}` : ''}`;
     console.log('[Step3 live] fetch DVF zone', dvfUrl);
 
     fetch(dvfUrl)
@@ -4404,7 +4404,7 @@ export default function Step3Comparables() {
   })();
 
   const formatRadius = (v) => (v >= 1000 ? `${(v / 1000).toFixed(v % 1000 === 0 ? 0 : 1)} km` : `${v}m`);
-  const sliderPct = ((radius - 100) / (5000 - 100)) * 100;
+  const sliderPct = ((radius - 100) / (10000 - 100)) * 100;
 
   // Source → marker color mapping
   // vert = Ideeri vendu (mandat) · bleu = DVF officiel · orange = Ideeri en cours · rouge = Portails
@@ -4710,7 +4710,7 @@ export default function Step3Comparables() {
                 type="range"
                 className="cs-input"
                 min="100"
-                max="5000"
+                max="10000"
                 step="100"
                 value={radius}
                 onChange={(e) => setRadius(Number(e.target.value))}
@@ -4719,10 +4719,10 @@ export default function Step3Comparables() {
             </div>
             <div className="radius-slider-labels">
               <span>100m</span>
-              <span>1km</span>
               <span>2km</span>
-              <span>3km</span>
-              <span>5km</span>
+              <span>4km</span>
+              <span>6km</span>
+              <span>10km</span>
             </div>
           </div>
           <div className="radius-value">{formatRadius(radius)}</div>
