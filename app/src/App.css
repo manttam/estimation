@@ -8,7 +8,8 @@
   /* Brand colors */
   --green: #46B962;
   --green-light: #e8f8ec;
-  --green-dark: #3a9e53;
+  --green-soft: #e8f6ec;
+  --green-dark: #3da856;
   --dark: #4D4545;
   --dark-hover: #5a5050;
   --bg: #fafafa;
@@ -29,7 +30,27 @@
   --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.1);
   --radius-sm: 4px;
   --radius-md: 8px;
+  --radius-card: 10px;
   --radius-lg: 12px;
+
+  /* Typography scale */
+  --fs-2xs: 10px;
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-base: 13px;
+  --fs-md: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 18px;
+  --fs-2xl: 20px;
+
+  /* Spacing scale */
+  --sp-2: 2px;
+  --sp-4: 4px;
+  --sp-8: 8px;
+  --sp-12: 12px;
+  --sp-16: 16px;
+  --sp-20: 20px;
+  --sp-24: 24px;
 
   /* Sidebar */
   --sidebar-width: 220px;
@@ -133,9 +154,25 @@ table {
 .card {
   background: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow-sm);
 }
+
+/* ---- Source badge (used by Step3 + ComparableDrawer) ---- */
+.source-badge {
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: var(--fs-2xs);
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.source-badge.dvf { background: #f0f4ff; color: #666; }
+.source-badge.ideeri { background: #f0f8f5; color: #666; }
+.source-badge.encours { background: #fffbf0; color: #666; }
+.source-badge.portail { background: #fef6f0; color: #666; }
 
 .badge {
   display: inline-flex;

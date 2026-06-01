@@ -23,7 +23,7 @@ const drawerCss = `
     overflow-y: auto;
     animation: drawer-slide-in 0.25s ease;
     box-shadow: -4px 0 20px rgba(0, 0, 0, 0.12);
-    font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: var(--font);
   }
   @keyframes drawer-slide-in {
     from { transform: translateX(100%); }
@@ -115,7 +115,7 @@ const drawerCss = `
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    background: #4a6cf7;
+    background: var(--blue);
     cursor: pointer;
     border: 2px solid #fff;
     box-shadow: 0 2px 4px rgba(74, 108, 247, 0.3);
@@ -124,7 +124,7 @@ const drawerCss = `
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    background: #4a6cf7;
+    background: var(--blue);
     cursor: pointer;
     border: 2px solid #fff;
     box-shadow: 0 2px 4px rgba(74, 108, 247, 0.3);
@@ -286,14 +286,14 @@ const drawerCss = `
     position: absolute;
     left: 0;
     font-weight: 700;
-    color: #46B962;
+    color: var(--green);
   }
   .pros-cons-col.cons li::before {
     content: "−";
     position: absolute;
     left: 0;
     font-weight: 700;
-    color: #e74c3c;
+    color: var(--red);
   }
   /* Highlights (portails) */
   .highlights-tags {
@@ -497,7 +497,7 @@ const drawerCss = `
     margin-bottom: 2px;
   }
   .curve-tooltip-price {
-    color: #46B962;
+    color: var(--green);
     font-weight: 700;
     font-size: 13px;
   }
@@ -522,12 +522,12 @@ const drawerCss = `
     height: 12px;
     border-radius: 50%;
     background: #fff;
-    border: 2px solid #46B962;
+    border: 2px solid var(--green);
   }
   .price-timeline li.event-baisse::before { border-color: #d97706; }
   .price-timeline li.event-vente::before {
-    background: #46B962;
-    border-color: #46B962;
+    background: var(--green);
+    border-color: var(--green);
   }
   .timeline-date {
     font-size: 10px;
@@ -542,7 +542,7 @@ const drawerCss = `
     margin: 1px 0;
   }
   .timeline-price {
-    color: #46B962;
+    color: var(--green);
     font-weight: 700;
     font-size: 13px;
   }
@@ -664,7 +664,7 @@ const drawerCss = `
   }
   .parcel-toggle-btn:hover { background: #f0f0f0; color: #1a1a1a; }
   .parcel-toggle-btn.active {
-    background: #4a6cf7;
+    background: var(--blue);
     color: #fff;
   }
   .parcel-toggle-btn.active:hover { background: #3855d5; }

@@ -38,7 +38,7 @@ const styles = `
     overflow-y: auto;
     animation: mcd-slide-in 0.25s ease;
     box-shadow: -4px 0 20px rgba(0, 0, 0, 0.12);
-    font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: var(--font);
     display: flex;
     flex-direction: column;
   }
@@ -113,7 +113,7 @@ const styles = `
     color: #555;
     font-weight: 500;
   }
-  .mcd-label .req { color: #e74c3c; margin-left: 2px; }
+  .mcd-label .req { color: var(--red); margin-left: 2px; }
   .mcd-input,
   .mcd-select,
   .mcd-textarea {
@@ -132,7 +132,7 @@ const styles = `
   .mcd-select:focus,
   .mcd-textarea:focus {
     outline: none;
-    border-color: #4a6cf7;
+    border-color: var(--blue);
   }
   .mcd-input.computed {
     background: #fafafa;
@@ -167,7 +167,7 @@ const styles = `
     font-family: inherit;
   }
   .mcd-toggle button.active {
-    background: #4a6cf7;
+    background: var(--blue);
     color: #fff;
     font-weight: 600;
   }
@@ -190,7 +190,7 @@ const styles = `
     color: #333;
     user-select: none;
   }
-  .mcd-check input { accent-color: #4a6cf7; cursor: pointer; }
+  .mcd-check input { accent-color: var(--blue); cursor: pointer; }
 
   /* Tags input */
   .mcd-tags {
@@ -321,10 +321,10 @@ const styles = `
   }
   .mcd-btn.secondary:hover { background: #ececec; }
   .mcd-btn.primary {
-    background: #46B962;
+    background: var(--green);
     color: #fff;
   }
-  .mcd-btn.primary:hover { background: #3aa653; }
+  .mcd-btn.primary:hover { background: var(--green-dark); }
   .mcd-btn.primary:disabled {
     background: #b8d8be;
     cursor: not-allowed;

@@ -40,7 +40,7 @@ const editCss = `
     overflow-y: auto;
     animation: compedit-slide-in 0.25s ease;
     box-shadow: -4px 0 20px rgba(0, 0, 0, 0.12);
-    font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: var(--font);
     display: flex;
     flex-direction: column;
   }
@@ -87,7 +87,7 @@ const editCss = `
     color: #374151;
   }
   .compedit-source-badge.dvf      { background: #ede9fe; color: #6d28d9; }
-  .compedit-source-badge.ideeri   { background: #d1fae5; color: #047857; }
+  .compedit-source-badge.ideeri   { background: var(--green-soft); color: var(--green); }
   .compedit-source-badge.encours  { background: #fef3c7; color: #b45309; }
   .compedit-source-badge.portail  { background: #dbeafe; color: #1d4ed8; }
   .compedit-close {
@@ -161,17 +161,17 @@ const editCss = `
   .compedit-slider-value {
     font-weight: 700;
     font-size: 22px;
-    color: #047857;
+    color: var(--green);
     font-variant-numeric: tabular-nums;
     min-width: 56px;
     text-align: right;
   }
   .compedit-slider-value.is-low  { color: #dc2626; }
   .compedit-slider-value.is-mid  { color: #d97706; }
-  .compedit-slider-value.is-high { color: #047857; }
+  .compedit-slider-value.is-high { color: var(--green); }
   .compedit-slider {
     width: 100%;
-    accent-color: #047857;
+    accent-color: var(--green);
     cursor: pointer;
     height: 4px;
   }
@@ -189,7 +189,7 @@ const editCss = `
     line-height: 1.4;
   }
   .compedit-delta strong { color: #1a1a1a; }
-  .compedit-delta .delta-pos { color: #047857; }
+  .compedit-delta .delta-pos { color: var(--green); }
   .compedit-delta .delta-neg { color: #dc2626; }
   .compedit-reset {
     margin-top: 14px;
@@ -249,10 +249,10 @@ const editCss = `
   }
   .compedit-btn-ghost:hover { background: #f8fafc; border-color: #cbd5e1; }
   .compedit-btn-primary {
-    background: #047857;
+    background: var(--green);
     color: #fff;
   }
-  .compedit-btn-primary:hover { background: #065f46; }
+  .compedit-btn-primary:hover { background: var(--green-dark); }
   .compedit-btn-primary:disabled {
     background: #cbd5e1;
     cursor: not-allowed;
