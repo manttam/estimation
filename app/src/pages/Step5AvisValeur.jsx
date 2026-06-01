@@ -173,6 +173,29 @@ const cssStyles = `
   }
 
   /* ---- Demand Section ---- */
+  /* ---- Rang\u00e9e haute : Impact du prix + Strat\u00e9gie c\u00f4te \u00e0 c\u00f4te ----
+   * Grid 2 colonnes redimensionnable (1 poign\u00e9e). Largeurs via --top-l/--top-r. */
+  .top-row {
+    display: grid;
+    grid-template-columns:
+      minmax(0, var(--top-l, 64%))
+      8px
+      minmax(0, var(--top-r, 36%));
+    gap: 0;
+    margin-bottom: 14px;
+    align-items: start;
+  }
+  .top-row.is-resizing {
+    cursor: col-resize;
+    user-select: none;
+  }
+  /* Dans la rang\u00e9e, les blocs n'ont plus de margin-bottom propre */
+  .top-row .demand-section,
+  .top-row .card.strategy {
+    margin-bottom: 0;
+    height: 100%;
+  }
+
   .demand-section {
     background: #fff;
     border-radius: 10px;
@@ -386,25 +409,21 @@ const cssStyles = `
   .demand-verdict-desc { font-size: 11px; color: #666; margin-top: 2px; }
 
   /* ---- Content Grid (colonnes redimensionnables) ----
-   * 3 colonnes + 2 poignées en mode démo, 2 colonnes + 1 poignée en
-   * mode "Masquer la démo". Largeurs pilotées par les CSS vars --col-N. */
+   * 2 colonnes + 1 poignée en mode démo : Décompo+Comparables (col1) |
+   * Forts/Vigilance/Avis/Actions (col2). En "Masquer la démo", col1
+   * disparaît → 1 seule colonne pleine largeur. Largeur via --col-1. */
   .content-grid {
     display: grid;
     grid-template-columns:
-      minmax(0, var(--col-1, 40%))
+      minmax(0, var(--col-1, 50%))
       8px
-      minmax(0, var(--col-2, 30%))
-      8px
-      minmax(0, var(--col-3, 30%));
+      minmax(0, 1fr);
     gap: 0;
     margin-bottom: 14px;
     align-items: start;
   }
-  .content-grid.two-col {
-    grid-template-columns:
-      minmax(0, var(--col-2, 50%))
-      8px
-      minmax(0, var(--col-3, 50%));
+  .content-grid.single-col {
+    grid-template-columns: minmax(0, 1fr);
   }
   .content-grid-col {
     display: flex;
@@ -1028,78 +1047,35 @@ export default function Step5AvisValeur() {
     mergeReportSection('displayConfig', { hideDemo });
   }, [hideDemo]);
 
-  /* Largeurs (en %) des 3 colonnes du content-grid, redimensionnables au
-   * drag des poignées entre colonnes (inspiré de Step3). Persistées dans
-   * reportStore.displayConfig.step5Cols pour conserver la disposition. */
+  /* Largeurs (en %) redimensionnables au drag des poignées (inspiré de
+   * Step3). Persistées dans reportStore.displayConfig.step5Cols.
+   *  - topL : largeur de "Impact du prix" dans la rangée haute (le reste = Stratégie)
+   *  - c1 : largeur de la colonne 1 du content-grid (Décompo+Comparables)
+   *         le reste (= 100 - c1) revient à la colonne 2 (Forts/Vigilance/Actions) */
   const persistedCols = useMemo(
     () => getReportSection('displayConfig', {}).step5Cols || null,
     []
   );
-  const [colWidths, setColWidths] = useState(() => ({
-    c1: persistedCols?.c1 ?? 40,
-    c2: persistedCols?.c2 ?? 30,
-    c3: persistedCols?.c3 ?? 30,
-  }));
-  // Poignée active en cours de drag (1 = entre col1/col2, 2 = entre col2/col3)
+  const [topL, setTopL] = useState(() => persistedCols?.topL ?? 64);
+  const [c1, setC1] = useState(() => persistedCols?.c1 ?? 50);
+  // Poignée active : 'top' (rangée haute), 'grid' (content-grid), ou null
   const [activeHandle, setActiveHandle] = useState(null);
+  const topRowRef = useRef(null);
   const gridRef = useRef(null);
 
-  /* Bornes min/max (en %) — évite qu'une colonne soit trop écrasée. */
-  const COL_BOUNDS = useMemo(() => ({
-    c1: [22, 60],
-    c2: [22, 55],
-    c3: [22, 55],
-  }), []);
+  const clampPct = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
-  const clampPct = (v, [lo, hi]) => Math.max(lo, Math.min(hi, v));
-
-  /* Démarre le drag d'une poignée (idx = 1 ou 2). Attache mousemove/mouseup
-   * globaux puis les retire au mouseup. Pas de carte Leaflet ici → pas
-   * besoin d'invalidateSize. */
-  const startResize = (e, idx) => {
+  /* Drag générique : ref = conteneur, setter = state %, key = id de poignée.
+   * On mappe la position X de la souris en % de la largeur du conteneur,
+   * bornée à [25, 75] pour garder les deux blocs lisibles. */
+  const startResize = (e, ref, setter, key) => {
     e.preventDefault();
-    setActiveHandle(idx);
-    const rect = gridRef.current?.getBoundingClientRect();
-    if (!rect || !rect.width) return;
-
-    const handleMove = (mv) => {
-      const ratio = ((mv.clientX - rect.left) / rect.width) * 100;
-      setColWidths((prev) => {
-        if (idx === 1) {
-          // Handle entre col1 et col2 : ratio = bord droit de col1
-          const newC1 = clampPct(ratio, COL_BOUNDS.c1);
-          const newC2 = clampPct(100 - newC1 - prev.c3, COL_BOUNDS.c2);
-          return { c1: 100 - newC2 - prev.c3, c2: newC2, c3: prev.c3 };
-        }
-        // idx === 2 — Handle entre col2 et col3 : ratio = bord droit de col2
-        const newC3 = clampPct(100 - ratio, COL_BOUNDS.c3);
-        const newC2 = clampPct(100 - prev.c1 - newC3, COL_BOUNDS.c2);
-        return { c1: prev.c1, c2: newC2, c3: 100 - prev.c1 - newC2 };
-      });
-    };
-    const handleUp = () => {
-      setActiveHandle(null);
-      window.removeEventListener('mousemove', handleMove);
-      window.removeEventListener('mouseup', handleUp);
-    };
-    window.addEventListener('mousemove', handleMove);
-    window.addEventListener('mouseup', handleUp);
-  };
-
-  /* En mode "Masquer la démo" col1 disparaît → on redimensionne col2/col3
-   * uniquement. ratio = bord droit de col2 dans la zone des 2 colonnes. */
-  const startResize2 = (e) => {
-    e.preventDefault();
-    setActiveHandle(2);
-    const rect = gridRef.current?.getBoundingClientRect();
+    setActiveHandle(key);
+    const rect = ref.current?.getBoundingClientRect();
     if (!rect || !rect.width) return;
     const handleMove = (mv) => {
       const pct = ((mv.clientX - rect.left) / rect.width) * 100;
-      const total = colWidths.c2 + colWidths.c3;
-      setColWidths((prev) => {
-        const newC2 = clampPct(pct, [22, total - 22]);
-        return { ...prev, c2: newC2, c3: total - newC2 };
-      });
+      setter(clampPct(pct, 25, 75));
     };
     const handleUp = () => {
       setActiveHandle(null);
@@ -1110,13 +1086,14 @@ export default function Step5AvisValeur() {
     window.addEventListener('mouseup', handleUp);
   };
 
-  /* Reset des largeurs (double-clic sur une poignée → 40/30/30) */
-  const resetCols = () => setColWidths({ c1: 40, c2: 30, c3: 30 });
+  /* Reset (double-clic) : rangée haute → 64/36, content-grid → 50/50 */
+  const resetTop = () => setTopL(64);
+  const resetGrid = () => setC1(50);
 
   // Persiste les largeurs dans reportStore.displayConfig
   useEffect(() => {
-    mergeReportSection('displayConfig', { step5Cols: colWidths });
-  }, [colWidths]);
+    mergeReportSection('displayConfig', { step5Cols: { topL, c1 } });
+  }, [topL, c1]);
 
   // Persistance dans le reportStore pour que CompteRendu (/report) puisse
   // afficher les valeurs saisies par l'utilisateur (points forts/vigilance
@@ -1472,7 +1449,13 @@ export default function Step5AvisValeur() {
           </div>
         </div>
 
-        {/* ============ DEMAND vs PRICE SLIDER ============ */}
+        {/* ============ RANG\u00c9E HAUTE : Impact du prix + Strat\u00e9gie ============ */}
+        <div
+          ref={topRowRef}
+          className={`top-row${activeHandle === 'top' ? ' is-resizing' : ''}`}
+          style={{ '--top-l': `${topL}%`, '--top-r': `${100 - topL}%` }}
+        >
+        {/* ---- Impact du prix sur la demande ---- */}
         <div className="demand-section">
           <div className="demand-header">
             <div>
@@ -1544,16 +1527,60 @@ export default function Step5AvisValeur() {
             </div>
           </div>
         </div>
+        {/* /demand-section */}
 
-        {/* ============ THREE-COLUMN GRID (redimensionnable) ============ */}
+          {/* Poign\u00e9e : entre Impact du prix et Strat\u00e9gie */}
+          <div
+            className={`col-resize-handle${activeHandle === 'top' ? ' is-dragging' : ''}`}
+            onMouseDown={(e) => startResize(e, topRowRef, setTopL, 'top')}
+            onDoubleClick={resetTop}
+            title="Glisser pour redimensionner \u00b7 double-clic pour r\u00e9initialiser"
+          />
+
+          {/* ---- Strat\u00e9gie de prix (communique avec l'impact du prix) ---- */}
+          <div className="card strategy">
+            <div className="card-title">Strat&eacute;gie de prix</div>
+            {strategies.map((s, i) => {
+              const isSelected = selectedStrategy === i;
+              return (
+                <div
+                  key={i}
+                  className={`strategy-option${isSelected ? ' selected' : ''}`}
+                  onClick={() => {
+                    setSelectedStrategy(i);
+                    setCustomPrice(String(s.prix));
+                  }}
+                >
+                  <div className="strategy-header-row">
+                    <div className="strategy-radio">
+                      <div className="strategy-radio-inner" />
+                    </div>
+                    <span className="strategy-name">{s.label} &mdash; {formatPrice(s.prix)}</span>
+                  </div>
+                  <div className="strategy-desc">{s.description}</div>
+                  {confidenceScore >= 90 && (
+                    <div className="strategy-duration">&#128197; {s.duration}</div>
+                  )}
+                  {s.recommended && <div className="badge-rec">&#10003; Recommand&eacute;</div>}
+                </div>
+              );
+            })}
+            <input
+              type="text"
+              className="custom-input"
+              placeholder="Prix de mise en vente libre (\u20ac)"
+              value={customPrice}
+              onChange={(e) => setCustomPrice(e.target.value)}
+            />
+          </div>
+        </div>
+        {/* /top-row */}
+
+        {/* ============ CONTENT GRID (redimensionnable) ============ */}
         <div
           ref={gridRef}
-          className={`content-grid${hideDemo ? ' two-col' : ''}${activeHandle ? ' is-resizing' : ''}`}
-          style={{
-            '--col-1': `${colWidths.c1}%`,
-            '--col-2': `${colWidths.c2}%`,
-            '--col-3': `${colWidths.c3}%`,
-          }}
+          className={`content-grid${hideDemo ? ' single-col' : ''}${activeHandle === 'grid' ? ' is-resizing' : ''}`}
+          style={{ '--col-1': `${c1}%` }}
         >
           {/* --- Column 1: Decomposition + Comparables (mock — masqu\u00e9 en mode "Masquer la d\u00e9mo") --- */}
           {!hideDemo && (
@@ -1701,12 +1728,12 @@ export default function Step5AvisValeur() {
           </div>
           )}
 
-          {/* Poign\u00e9e 1 : entre col1 et col2 (uniquement si la d\u00e9mo est visible) */}
+          {/* Poign\u00e9e : entre col1 et col2 (uniquement si la d\u00e9mo est visible) */}
           {!hideDemo && (
             <div
-              className={`col-resize-handle${activeHandle === 1 ? ' is-dragging' : ''}`}
-              onMouseDown={(e) => startResize(e, 1)}
-              onDoubleClick={resetCols}
+              className={`col-resize-handle${activeHandle === 'grid' ? ' is-dragging' : ''}`}
+              onMouseDown={(e) => startResize(e, gridRef, setC1, 'grid')}
+              onDoubleClick={resetGrid}
               title="Glisser pour redimensionner \u00b7 double-clic pour r\u00e9initialiser"
             />
           )}
@@ -1781,53 +1808,6 @@ export default function Step5AvisValeur() {
               {avisVendeur.trim().length > 0 && (
                 <div className="seller-opinion-meta">{avisVendeur.trim().length} caract&egrave;res saisis</div>
               )}
-            </div>
-          </div>
-
-          {/* Poign\u00e9e 2 : entre col2 et col3 */}
-          <div
-            className={`col-resize-handle${activeHandle === 2 ? ' is-dragging' : ''}`}
-            onMouseDown={(e) => (hideDemo ? startResize2(e) : startResize(e, 2))}
-            onDoubleClick={resetCols}
-            title="Glisser pour redimensionner \u00b7 double-clic pour r\u00e9initialiser"
-          />
-
-          {/* --- Column 3: Strategy + Actions --- */}
-          <div className="content-grid-col">
-            <div className="card strategy">
-              <div className="card-title">Strat&eacute;gie de prix</div>
-              {strategies.map((s, i) => {
-                const isSelected = selectedStrategy === i;
-                return (
-                  <div
-                    key={i}
-                    className={`strategy-option${isSelected ? ' selected' : ''}`}
-                    onClick={() => {
-                      setSelectedStrategy(i);
-                      setCustomPrice(String(s.prix));
-                    }}
-                  >
-                    <div className="strategy-header-row">
-                      <div className="strategy-radio">
-                        <div className="strategy-radio-inner" />
-                      </div>
-                      <span className="strategy-name">{s.label} &mdash; {formatPrice(s.prix)}</span>
-                    </div>
-                    <div className="strategy-desc">{s.description}</div>
-                    {confidenceScore >= 90 && (
-                      <div className="strategy-duration">&#128197; {s.duration}</div>
-                    )}
-                    {s.recommended && <div className="badge-rec">&#10003; Recommand&eacute;</div>}
-                  </div>
-                );
-              })}
-              <input
-                type="text"
-                className="custom-input"
-                placeholder="Prix de mise en vente libre (\u20ac)"
-                value={customPrice}
-                onChange={(e) => setCustomPrice(e.target.value)}
-              />
             </div>
 
             <div className="card">
