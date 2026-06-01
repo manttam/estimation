@@ -3113,7 +3113,36 @@ function projectMockNearTarget(comp, targetCoords, idx) {
     ...comp,
     coords: [lat + dLat, lng + dLng],
     distance: `${Math.round(distMeters)}m`,
+    // KeyFacts (drawer détail) lit les propriétés racine. Ces mocks ne portent
+    // leurs valeurs que dans `fields` → on les remonte à la racine si absentes,
+    // sinon le détail est vide (tout sauf la distance).
+    ...rootFactsFromFields(comp),
   };
+}
+
+/* Dérive les propriétés racine attendues par KeyFacts (prix, prixM2, surface,
+ * pieces, addr, sourceLabel) depuis `comp.fields`, sans écraser celles déjà
+ * présentes à la racine. Prix/prixM2 formatés fr-FR pour rester homogènes avec
+ * les mocks INITIAL_SELECTED ("285 000"). */
+function rootFactsFromFields(comp) {
+  const f = comp.fields || {};
+  const out = {};
+  if (comp.prix == null && Number.isFinite(f.prix)) out.prix = f.prix.toLocaleString('fr-FR');
+  if (comp.prixM2 == null && Number.isFinite(f.prixM2)) out.prixM2 = f.prixM2.toLocaleString('fr-FR');
+  if (comp.surface == null && f.surface != null) out.surface = f.surface;
+  if (comp.pieces == null && f.pieces != null) out.pieces = f.pieces;
+  if (comp.sourceLabel == null) {
+    out.sourceLabel = comp.source === 'ideeri' ? 'Ideeri'
+      : comp.source === 'encours' ? 'En cours'
+      : comp.source === 'portail' ? (comp.portalName || 'Portail')
+      : comp.source === 'dvf' ? 'DVF'
+      : comp.source || '—';
+  }
+  // addr : pas de commune réelle sur ces mocks → dernier segment du titre.
+  if (comp.addr == null && typeof comp.title === 'string' && comp.title.includes(',')) {
+    out.addr = comp.title.split(',').pop().trim();
+  }
+  return out;
 }
 
 function SelectedCompCard({ comp, onRemove, onOpenDrawer, weight, onWeightChange }) {
