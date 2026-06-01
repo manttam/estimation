@@ -104,7 +104,7 @@ const cssStyles = `
     background: #fafafa;
     min-height: 100vh;
     padding-bottom: 32px;
-    font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    font-family: var(--font);
   }
 
   .step1-content {
@@ -135,7 +135,7 @@ const cssStyles = `
   .accordion-item {
     background: white;
     border: 1px solid #eee;
-    border-radius: 12px;
+    border-radius: var(--radius-card);
     overflow: hidden;
   }
 
@@ -170,7 +170,7 @@ const cssStyles = `
   .accordion-title {
     font-size: 14px;
     font-weight: 600;
-    color: #393939;
+    color: var(--text);
     margin: 0;
   }
 
@@ -192,7 +192,7 @@ const cssStyles = `
 
   .accordion-progress-fill {
     height: 100%;
-    background: #46B962;
+    background: var(--green);
     border-radius: 2px;
   }
 
@@ -209,7 +209,7 @@ const cssStyles = `
   }
 
   .accordion-progress.low .accordion-progress-fill {
-    background: #e74c3c;
+    background: var(--red);
   }
 
   .accordion-arrow {
@@ -263,13 +263,13 @@ const cssStyles = `
 
   .form-input:focus,
   .form-select:focus {
-    border-color: #46B962;
+    border-color: var(--green);
     box-shadow: 0 0 0 3px rgba(70, 185, 98, 0.1);
   }
 
   .form-input.error,
   .form-select.error {
-    border-color: #e74c3c;
+    border-color: var(--red);
     background: #fff5f5;
   }
 
@@ -293,7 +293,7 @@ const cssStyles = `
     width: 44px;
     height: 24px;
     background: #ccc;
-    border-radius: 12px;
+    border-radius: var(--radius-card);
     cursor: pointer;
     position: relative;
     transition: background 0.2s;
@@ -303,7 +303,7 @@ const cssStyles = `
   }
 
   .toggle-switch.on {
-    background: #46B962;
+    background: var(--green);
   }
 
   .toggle-switch::after {
@@ -324,7 +324,7 @@ const cssStyles = `
 
   .toggle-label {
     font-size: 14px;
-    color: #393939;
+    color: var(--text);
     font-weight: 500;
   }
 
@@ -332,14 +332,14 @@ const cssStyles = `
   .photos-section {
     background: white;
     border: 1px solid #eee;
-    border-radius: 12px;
+    border-radius: var(--radius-card);
     padding: 16px;
   }
 
   .photos-header {
     font-size: 14px;
     font-weight: 600;
-    color: #393939;
+    color: var(--text);
     margin-bottom: 12px;
     display: flex;
     align-items: center;
@@ -351,7 +351,7 @@ const cssStyles = `
     color: #555;
     background: #f0f0f0;
     padding: 2px 10px;
-    border-radius: 12px;
+    border-radius: var(--radius-card);
     font-weight: 500;
   }
 
@@ -616,7 +616,7 @@ const cssStyles = `
   .map-section {
     background: white;
     border: 1px solid #eee;
-    border-radius: 12px;
+    border-radius: var(--radius-card);
     padding: 16px;
   }
 
@@ -659,7 +659,7 @@ const cssStyles = `
   }
 
   .doc-card:hover {
-    border-color: #46B962;
+    border-color: var(--green);
     box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   }
 
@@ -706,7 +706,7 @@ const cssStyles = `
   .doc-title {
     font-size: 12px;
     font-weight: 600;
-    color: #393939;
+    color: var(--text);
   }
 
   .doc-sub {
@@ -816,7 +816,7 @@ const cssStyles = `
 
   .critical-item {
     font-size: 12px;
-    color: #e74c3c;
+    color: var(--red);
     display: flex;
     align-items: center;
     gap: 8px;
@@ -834,14 +834,14 @@ const cssStyles = `
   .notes-section {
     background: white;
     border: 1px solid #eee;
-    border-radius: 12px;
+    border-radius: var(--radius-card);
     padding: 16px;
   }
 
   .notes-label {
     font-size: 13px;
     font-weight: 600;
-    color: #393939;
+    color: var(--text);
     margin-bottom: 12px;
   }
 
@@ -861,7 +861,7 @@ const cssStyles = `
   }
 
   .notes-textarea:focus {
-    border-color: #46B962;
+    border-color: var(--green);
     box-shadow: 0 0 0 3px rgba(70, 185, 98, 0.1);
   }
 
@@ -873,7 +873,7 @@ const cssStyles = `
   .buttons-area {
     background: white;
     border: 1px solid #eee;
-    border-radius: 12px;
+    border-radius: var(--radius-card);
     padding: 24px;
     display: flex;
     justify-content: space-between;
@@ -882,10 +882,10 @@ const cssStyles = `
     margin-top: 32px;
   }
 
-  .btn {
+  .step1-page .btn {
     padding: 12px 24px;
-    border-radius: 8px;
-    font-size: 14px;
+    border-radius: var(--radius-md);
+    font-size: var(--fs-md);
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
@@ -897,25 +897,25 @@ const cssStyles = `
     font-family: inherit;
   }
 
-  .btn-primary {
-    background: #46B962;
+  .step1-page .btn-primary {
+    background: var(--green);
     color: white;
   }
 
-  .btn-primary:hover {
-    background: #3d9a52;
+  .step1-page .btn-primary:hover {
+    background: var(--green-dark);
     box-shadow: 0 4px 12px rgba(70, 185, 98, 0.3);
   }
 
-  .btn-ghost {
+  .step1-page .btn-ghost {
     background: transparent;
-    color: #393939;
-    border: 1px solid #eee;
+    color: var(--text);
+    border: 1px solid var(--border);
   }
 
-  .btn-ghost:hover {
+  .step1-page .btn-ghost:hover {
     background: #f9f9f9;
-    border-color: #393939;
+    border-color: var(--text);
   }
 
   @media (max-width: 1200px) {

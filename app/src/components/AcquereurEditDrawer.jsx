@@ -73,7 +73,7 @@ const drawerCss = `
     width: 520px; max-width: 95vw; height: 100vh; background: #fff;
     overflow-y: auto; animation: acqedit-slide-in 0.25s ease;
     box-shadow: -4px 0 20px rgba(0,0,0,0.12);
-    font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: var(--font);
     display: flex; flex-direction: column;
   }
   @keyframes acqedit-slide-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
@@ -108,11 +108,11 @@ const drawerCss = `
     transition: border-color 0.15s ease;
   }
   .acqedit-input:focus, .acqedit-select:focus, .acqedit-textarea:focus {
-    outline: none; border-color: #46B962;
+    outline: none; border-color: var(--green);
   }
   .acqedit-textarea { resize: vertical; min-height: 64px; }
-  .acqedit-input.invalid { border-color: #e74c3c; }
-  .acqedit-error { font-size: 11px; color: #e74c3c; margin-top: 2px; }
+  .acqedit-input.invalid { border-color: var(--red); }
+  .acqedit-error { font-size: 11px; color: var(--red); margin-top: 2px; }
   .acqedit-footer {
     position: sticky; bottom: 0; background: #fff; padding: 14px 22px;
     border-top: 1px solid #eee; display: flex; gap: 10px; justify-content: flex-end;
@@ -123,8 +123,8 @@ const drawerCss = `
   }
   .acqedit-btn-ghost { background: #f5f5f5; color: #555; }
   .acqedit-btn-ghost:hover { background: #ececec; color: #111; }
-  .acqedit-btn-primary { background: #46B962; color: #fff; border-color: #46B962; }
-  .acqedit-btn-primary:hover { background: #3da856; }
+  .acqedit-btn-primary { background: var(--green); color: #fff; border-color: var(--green); }
+  .acqedit-btn-primary:hover { background: var(--green-dark); }
   .acqedit-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 `;
 

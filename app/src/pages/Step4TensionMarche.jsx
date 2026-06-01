@@ -346,9 +346,9 @@ const PROJECT_DETAILS = {
 };
 
 const cssStyles = `
-  .step4-page { font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif; --green:#46B962; --green-dark:#1aa564; --green-soft:#e8f6ec; --blue:#4a6cf7; --orange:#f5a623; --orange-soft:#fef5e6; --red:#e74c3c; --red-soft:#fdecec; --grey:#949494; --border:#eee; --text:#393939; --muted:#949494; --bg:#fafafa; --white:#ffffff; color: var(--text); font-size: 13px; line-height: 1.4; }
+  .step4-page { font-family: var(--font); --orange-soft:#fef5e6; --red-soft:#fdecec; --grey:#949494; color: var(--text); line-height: 1.4; }
 
-  .act { background: var(--white); border: 1px solid #eee; border-radius: 12px; padding: 32px 28px; margin-bottom: 18px; position: relative; }
+  .act { background: var(--white); border: 1px solid var(--border); border-radius: 12px; padding: 32px 28px; margin-bottom: 18px; position: relative; }
   .act-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
   .act-num { font-size: 10px; font-weight: 800; color: var(--green); letter-spacing: 2px; background: var(--green-soft); padding: 3px 8px; border-radius: 4px; }
   .act-title { font-size: 17px; font-weight: 700; color: var(--text); }
@@ -383,7 +383,7 @@ const cssStyles = `
   .budget-dist-bars { display: flex; flex-direction: column; gap: 6px; }
   .budget-bar-row { display: grid; grid-template-columns: 100px 1fr 32px; align-items: center; gap: 10px; font-size: 11.5px; }
   .budget-bar-label { color: var(--text); font-weight: 600; text-align: left; }
-  .budget-bar-track { height: 14px; background: #fff; border: 1px solid #eee; border-radius: 3px; overflow: hidden; }
+  .budget-bar-track { height: 14px; background: #fff; border: 1px solid var(--border); border-radius: 3px; overflow: hidden; }
   .budget-bar-fill { height: 100%; background: #cfe8d5; border-radius: 2px; transition: width 0.3s ease; }
   .budget-bar-fill.mode { background: var(--green); }
   .budget-bar-row.mode .budget-bar-label { color: var(--green-dark); font-weight: 700; }
@@ -394,7 +394,7 @@ const cssStyles = `
   .budget-dist-highlight-value { font-weight: 700; color: var(--green-dark); }
   .budget-dist-highlight-count { color: var(--muted); font-size: 11px; margin-left: auto; }
 
-  .hero-divider { border: none; border-top: 1px solid #eee; margin: 26px auto 22px; max-width: 720px; }
+  .hero-divider { border: none; border-top: 1px solid var(--border); margin: 26px auto 22px; max-width: 720px; }
 
   .mini-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; max-width: 560px; margin: 0 auto; }
   .mini-kpi { display: flex; flex-direction: column; align-items: center; padding: 4px; }
@@ -458,7 +458,7 @@ const cssStyles = `
 
   /* ACTE 2 */
   .personas-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 22px; }
-  .persona-card { border: 1px solid #eee; border-radius: 8px; padding: 20px 14px 18px; background: #fff; cursor: pointer; transition: all 0.18s; display: flex; flex-direction: column; align-items: center; text-align: center; position: relative; }
+  .persona-card { border: 1px solid var(--border); border-radius: 8px; padding: 20px 14px 18px; background: #fff; cursor: pointer; transition: all 0.18s; display: flex; flex-direction: column; align-items: center; text-align: center; position: relative; }
   .persona-card:hover { border-color: #bde5c7; background: #fafffb; }
   .persona-card.active { border: 1px solid var(--green); background: var(--green-soft); }
   .persona-card.active::after { content: ''; position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; border-top: 10px solid var(--green); z-index: 2; }
@@ -499,10 +499,10 @@ const cssStyles = `
   /* ACTE 3 */
   .act-3 { padding-bottom: 28px; }
   .af-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 24px; }
-  .af-col { border: 1px solid #eee; border-radius: 10px; padding: 18px 18px 16px; background: #fff; }
+  .af-col { border: 1px solid var(--border); border-radius: 10px; padding: 18px 18px 16px; background: #fff; }
   .af-col.atouts { border-left: 3px solid var(--green); background: #fcfffc; }
   .af-col.freins { border-left: 3px solid var(--orange); background: #fffcf6; }
-  .af-col-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
+  .af-col-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
   .af-col-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--text); }
   .af-col-title .dot { width: 8px; height: 8px; border-radius: 50%; }
   .af-col.atouts .dot { background: var(--green); }
@@ -525,7 +525,7 @@ const cssStyles = `
   .leviers-title::before { content: '→'; color: var(--green); font-weight: 700; }
   .leviers-sub { font-size: 12px; color: var(--muted); margin-bottom: 14px; line-height: 1.5; }
   .leviers-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; max-width: 760px; }
-  .levier-card { border: 1px solid #eee; border-radius: 10px; padding: 16px 16px 14px; background: #fff; display: flex; flex-direction: column; position: relative; overflow: hidden; border-left: 3px solid var(--green); }
+  .levier-card { border: 1px solid var(--border); border-radius: 10px; padding: 16px 16px 14px; background: #fff; display: flex; flex-direction: column; position: relative; overflow: hidden; border-left: 3px solid var(--green); }
   .levier-card.teaser { border-left: 3px dashed #bbb; background: #fafafa; }
   .levier-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
   .levier-title { font-size: 12.5px; font-weight: 700; color: var(--text); }
@@ -543,7 +543,7 @@ const cssStyles = `
   .btn { padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; font-family: 'Open Sans', sans-serif; text-decoration: none; }
   .btn-primary { background: var(--green); color: white; }
   .btn-primary:hover { background: var(--green-dark); }
-  .btn-ghost { background: transparent; color: var(--text); border: 1px solid #eee; }
+  .btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
   .btn-ghost:hover { background: var(--bg); }
 
   /* MODALE PROJET */
@@ -553,7 +553,7 @@ const cssStyles = `
   .project-modal.open { transform: translateX(0); }
   .modal-close { position: absolute; top: 14px; right: 16px; width: 32px; height: 32px; border-radius: 50%; background: #f5f4f4; border: none; cursor: pointer; font-size: 18px; color: var(--muted); line-height: 1; display: flex; align-items: center; justify-content: center; transition: background 0.15s, color 0.15s; }
   .modal-close:hover { background: #eaeaea; color: var(--text); }
-  .modal-head { padding: 22px 60px 16px 24px; border-bottom: 1px solid #eee; background: linear-gradient(180deg, #fafafa 0%, #fff 100%); }
+  .modal-head { padding: 22px 60px 16px 24px; border-bottom: 1px solid var(--border); background: linear-gradient(180deg, #fafafa 0%, #fff 100%); }
   .modal-head-persona { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--green); background: var(--green-soft); padding: 3px 9px; border-radius: 4px; margin-bottom: 8px; }
   .modal-title { font-size: 18px; font-weight: 700; color: var(--text); line-height: 1.3; margin-bottom: 4px; }
   .modal-sub { font-size: 12px; color: var(--muted); }
@@ -577,7 +577,7 @@ const cssStyles = `
   .modal-budget-fixed-check { display: inline-flex; width: 18px; height: 18px; border-radius: 50%; background: var(--green); color: #fff; font-size: 11px; font-weight: 700; align-items: center; justify-content: center; margin-right: 8px; vertical-align: middle; }
   .modal-budget-fixed-amount { font-size: 20px; font-weight: 700; color: var(--green-dark); font-variant-numeric: tabular-nums; }
   .modal-budget-fixed-amount .unit { font-size: 13px; font-weight: 600; margin-left: 2px; }
-  .modal-crit { display: grid; grid-template-columns: 20px 1fr auto; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px dashed #eee; font-size: 12px; }
+  .modal-crit { display: grid; grid-template-columns: 20px 1fr auto; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px dashed var(--border); font-size: 12px; }
   .modal-crit:last-child { border-bottom: none; }
   .modal-crit-bullet { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; line-height: 1; }
   .modal-crit-bullet.ok { background: var(--green-soft); color: var(--green); }
@@ -640,7 +640,7 @@ const cssStyles = `
   .acq-card-statut.chaud { background: #ffe0e0; color: #b00000; }
   .acq-card-statut.actif { background: #e0f0ff; color: #004080; }
   .acq-card-statut.passif { background: #f0f0f3; color: var(--muted); }
-  .acq-card-actions { display: flex; gap: 6px; margin-top: 4px; padding-top: 8px; border-top: 1px dashed #eee; }
+  .acq-card-actions { display: flex; gap: 6px; margin-top: 4px; padding-top: 8px; border-top: 1px dashed var(--border); }
   .acq-card-action { font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 4px; border: none; background: transparent; color: var(--muted); cursor: pointer; transition: background 0.15s, color 0.15s; }
   .acq-card-action:hover { background: #f4f4f6; color: var(--text); }
   .acq-card-action.danger:hover { background: var(--red-soft); color: var(--red); }
@@ -1408,7 +1408,7 @@ export default function Step4TensionMarche() {
       </div>
 
       {/* PDF FLOATING BAR */}
-      <div style={{ position: 'fixed', bottom: 0, left: 220, right: 0, background: '#fff', borderTop: '1px solid #eee', padding: '10px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 100 }}>
+      <div style={{ position: 'fixed', bottom: 0, left: 220, right: 0, background: '#fff', borderTop: '1px solid var(--border)', padding: '10px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 100 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 13 }}>
           <span role="img" aria-label="pdf">📄</span>
           <span>Rapport vendeur :</span>
@@ -1416,7 +1416,7 @@ export default function Step4TensionMarche() {
           <span style={{ color: '#666', fontSize: 12 }}>actes sélectionnés sur {pdfTotal}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button onClick={toggleAllPdf} style={{ padding: '6px 14px', borderRadius: 6, fontSize: 12, cursor: 'pointer', border: '1px solid #eee', background: '#fff', color: '#999', fontFamily: 'Open Sans, sans-serif' }}>
+          <button onClick={toggleAllPdf} style={{ padding: '6px 14px', borderRadius: 6, fontSize: 12, cursor: 'pointer', border: '1px solid var(--border)', background: '#fff', color: '#999', fontFamily: 'Open Sans, sans-serif' }}>
             Tout (dé)sélectionner
           </button>
           <button style={{ padding: '8px 20px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', border: 'none', background: '#46B962', color: 'white', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'Open Sans, sans-serif' }}>

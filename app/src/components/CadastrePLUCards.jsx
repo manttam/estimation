@@ -34,7 +34,7 @@ const styles = `
   }
 
   .cplu-card:hover {
-    border-color: #46B962;
+    border-color: var(--green);
     box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   }
 
@@ -81,12 +81,12 @@ const styles = `
   .cplu-title {
     font-size: 12px;
     font-weight: 600;
-    color: #393939;
+    color: var(--text);
   }
 
   .cplu-sub {
     font-size: 11px;
-    color: #949494;
+    color: var(--muted);
     margin-top: 2px;
   }
 

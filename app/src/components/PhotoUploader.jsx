@@ -69,9 +69,9 @@ const styles = `
   }
   .photo-dropzone:hover,
   .photo-dropzone.is-dragover {
-    border-color: #4a6cf7;
+    border-color: var(--blue);
     background: #f0f4ff;
-    color: #4a6cf7;
+    color: var(--blue);
   }
   .photo-dropzone.is-busy {
     opacity: 0.6;

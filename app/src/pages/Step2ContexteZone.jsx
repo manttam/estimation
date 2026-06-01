@@ -8,29 +8,29 @@ import { getRisquesSynthese } from '../utils/georisquesClient';
 import { mergeReportSection, getReportSection } from '../utils/reportStore';
 
 const COLOR_MAP = {
-  green: '#46B962',
-  orange: '#f5a623',
-  red: '#e74c3c',
-  blue: '#4a6cf7',
+  green: 'var(--green)',
+  orange: 'var(--orange)',
+  red: 'var(--red)',
+  blue: 'var(--blue)',
 };
 
 const TYPE_COLOR = {
-  dist: '#4a6cf7',
-  'risk-ok': '#46B962',
-  'risk-warn': '#f5a623',
-  'risk-bad': '#e74c3c',
-  green: '#46B962',
+  dist: 'var(--blue)',
+  'risk-ok': 'var(--green)',
+  'risk-warn': 'var(--orange)',
+  'risk-bad': 'var(--red)',
+  green: 'var(--green)',
 };
 
 const cssStyles = `
   .step2-page {
-    font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: var(--font);
   }
 
   /* ═══ INFO BANNER ═══ */
   .info-banner {
     background: #f7f7f8;
-    border: 1px solid #e5e5e5;
+    border: 1px solid var(--border);
     border-radius: 8px;
     padding: 8px 14px;
     margin-bottom: 14px;
@@ -38,7 +38,7 @@ const cssStyles = `
     display: flex;
     align-items: center;
     gap: 8px;
-    color: #949494;
+    color: var(--muted);
   }
   .info-banner .info-icon {
     font-size: 14px;
@@ -56,13 +56,13 @@ const cssStyles = `
     border-radius: 8px;
     padding: 10px;
     text-align: center;
-    border: 1px solid #e5e5e5;
-    border-top: 3px solid #e5e5e5;
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--border);
     position: relative;
   }
-  .score-card.green { border-top-color: #46B962; }
-  .score-card.orange { border-top-color: #f5a623; }
-  .score-card.red { border-top-color: #e74c3c; }
+  .score-card.green { border-top-color: var(--green); }
+  .score-card.orange { border-top-color: var(--orange); }
+  .score-card.red { border-top-color: var(--red); }
   .score-label {
     font-size: 10px;
     color: #666;
@@ -73,9 +73,9 @@ const cssStyles = `
     font-size: 18px;
     font-weight: 700;
   }
-  .score-num.green { color: #46B962; }
-  .score-num.orange { color: #f5a623; }
-  .score-num.red { color: #e74c3c; }
+  .score-num.green { color: var(--green); }
+  .score-num.orange { color: var(--orange); }
+  .score-num.red { color: var(--red); }
 
   /* ═══ MAP + MARKET GRID ═══ */
   .grid-top {
@@ -89,7 +89,7 @@ const cssStyles = `
   .map-card {
     background: #fff;
     border-radius: 10px;
-    border: 1px solid #e5e5e5;
+    border: 1px solid var(--border);
     overflow: hidden;
     position: relative;
   }
@@ -104,7 +104,7 @@ const cssStyles = `
     100% { transform: scale(1); opacity: 0.4; }
   }
   .map-controls {
-    border-top: 1px solid #e5e5e5;
+    border-top: 1px solid var(--border);
   }
   .map-controls-row {
     padding: 8px 12px;
@@ -121,17 +121,17 @@ const cssStyles = `
     gap: 4px;
     font-size: 11px;
     cursor: pointer;
-    color: #949494;
+    color: var(--muted);
   }
   .map-controls input[type="checkbox"] {
     width: 13px;
     height: 13px;
-    accent-color: #46B962;
+    accent-color: var(--green);
   }
   .radius-label {
     font-size: 10px;
     font-weight: 600;
-    color: #949494;
+    color: var(--muted);
     text-transform: uppercase;
     letter-spacing: 0.3px;
     flex-shrink: 0;
@@ -142,18 +142,18 @@ const cssStyles = `
   }
   .radius-btn {
     padding: 3px 8px;
-    border: 1px solid #e5e5e5;
+    border: 1px solid var(--border);
     border-radius: 5px;
     background: #fff;
     font-size: 10px;
     cursor: pointer;
-    color: #949494;
+    color: var(--muted);
     font-family: 'Open Sans', sans-serif;
   }
   .radius-btn.active {
-    background: #46B962;
+    background: var(--green);
     color: white;
-    border-color: #46B962;
+    border-color: var(--green);
   }
   .radius-slider {
     flex: 1;
@@ -161,7 +161,7 @@ const cssStyles = `
     appearance: none;
     height: 6px;
     border-radius: 3px;
-    background: #e5e5e5;
+    background: var(--border);
     outline: none;
   }
   .radius-slider::-webkit-slider-thumb {
@@ -170,7 +170,7 @@ const cssStyles = `
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    background: #46B962;
+    background: var(--green);
     border: 2px solid white;
     box-shadow: 0 1px 4px rgba(0,0,0,0.2);
     cursor: pointer;
@@ -179,14 +179,14 @@ const cssStyles = `
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    background: #46B962;
+    background: var(--green);
     border: 2px solid white;
     box-shadow: 0 1px 4px rgba(0,0,0,0.2);
     cursor: pointer;
   }
   .plu-link {
     font-size: 11px;
-    color: #4a6cf7;
+    color: var(--blue);
     text-decoration: none;
     font-weight: 500;
     padding: 3px 6px;
@@ -199,7 +199,7 @@ const cssStyles = `
   }
   .poi-status {
     font-size: 10px;
-    color: #949494;
+    color: var(--muted);
     margin-left: auto;
     font-style: italic;
   }
@@ -208,7 +208,7 @@ const cssStyles = `
   .market-card {
     background: #fff;
     border-radius: 10px;
-    border: 1px solid #e5e5e5;
+    border: 1px solid var(--border);
     padding: 10px;
     display: flex;
     flex-direction: column;
@@ -218,7 +218,7 @@ const cssStyles = `
     font-size: 10px;
     font-weight: 600;
     margin-bottom: 6px;
-    color: #393939;
+    color: var(--text);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -242,7 +242,7 @@ const cssStyles = `
   }
   .market-source.indispo {
     background: #f0f0f0;
-    color: #949494;
+    color: var(--muted);
   }
   .market-price {
     text-align: center;
@@ -252,11 +252,11 @@ const cssStyles = `
   .market-price .big {
     font-size: 20px;
     font-weight: 700;
-    color: #46B962;
+    color: var(--green);
   }
   .market-price .unit {
     font-size: 11px;
-    color: #949494;
+    color: var(--muted);
   }
   .market-stats {
     display: grid;
@@ -272,10 +272,10 @@ const cssStyles = `
   .market-stat .val {
     font-size: 12px;
     font-weight: 700;
-    color: #393939;
+    color: var(--text);
   }
   .market-stat .val.up {
-    color: #46B962;
+    color: var(--green);
   }
   .market-stat .lbl {
     font-size: 8px;
@@ -289,7 +289,7 @@ const cssStyles = `
   }
   .collapse-card {
     background: #fff;
-    border: 1px solid #e5e5e5;
+    border: 1px solid var(--border);
     border-radius: 8px;
     margin-bottom: 6px;
     overflow: hidden;
@@ -315,16 +315,16 @@ const cssStyles = `
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #949494;
+    background: var(--muted);
     flex-shrink: 0;
   }
-  .collapse-dot.green { background: #46B962; }
-  .collapse-dot.orange { background: #f5a623; }
-  .collapse-dot.red { background: #e74c3c; }
+  .collapse-dot.green { background: var(--green); }
+  .collapse-dot.orange { background: var(--orange); }
+  .collapse-dot.red { background: var(--red); }
   .collapse-title {
     font-size: 12px;
     font-weight: 500;
-    color: #393939;
+    color: var(--text);
   }
   .collapse-summary {
     font-size: 11px;
@@ -338,11 +338,11 @@ const cssStyles = `
   .collapse-score {
     font-size: 11px;
     font-weight: 600;
-    color: #949494;
+    color: var(--muted);
   }
-  .collapse-score.green { color: #46B962; }
-  .collapse-score.orange { color: #f5a623; }
-  .collapse-score.red { color: #e74c3c; }
+  .collapse-score.green { color: var(--green); }
+  .collapse-score.orange { color: var(--orange); }
+  .collapse-score.red { color: var(--red); }
   .collapse-arrow {
     font-size: 10px;
     color: #bbb;
@@ -373,13 +373,13 @@ const cssStyles = `
   }
   .d-row .val {
     font-weight: 500;
-    color: #393939;
+    color: var(--text);
     text-align: right;
   }
-  .d-row .val.dist { color: #4a6cf7; font-weight: 600; }
-  .d-row .val.risk-ok { color: #46B962; }
-  .d-row .val.risk-warn { color: #f5a623; font-weight: 600; }
-  .d-row .val.risk-bad { color: #e74c3c; font-weight: 600; }
+  .d-row .val.dist { color: var(--blue); font-weight: 600; }
+  .d-row .val.risk-ok { color: var(--green); }
+  .d-row .val.risk-warn { color: var(--orange); font-weight: 600; }
+  .d-row .val.risk-bad { color: var(--red); font-weight: 600; }
   .d-row.risk-impact {
     background: #fff5f5;
     border-radius: 6px;
@@ -387,14 +387,14 @@ const cssStyles = `
     margin-top: 4px;
   }
   .d-row.risk-impact .lbl {
-    color: #e74c3c;
+    color: var(--red);
     font-weight: 600;
   }
 
   /* OVERRIDE NOTE */
   .override-note {
     font-size: 10px;
-    color: #949494;
+    color: var(--muted);
     text-align: center;
     padding: 6px;
     background: #f7f7f8;
@@ -422,16 +422,16 @@ const cssStyles = `
     font-family: 'Open Sans', sans-serif;
   }
   .btn-primary {
-    background: #46B962;
+    background: var(--green);
     color: white;
   }
   .btn-primary:hover {
-    background: #3da856;
+    background: var(--green-dark);
   }
   .btn-ghost {
     background: transparent;
-    color: #393939;
-    border: 1px solid #e5e5e5;
+    color: var(--text);
+    border: 1px solid var(--border);
   }
 `;
 
@@ -978,8 +978,8 @@ export default function Step2ContexteZone() {
     const targetIcon = L.divIcon({
       className: 'target-marker-icon',
       html: `<div style="width:36px;height:36px;position:relative;display:flex;align-items:center;justify-content:center">
-        <div style="position:absolute;inset:-6px;border:2px solid #46B962;border-radius:50%;opacity:0.4;animation:pulse 2s infinite"></div>
-        <div style="width:36px;height:36px;background:#46B962;border:3px solid white;border-radius:50%;box-shadow:0 3px 10px rgba(70,185,98,0.45);display:flex;align-items:center;justify-content:center">
+        <div style="position:absolute;inset:-6px;border:2px solid var(--green);border-radius:50%;opacity:0.4;animation:pulse 2s infinite"></div>
+        <div style="width:36px;height:36px;background:var(--green);border:3px solid white;border-radius:50%;box-shadow:0 3px 10px rgba(70,185,98,0.45);display:flex;align-items:center;justify-content:center">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         </div>
       </div>`,
@@ -998,8 +998,8 @@ export default function Step2ContexteZone() {
     // Radius circle
     const circle = L.circle(targetCoords, {
       radius: 1000,
-      color: '#46B962',
-      fillColor: '#46B962',
+      color: 'var(--green)',
+      fillColor: 'var(--green)',
       fillOpacity: 0.06,
       weight: 2,
       dashArray: '8, 6',
@@ -1238,7 +1238,7 @@ export default function Step2ContexteZone() {
             {/* Ligne 1 : catégories POI */}
             <div className="map-controls-row">
               {Object.entries(POI_STYLES).map(([cat, style]) => (
-                <label key={cat} style={{ color: activeLayers[cat] ? style.color : '#949494' }}>
+                <label key={cat} style={{ color: activeLayers[cat] ? style.color : 'var(--muted)' }}>
                   <input type="checkbox" checked={activeLayers[cat]} onChange={() => toggleCategory(cat)} />
                   {style.label}
                 </label>
@@ -1281,20 +1281,20 @@ export default function Step2ContexteZone() {
                   style={{
                     width: 56,
                     padding: '3px 4px',
-                    border: '1px solid #e5e5e5',
+                    border: '1px solid var(--border)',
                     borderRadius: 5,
                     fontSize: 11,
                     fontFamily: 'Open Sans, sans-serif',
                     textAlign: 'center',
-                    color: '#393939',
+                    color: 'var(--text)',
                   }}
                 />
-                <span style={{ fontSize: 10, color: '#949494' }}>m</span>
+                <span style={{ fontSize: 10, color: 'var(--muted)' }}>m</span>
               </div>
             </div>
             {/* Ligne 3 : cadastre + PLU + statut POI */}
             <div className="map-controls-row">
-              <label style={{ color: cadastreOn ? '#393939' : '#949494' }}>
+              <label style={{ color: cadastreOn ? 'var(--text)' : 'var(--muted)' }}>
                 <input
                   type="checkbox"
                   checked={cadastreOn}
@@ -1335,7 +1335,7 @@ export default function Step2ContexteZone() {
               >
                 {poiLoading ? '↻ chargement…' : '↻ Recharger POI'}
               </button>
-              <label style={{ color: debugOn ? '#393939' : '#949494' }}>
+              <label style={{ color: debugOn ? 'var(--text)' : 'var(--muted)' }}>
                 <input
                   type="checkbox"
                   checked={debugOn}
@@ -1353,7 +1353,7 @@ export default function Step2ContexteZone() {
                   fontSize: 11,
                   fontFamily: 'monospace',
                   background: '#fafafa',
-                  color: '#393939',
+                  color: 'var(--text)',
                   lineHeight: 1.5,
                 }}
               >
@@ -1399,7 +1399,7 @@ export default function Step2ContexteZone() {
                   <strong>dvfStatsLive (Step2)</strong> :{' '}
                   {dvfLoading ? 'chargement…' : dvfStatsLive?.median ? `median=${dvfStatsLive.median} count=${dvfStatsLive.count}` : 'null'}
                 </div>
-                <div style={{ marginTop: 6, color: '#949494', fontStyle: 'italic' }}>
+                <div style={{ marginTop: 6, color: 'var(--muted)', fontStyle: 'italic' }}>
                   Ouvre la console (F12) pour voir les logs [Overpass] / [Géorisques] / [DVF].
                 </div>
               </div>
