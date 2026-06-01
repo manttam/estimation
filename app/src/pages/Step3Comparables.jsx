@@ -4282,8 +4282,10 @@ export default function Step3Comparables() {
     // Filtre prix
     const compPrix = c.fields?.prix ?? c._dvfRaw?.prix;
     if (typeof compPrix === 'number' && (compPrix < prixMin || compPrix > prixMax)) return false;
-    // Filtre commune/quartier exclu (croix sur le tag de zone)
-    if (excludedCommunes.length > 0) {
+    // Filtre commune/quartier exclu (croix sur le tag de zone).
+    // Ne s'applique qu'aux DVF : seules sources dont la commune est fiable
+    // (cf. communesInRadius). Les mocks projetés gardent un libellé factice.
+    if (excludedCommunes.length > 0 && c.source === 'dvf') {
       const compCommune = getCompCommune(c);
       if (compCommune && excludedCommunes.includes(compCommune)) return false;
     }
@@ -4362,6 +4364,11 @@ export default function Step3Comparables() {
     const counts = new Map();
     for (const c of others) {
       if (c.manual) continue; // les ajouts manuels ne définissent pas la zone
+      // Seules les transactions DVF portent une commune fiable (champ DVF réel).
+      // Les mocks de portails/mandats démo ont des coords projetées autour du
+      // bien mais un libellé hardcodé "Lyon 3" → on les exclut des tags de zone
+      // pour ne pas afficher une commune erronée (ex. bien à Condrieu).
+      if (c.source !== 'dvf') continue;
       if (c.coords && targetCoords) {
         const dist = haversineMeters(targetCoords, c.coords);
         if (dist != null && dist > radius) continue;
