@@ -174,19 +174,24 @@ function haversineMeters(a, b) {
 }
 
 /* Libellé de commune/quartier d'un comparable, quelle que soit la source.
- * - DVF live : nom de commune (_dvfRaw.commune), avec arrondissement si CP le précise
+ * - DVF live : nom de commune (_dvfRaw.commune)
  * - Manuel : champ commune saisi
- * - Démo : champ addr (ex. "Lyon 3ème")
+ * - Démo : champ addr (ex. "Lyon 3ème") ou, à défaut, dernier segment du
+ *   titre après la virgule (ex. "T3 70m² — 5 rue Duguesclin, Lyon 3")
  * Retourne null si rien d'exploitable (le comparable ne sera alors pas
  * filtrable par commune). */
 function getCompCommune(c) {
   if (!c) return null;
-  const raw =
+  let raw =
     c.fields?.commune ||
     c._dvfRaw?.commune ||
     c.commune ||
     c.addr ||
     null;
+  // Fallback : extraire la commune du titre ("… , Lyon 3")
+  if (!raw && typeof c.title === 'string' && c.title.includes(',')) {
+    raw = c.title.split(',').pop();
+  }
   if (!raw) return null;
   return String(raw).trim();
 }
@@ -3762,8 +3767,12 @@ export default function Step3Comparables() {
     }
     let cancelled = false;
     const type = activeBien?.bien?.type || activeBien?.type || '';
-    const dvfUrl = `/api/dvf?citycode=${encodeURIComponent(citycode)}${type ? `&type=${encodeURIComponent(type)}` : ''}`;
-    console.log('[Step3 live] fetch DVF', dvfUrl);
+    // Zone multi-communes : on fetche toujours le rayon MAX du slider (5km) une
+    // seule fois ; le filtrage par rayon courant se fait ensuite côté front
+    // (passesLiveFilters + communesInRadius), sans re-fetch au drag du curseur.
+    const [tLat, tLon] = targetCoords || [];
+    const dvfUrl = `/api/dvf-zone?lat=${encodeURIComponent(tLat)}&lon=${encodeURIComponent(tLon)}&radius=5000${type ? `&type=${encodeURIComponent(type)}` : ''}`;
+    console.log('[Step3 live] fetch DVF zone', dvfUrl);
 
     fetch(dvfUrl)
       .then((r) => r.json())
@@ -3775,9 +3784,13 @@ export default function Step3Comparables() {
               .map((tx, i) => dvfTxToOther(tx, i, targetCoords))
               .filter((c) => c && c.coords)
           : [];
-        console.log('[Step3 live] DVF →', dvfCards.length, 'cards');
+        console.log(
+          '[Step3 live] DVF zone →', dvfCards.length, 'cards',
+          dvfData?.communes ? `· ${dvfData.communes.length} communes` : '',
+          dvfData?.communesScanned ? `(${dvfData.communesScanned} scannées)` : ''
+        );
         if (!dvfData?.ok) {
-          console.warn('[Step3 live] DVF NOK', dvfData?.error || 'unknown');
+          console.warn('[Step3 live] DVF zone NOK', dvfData?.error || 'unknown');
         }
         dvfCards.sort((a, b) => {
           const da = haversineMeters(targetCoords, a.coords);
