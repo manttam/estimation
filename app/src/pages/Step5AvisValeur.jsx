@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PropertyCard from '../components/PropertyCard';
 import Stepper from '../components/Stepper';
@@ -385,17 +385,71 @@ const cssStyles = `
   .demand-verdict-title { font-weight: 700; font-size: 13px; }
   .demand-verdict-desc { font-size: 11px; color: #666; margin-top: 2px; }
 
-  /* ---- Content Grid (3 columns) ---- */
+  /* ---- Content Grid (colonnes redimensionnables) ----
+   * 3 colonnes + 2 poignées en mode démo, 2 colonnes + 1 poignée en
+   * mode "Masquer la démo". Largeurs pilotées par les CSS vars --col-N. */
   .content-grid {
     display: grid;
-    grid-template-columns: 1fr 0.8fr 0.8fr;
-    gap: 14px;
+    grid-template-columns:
+      minmax(0, var(--col-1, 40%))
+      8px
+      minmax(0, var(--col-2, 30%))
+      8px
+      minmax(0, var(--col-3, 30%));
+    gap: 0;
     margin-bottom: 14px;
+    align-items: start;
+  }
+  .content-grid.two-col {
+    grid-template-columns:
+      minmax(0, var(--col-2, 50%))
+      8px
+      minmax(0, var(--col-3, 50%));
   }
   .content-grid-col {
     display: flex;
     flex-direction: column;
     gap: 14px;
+    min-width: 0;
+  }
+  .col-resize-handle {
+    cursor: col-resize;
+    background: transparent;
+    position: relative;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+    border: none;
+    padding: 0;
+    align-self: stretch;
+  }
+  .col-resize-handle::before {
+    content: '';
+    width: 2px;
+    height: 36px;
+    background: #d8d8d8;
+    border-radius: 2px;
+    transition: background 0.15s, height 0.15s;
+  }
+  .col-resize-handle:hover {
+    background: rgba(70, 185, 98, 0.06);
+  }
+  .col-resize-handle:hover::before {
+    background: var(--green);
+    height: 64px;
+  }
+  .col-resize-handle.is-dragging {
+    background: rgba(70, 185, 98, 0.12);
+  }
+  .col-resize-handle.is-dragging::before {
+    background: var(--green);
+    height: 96px;
+  }
+  .content-grid.is-resizing {
+    cursor: col-resize;
+    user-select: none;
   }
 
   /* ---- Card ---- */
@@ -406,11 +460,6 @@ const cssStyles = `
     border: 1px solid var(--border);
     position: relative;
   }
-  .step5-page .card.strengths { border-left: 3px solid var(--green); }
-  .step5-page .card.weaknesses { border-left: 3px solid var(--red); }
-  .step5-page .card.strategy { border-left: 3px solid var(--orange); }
-  .step5-page .card.seller-opinion { border-left: 3px solid #6c8cd5; }
-
   /* ---- Avis du vendeur (saisie libre) ---- */
   .seller-opinion-input {
     width: 100%;
@@ -702,16 +751,6 @@ const cssStyles = `
     box-sizing: border-box;
     outline: none;
   }
-  .price-delta {
-    font-size: 11px;
-    margin-top: 6px;
-    padding: 6px 10px;
-    background: #fafafa;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    text-align: center;
-  }
-
   /* ---- Actions Card ---- */
   .actions-card {
     display: flex;
@@ -989,6 +1028,96 @@ export default function Step5AvisValeur() {
     mergeReportSection('displayConfig', { hideDemo });
   }, [hideDemo]);
 
+  /* Largeurs (en %) des 3 colonnes du content-grid, redimensionnables au
+   * drag des poignées entre colonnes (inspiré de Step3). Persistées dans
+   * reportStore.displayConfig.step5Cols pour conserver la disposition. */
+  const persistedCols = useMemo(
+    () => getReportSection('displayConfig', {}).step5Cols || null,
+    []
+  );
+  const [colWidths, setColWidths] = useState(() => ({
+    c1: persistedCols?.c1 ?? 40,
+    c2: persistedCols?.c2 ?? 30,
+    c3: persistedCols?.c3 ?? 30,
+  }));
+  // Poignée active en cours de drag (1 = entre col1/col2, 2 = entre col2/col3)
+  const [activeHandle, setActiveHandle] = useState(null);
+  const gridRef = useRef(null);
+
+  /* Bornes min/max (en %) — évite qu'une colonne soit trop écrasée. */
+  const COL_BOUNDS = useMemo(() => ({
+    c1: [22, 60],
+    c2: [22, 55],
+    c3: [22, 55],
+  }), []);
+
+  const clampPct = (v, [lo, hi]) => Math.max(lo, Math.min(hi, v));
+
+  /* Démarre le drag d'une poignée (idx = 1 ou 2). Attache mousemove/mouseup
+   * globaux puis les retire au mouseup. Pas de carte Leaflet ici → pas
+   * besoin d'invalidateSize. */
+  const startResize = (e, idx) => {
+    e.preventDefault();
+    setActiveHandle(idx);
+    const rect = gridRef.current?.getBoundingClientRect();
+    if (!rect || !rect.width) return;
+
+    const handleMove = (mv) => {
+      const ratio = ((mv.clientX - rect.left) / rect.width) * 100;
+      setColWidths((prev) => {
+        if (idx === 1) {
+          // Handle entre col1 et col2 : ratio = bord droit de col1
+          const newC1 = clampPct(ratio, COL_BOUNDS.c1);
+          const newC2 = clampPct(100 - newC1 - prev.c3, COL_BOUNDS.c2);
+          return { c1: 100 - newC2 - prev.c3, c2: newC2, c3: prev.c3 };
+        }
+        // idx === 2 — Handle entre col2 et col3 : ratio = bord droit de col2
+        const newC3 = clampPct(100 - ratio, COL_BOUNDS.c3);
+        const newC2 = clampPct(100 - prev.c1 - newC3, COL_BOUNDS.c2);
+        return { c1: prev.c1, c2: newC2, c3: 100 - prev.c1 - newC2 };
+      });
+    };
+    const handleUp = () => {
+      setActiveHandle(null);
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+    };
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+  };
+
+  /* En mode "Masquer la démo" col1 disparaît → on redimensionne col2/col3
+   * uniquement. ratio = bord droit de col2 dans la zone des 2 colonnes. */
+  const startResize2 = (e) => {
+    e.preventDefault();
+    setActiveHandle(2);
+    const rect = gridRef.current?.getBoundingClientRect();
+    if (!rect || !rect.width) return;
+    const handleMove = (mv) => {
+      const pct = ((mv.clientX - rect.left) / rect.width) * 100;
+      const total = colWidths.c2 + colWidths.c3;
+      setColWidths((prev) => {
+        const newC2 = clampPct(pct, [22, total - 22]);
+        return { ...prev, c2: newC2, c3: total - newC2 };
+      });
+    };
+    const handleUp = () => {
+      setActiveHandle(null);
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+    };
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+  };
+
+  /* Reset des largeurs (double-clic sur une poignée → 40/30/30) */
+  const resetCols = () => setColWidths({ c1: 40, c2: 30, c3: 30 });
+
+  // Persiste les largeurs dans reportStore.displayConfig
+  useEffect(() => {
+    mergeReportSection('displayConfig', { step5Cols: colWidths });
+  }, [colWidths]);
+
   // Persistance dans le reportStore pour que CompteRendu (/report) puisse
   // afficher les valeurs saisies par l'utilisateur (points forts/vigilance
   // édités, prix retenu, stratégie sélectionnée).
@@ -1225,8 +1354,6 @@ export default function Step5AvisValeur() {
     ];
   }, [hasRealLocation, priceRef]);
 
-  const estimation = hasRealLocation ? priceRef.prixMedian : 300000;
-
   // Indice de confiance dynamique en mode live :
   // moyenne pond\u00e9r\u00e9e entre la compl\u00e9tude du bien (10 champs cl\u00e9s)
   // et la disponibilit\u00e9 des comparables DVF (5 min = optimal).
@@ -1277,14 +1404,6 @@ export default function Step5AvisValeur() {
     const tail = String(id).replace(/[^0-9]/g, '').slice(-5).padStart(5, '0');
     return `IDR-${year}-${tail}`;
   }, [hasRealLocation, activeBien]);
-
-  const customVal = parseInt((customPrice || '').replace(/\s/g, ''), 10);
-  const deltaValid = !isNaN(customVal) && customVal > 0;
-  const deltaPct = deltaValid ? (((customVal - estimation) / estimation) * 100).toFixed(1) : null;
-  const deltaSign = deltaPct > 0 ? '+' : '';
-  const deltaColor = deltaPct !== null
-    ? (Math.abs(deltaPct) <= 3 ? '#46B962' : Math.abs(deltaPct) <= 8 ? '#f59e0b' : '#ef4444')
-    : null;
 
   /* list helpers */
   const addPointFort = () =>
@@ -1426,8 +1545,16 @@ export default function Step5AvisValeur() {
           </div>
         </div>
 
-        {/* ============ THREE-COLUMN GRID ============ */}
-        <div className="content-grid">
+        {/* ============ THREE-COLUMN GRID (redimensionnable) ============ */}
+        <div
+          ref={gridRef}
+          className={`content-grid${hideDemo ? ' two-col' : ''}${activeHandle ? ' is-resizing' : ''}`}
+          style={{
+            '--col-1': `${colWidths.c1}%`,
+            '--col-2': `${colWidths.c2}%`,
+            '--col-3': `${colWidths.c3}%`,
+          }}
+        >
           {/* --- Column 1: Decomposition + Comparables (mock — masqu\u00e9 en mode "Masquer la d\u00e9mo") --- */}
           {!hideDemo && (
           <div className="content-grid-col">
@@ -1574,6 +1701,16 @@ export default function Step5AvisValeur() {
           </div>
           )}
 
+          {/* Poign\u00e9e 1 : entre col1 et col2 (uniquement si la d\u00e9mo est visible) */}
+          {!hideDemo && (
+            <div
+              className={`col-resize-handle${activeHandle === 1 ? ' is-dragging' : ''}`}
+              onMouseDown={(e) => startResize(e, 1)}
+              onDoubleClick={resetCols}
+              title="Glisser pour redimensionner \u00b7 double-clic pour r\u00e9initialiser"
+            />
+          )}
+
           {/* --- Column 2: Points forts + Points de vigilance --- */}
           <div className="content-grid-col">
             <div className="card strengths">
@@ -1647,6 +1784,14 @@ export default function Step5AvisValeur() {
             </div>
           </div>
 
+          {/* Poign\u00e9e 2 : entre col2 et col3 */}
+          <div
+            className={`col-resize-handle${activeHandle === 2 ? ' is-dragging' : ''}`}
+            onMouseDown={(e) => (hideDemo ? startResize2(e) : startResize(e, 2))}
+            onDoubleClick={resetCols}
+            title="Glisser pour redimensionner \u00b7 double-clic pour r\u00e9initialiser"
+          />
+
           {/* --- Column 3: Strategy + Actions --- */}
           <div className="content-grid-col">
             <div className="card strategy">
@@ -1683,14 +1828,6 @@ export default function Step5AvisValeur() {
                 value={customPrice}
                 onChange={(e) => setCustomPrice(e.target.value)}
               />
-              <div className="price-delta">
-                &Eacute;cart vs estimation:{' '}
-                {deltaValid ? (
-                  <strong style={{ color: deltaColor }}>{deltaSign}{deltaPct}%</strong>
-                ) : (
-                  <strong>&mdash;</strong>
-                )}
-              </div>
             </div>
 
             <div className="card">
