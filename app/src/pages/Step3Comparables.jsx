@@ -3120,13 +3120,16 @@ function projectMockNearTarget(comp, targetCoords, idx) {
   };
 }
 
-/* Dérive les propriétés racine attendues par KeyFacts (prix, prixM2, surface,
- * pieces, addr, sourceLabel) depuis `comp.fields`, sans écraser celles déjà
- * présentes à la racine. Prix/prixM2 formatés fr-FR pour rester homogènes avec
- * les mocks INITIAL_SELECTED ("285 000"). */
+/* Dérive les propriétés racine attendues par le drawer (KeyFacts + sections
+ * riches) depuis `comp.fields`, sans écraser celles déjà présentes à la racine.
+ * Les mocks INITIAL_OTHERS ne portent leurs caractéristiques que dans `fields`
+ * (chambres, sdb, étage, dpe, chauffage…) ; on les remonte au format attendu
+ * par GeneralInfo / RoomsTable / ProsCons. Prix/prixM2 formatés fr-FR pour
+ * rester homogènes avec les mocks INITIAL_SELECTED ("285 000"). */
 function rootFactsFromFields(comp) {
   const f = comp.fields || {};
   const out = {};
+  // KeyFacts (résumé)
   if (comp.prix == null && Number.isFinite(f.prix)) out.prix = f.prix.toLocaleString('fr-FR');
   if (comp.prixM2 == null && Number.isFinite(f.prixM2)) out.prixM2 = f.prixM2.toLocaleString('fr-FR');
   if (comp.surface == null && f.surface != null) out.surface = f.surface;
@@ -3142,7 +3145,91 @@ function rootFactsFromFields(comp) {
   if (comp.addr == null && typeof comp.title === 'string' && comp.title.includes(',')) {
     out.addr = comp.title.split(',').pop().trim();
   }
+
+  // Informations générales (section principale du détail) : construites depuis
+  // les fields réels du mock. GeneralInfo n'affiche que les lignes renseignées.
+  if (comp.infosGenerales == null && (f.chauffageType || f.anneeConstruction || f.dpe || f.surface)) {
+    const chauffage = [f.chauffageType, f.chauffageEnergie].filter(Boolean).join(' \u2014 ') || null;
+    const dependances = [
+      f.cave ? `Cave ${f.cave} m\u00b2` : null,
+      f.balcon ? `Balcon ${f.balcon} m\u00b2` : null,
+    ].filter(Boolean).join(' \u00b7 ') || null;
+    out.infosGenerales = {
+      surfaceHabitable: f.surfaceUtile || f.surface || null,
+      surfaceExterieurs: f.balcon || null,
+      dependances,
+      chauffage,
+      menuiseries: f.vitrage || null,
+      anneeConstruction: f.anneeConstruction || null,
+      etatGeneral: f.facadesEtat || f.epoqueConstruction || null,
+      dpe: f.dpe || null,
+      ges: f.ges || null,
+    };
+  }
+
+  // Détail des pièces : tableau synthétique reconstruit depuis le nombre de
+  // pièces / chambres / sdb / wc (les mocks ne portent pas le détail pièce
+  // par pièce). Surfaces approximées proportionnellement à la surface totale.
+  if (comp.rooms == null && f.surface && (f.pieces || f.chambres)) {
+    out.rooms = buildRoomsFromFields(f);
+  }
+
+  // Atouts / contraintes déduits des caractéristiques objectives du field.
+  if (comp.atoutsQualitatifs == null && comp.pointsContraintes == null) {
+    const { atouts, contraintes } = deriveProsCons(f);
+    if (atouts.length) out.atoutsQualitatifs = atouts;
+    if (contraintes.length) out.pointsContraintes = contraintes;
+  }
+
   return out;
+}
+
+/* Reconstruit un tableau de pièces plausible à partir des compteurs du mock
+ * (chambres, sdb, wc) et de la surface totale, en réservant ~45% au séjour. */
+function buildRoomsFromFields(f) {
+  const surfTot = Number(f.surface) || 0;
+  const nbChambres = Number(f.chambres) || Math.max(0, (Number(f.pieces) || 1) - 1);
+  const nbSdb = Number(f.sdb) || 1;
+  const nbWc = Number(f.wc) || 0;
+  const etage = f.etage != null ? f.etage : undefined;
+  const etat = f.etatCuisine || (f.epoqueConstruction ? `${f.epoqueConstruction}` : 'Bon \u00e9tat');
+  const rooms = [];
+  const sejour = Math.round(surfTot * 0.42);
+  rooms.push({ nom: 'S\u00e9jour / Salon', surface: sejour, etage, etat });
+  const cuisine = Math.round(surfTot * 0.12);
+  rooms.push({ nom: f.cuisineEquipee ? 'Cuisine \u00e9quip\u00e9e' : 'Cuisine', surface: cuisine, etage, etat: f.etatCuisine || 'Bon \u00e9tat' });
+  const resteChambres = Math.max(0, surfTot - sejour - cuisine - nbSdb * 5 - nbWc * 2);
+  const surfParChambre = nbChambres > 0 ? Math.round(resteChambres / nbChambres) : 0;
+  for (let i = 0; i < nbChambres; i += 1) {
+    rooms.push({ nom: `Chambre ${i + 1}`, surface: surfParChambre, etage, etat: 'Bon \u00e9tat' });
+  }
+  for (let i = 0; i < nbSdb; i += 1) {
+    rooms.push({ nom: nbSdb > 1 ? `Salle de bain ${i + 1}` : 'Salle de bain', surface: 5, etage, etat: 'Bon \u00e9tat' });
+  }
+  for (let i = 0; i < nbWc; i += 1) {
+    rooms.push({ nom: nbWc > 1 ? `WC ${i + 1}` : 'WC s\u00e9par\u00e9', surface: 2, etage, etat: 'Bon \u00e9tat' });
+  }
+  return rooms;
+}
+
+/* Déduit des atouts / contraintes à partir des caractéristiques objectives
+ * (ascenseur, balcon, orientation, DPE, étage, état cuisine). Aucun jugement
+ * inventé : seulement des faits présents dans le field. */
+function deriveProsCons(f) {
+  const atouts = [];
+  const contraintes = [];
+  if (f.ascenseur === true) atouts.push('Ascenseur'); else if (f.ascenseur === false) contraintes.push('Pas d\u2019ascenseur');
+  if (f.balcon) atouts.push(`Balcon ${f.balcon} m\u00b2`);
+  if (f.cave) atouts.push(`Cave ${f.cave} m\u00b2`);
+  if (f.orientation) atouts.push(`Orientation ${f.orientation}`);
+  if (f.cuisineEquipee) atouts.push('Cuisine \u00e9quip\u00e9e');
+  if (f.vitrage && /double/i.test(f.vitrage)) atouts.push(f.vitrage);
+  if (f.etatCuisine && /r\u00e9nover/i.test(f.etatCuisine)) contraintes.push('Cuisine \u00e0 r\u00e9nover');
+  if (['E', 'F', 'G'].includes(f.dpe)) contraintes.push(`DPE ${f.dpe} \u2014 passoire \u00e9nerg\u00e9tique`);
+  else if (['A', 'B'].includes(f.dpe)) atouts.push(`DPE ${f.dpe} \u2014 performant`);
+  if (f.etage === 0) contraintes.push('Rez-de-chauss\u00e9e');
+  if (f.etagesTotal && f.etage === f.etagesTotal && f.ascenseur === false) contraintes.push('Dernier \u00e9tage sans ascenseur');
+  return { atouts, contraintes };
 }
 
 function SelectedCompCard({ comp, onRemove, onOpenDrawer, weight, onWeightChange }) {
