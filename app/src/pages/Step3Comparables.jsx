@@ -239,10 +239,18 @@ function dvfTxToOther(tx, idx, targetCoords) {
     id: `dvf-${idx}`,
     title,
     source: 'dvf',
+    sourceLabel: 'DVF',
     meta,
     simScore: `${sim}% sim.`,
     simClass,
     coords: tx.lat && tx.lon ? [tx.lat, tx.lon] : null,
+    // Propriétés racine lues par le drawer (KeyFacts) — sinon vides en live.
+    addr: tx.commune || tx.adresse || '—',
+    prix: Number.isFinite(tx.prix) ? tx.prix.toLocaleString('fr-FR') : '—',
+    prixM2: tx.prixM2 ? tx.prixM2.toLocaleString('fr-FR') : '—',
+    surface: tx.surface || null,
+    pieces: tx.pieces || null,
+    distance: distanceLabel,
     fields: {
       type: tx.type,
       surface: tx.surface,
