@@ -1186,7 +1186,7 @@ export default function Step5AvisValeur() {
     if (a.dpe) dpeMatch++;
   });
 
-  /* ---- Offres concurrentes : biens immo \u00e0 vendre actuellement dans la fourchette de prix ----
+  /* ---- Biens similaires en vente : biens immo \u00e0 vendre actuellement dans la fourchette de prix ----
      Simulation : distribution gaussienne centr\u00e9e sur 300k\u20ac (mode du march\u00e9 zone),
      \u00e9cart-type 35k\u20ac. Le compteur affiche le nombre de biens \u00e9quivalents en concurrence
      directe \u00e0 \u00b15% du prix s\u00e9lectionn\u00e9.
@@ -1406,7 +1406,7 @@ export default function Step5AvisValeur() {
               type="button"
               className={`hide-demo-toggle${hideDemo ? ' active' : ''}`}
               onClick={() => setHideDemo((v) => !v)}
-              title={hideDemo ? 'R\u00e9afficher les sections d\u00e9mo (comparables, offres concurrentes\u2026)' : 'Masquer les sections d\u00e9mo (comparables fictifs, offres concurrentes simul\u00e9es\u2026)'}
+              title={hideDemo ? 'R\u00e9afficher les sections d\u00e9mo (comparables, biens similaires en vente\u2026)' : 'Masquer les sections d\u00e9mo (comparables fictifs, biens similaires en vente simul\u00e9s\u2026)'}
             >
               <span aria-hidden="true">{hideDemo ? '\uD83D\uDC41\uFE0F' : '\uD83D\uDEAB'}</span>
               {hideDemo ? ' R\u00e9afficher la d\u00e9mo' : ' Masquer la d\u00e9mo'}
@@ -1474,7 +1474,7 @@ export default function Step5AvisValeur() {
                 <div className="demand-vs">vs</div>
                 <div className="demand-big-wrap">
                   <div className="demand-big-number offers">{offresImmo}</div>
-                  <div className="demand-big-label">offres<br/>concurrentes</div>
+                  <div className="demand-big-label">biens similaires<br/>en vente</div>
                 </div>
               </>
             )}
