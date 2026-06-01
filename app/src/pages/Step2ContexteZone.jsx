@@ -1,8 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PropertyCard from '../components/PropertyCard';
 import Stepper from '../components/Stepper';
 import { contexteZone } from '../data/propertyData';
+import { getActiveBien } from '../utils/activeBien';
+import { getRisquesSynthese } from '../utils/georisquesClient';
+import { mergeReportSection, getReportSection } from '../utils/reportStore';
 
 const COLOR_MAP = {
   green: '#46B962',
@@ -181,6 +184,25 @@ const cssStyles = `
     box-shadow: 0 1px 4px rgba(0,0,0,0.2);
     cursor: pointer;
   }
+  .plu-link {
+    font-size: 11px;
+    color: #4a6cf7;
+    text-decoration: none;
+    font-weight: 500;
+    padding: 3px 6px;
+    border-radius: 4px;
+    transition: background 0.15s;
+  }
+  .plu-link:hover {
+    background: #eef1ff;
+    text-decoration: underline;
+  }
+  .poi-status {
+    font-size: 10px;
+    color: #949494;
+    margin-left: auto;
+    font-style: italic;
+  }
 
   /* MARKET CARD */
   .market-card {
@@ -197,6 +219,30 @@ const cssStyles = `
     font-weight: 600;
     margin-bottom: 6px;
     color: #393939;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .market-source {
+    font-size: 8px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    padding: 2px 5px;
+    border-radius: 3px;
+  }
+  .market-source.DVF {
+    background: #e8f5ec;
+    color: #2d7a44;
+  }
+  .market-source.demo {
+    background: #fff5e6;
+    color: #b07a1e;
+  }
+  .market-source.indispo {
+    background: #f0f0f0;
+    color: #949494;
   }
   .market-price {
     text-align: center;
@@ -389,7 +435,349 @@ const cssStyles = `
   }
 `;
 
-const TARGET_COORDS = [45.7580, 4.8590];
+/* ─── Coordonnées de fallback (mode démo / pas d'activeBien) ─── */
+const DEMO_TARGET_COORDS = [45.7580, 4.8590];
+const DEMO_TARGET_LABEL = '12 rue des Lilas';
+const DEMO_TARGET_CITY_LINE = '69003 Lyon';
+
+/* ─── Cadastre IGN — Géoplateforme (WMTS public) ─── */
+const CADASTRE_TILE_URL =
+  'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0' +
+  '&LAYER=CADASTRALPARCELS.PARCELS&TILEMATRIX={z}&TILEMATRIXSET=PM' +
+  '&TILECOL={x}&TILEROW={y}&FORMAT=image/png&STYLE=normal';
+
+/* ─── Overpass API — POI réels OSM (avec mirrors de secours) ─── */
+/* Ordre = ordre d'essai. kumi.systems en 1er car overpass-api.de
+   refuse régulièrement les connexions (ERR_CONNECTION_REFUSED). */
+const OVERPASS_ENDPOINTS = [
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+  'https://overpass-api.de/api/interpreter',
+];
+const OVERPASS_TIMEOUT = 25;          // secondes côté serveur Overpass
+const OVERPASS_QUERIES = {
+  transports: (lat, lon, r) => `(
+    node["railway"="station"](around:${r},${lat},${lon});
+    node["public_transport"="station"](around:${r},${lat},${lon});
+    node["highway"="bus_stop"](around:${r},${lat},${lon});
+    node["amenity"="bicycle_rental"](around:${r},${lat},${lon});
+  );out body 12;`,
+  commerces: (lat, lon, r) => `(
+    node["shop"~"supermarket|convenience|bakery|butcher|greengrocer"](around:${r},${lat},${lon});
+    node["amenity"~"pharmacy|post_office|bank|cafe|restaurant"](around:${r},${lat},${lon});
+  );out body 12;`,
+  education: (lat, lon, r) => `(
+    node["amenity"~"kindergarten|school|college|university"](around:${r},${lat},${lon});
+    way["amenity"~"kindergarten|school|college|university"](around:${r},${lat},${lon});
+  );out center 10;`,
+  sante: (lat, lon, r) => `(
+    node["amenity"~"hospital|clinic|doctors|dentist"](around:${r},${lat},${lon});
+    way["amenity"~"hospital|clinic"](around:${r},${lat},${lon});
+  );out center 10;`,
+  environnement: (lat, lon, r) => `(
+    way["leisure"~"park|garden|nature_reserve"](around:${r},${lat},${lon});
+    node["leisure"~"park|garden|playground"](around:${r},${lat},${lon});
+  );out center 10;`,
+};
+
+/* Distance approx (m) entre deux paires lat/lon - haversine */
+function distMeters(a, b) {
+  const R = 6371000;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(b[0] - a[0]);
+  const dLon = toRad(b[1] - a[1]);
+  const lat1 = toRad(a[0]);
+  const lat2 = toRad(b[0]);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  return Math.round(2 * R * Math.asin(Math.sqrt(h)));
+}
+
+/* Détail formaté pour la popup OSM ("Métro — 350 m") */
+function buildPoiDetail(tags, distance) {
+  const parts = [];
+  if (tags.railway === 'station') parts.push('Gare');
+  else if (tags.public_transport === 'station') parts.push('Station');
+  else if (tags.highway === 'bus_stop') parts.push('Arrêt bus');
+  else if (tags.amenity === 'bicycle_rental') parts.push('Vélos');
+  else if (tags.shop) parts.push(tags.shop.replace(/_/g, ' '));
+  else if (tags.amenity) parts.push(tags.amenity.replace(/_/g, ' '));
+  parts.push(distance < 1000 ? `${distance} m` : `${(distance / 1000).toFixed(1)} km`);
+  return parts.join(' — ');
+}
+
+/* Fetch Overpass pour une catégorie — essaie les mirrors en cascade */
+async function fetchOverpassCategory(cat, coords, radius, signal) {
+  const [lat, lon] = coords;
+  const body = `[out:json][timeout:${OVERPASS_TIMEOUT}];${OVERPASS_QUERIES[cat](lat, lon, radius)}`;
+  let lastErr = null;
+  let json = null;
+  let usedEndpoint = null;
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `data=${encodeURIComponent(body)}`,
+        signal,
+      });
+      if (!res.ok) {
+        lastErr = new Error(`${endpoint} ${res.status}`);
+        // log discret en console.warn (pas d'erreur rouge si mirror suivant OK)
+        console.warn('[Overpass]', cat, endpoint, '→ HTTP', res.status, '· essai mirror suivant');
+        continue;
+      }
+      json = await res.json();
+      usedEndpoint = endpoint;
+      break;
+    } catch (err) {
+      if (err.name === 'AbortError') throw err;
+      lastErr = err;
+      console.warn('[Overpass]', cat, endpoint, '→', err.message, '· essai mirror suivant');
+      continue;
+    }
+  }
+  if (!json) throw lastErr || new Error('Overpass : tous les mirrors KO');
+  const rawCount = Array.isArray(json.elements) ? json.elements.length : 0;
+  console.log('[Overpass]', cat, '→ OK via', usedEndpoint, '·', rawCount, 'éléments bruts');
+  if (!Array.isArray(json.elements)) return [];
+  const filtered = json.elements
+    .map((el) => {
+      const c = el.type === 'node'
+        ? [el.lat, el.lon]
+        : el.center ? [el.center.lat, el.center.lon] : null;
+      if (!c) return null;
+      const tags = el.tags || {};
+      const name = tags.name || tags['name:fr'] || tags.brand;
+      if (!name) return null;
+      const d = distMeters(coords, c);
+      return { name, coords: c, detail: buildPoiDetail(tags, d), distance: d };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.distance - b.distance)
+    .slice(0, 8);
+  console.log('[Overpass]', cat, '→', filtered.length, 'POI retenus (avec nom)');
+  return filtered;
+}
+
+/* ─── Helpers : construction des sections déroulables dynamiques ─────── */
+
+/* Format distance lisible : "350m" ou "1.2km" */
+function fmtDist(d) {
+  if (d == null || Number.isNaN(d)) return '—';
+  return d < 1000 ? `${d}m` : `${(d / 1000).toFixed(1)}km`;
+}
+
+/* Couleur du dot d'en-tête selon la distance moyenne POI */
+function dotFromAvgDist(avgDist) {
+  if (avgDist == null) return '';
+  if (avgDist < 500) return 'green';
+  if (avgDist < 1000) return 'orange';
+  return 'red';
+}
+
+/* Titres EXACTS utilisés dans contexteZone.sections (matching fallback) */
+const POI_SECTION_TITLES = {
+  transports:    'Transports & Accessibilité',
+  commerces:     'Commerces & Services',
+  education:     'Éducation',
+  sante:         'Santé',
+  environnement: 'Environnement & Cadre de vie',
+};
+const RISQUES_TITLE = 'Risques & Aléas';
+
+/* Construit une section "POI" pour une catégorie donnée */
+function buildPoiSection(cat, items) {
+  if (!Array.isArray(items) || items.length === 0) return null;
+  const top = items.slice(0, 5);
+  const summary = top.slice(0, 2)
+    .map((p) => `${p.name} ${fmtDist(p.distance)}`)
+    .join(' · ');
+  const avg = top.reduce((s, p) => s + (p.distance || 0), 0) / top.length;
+  return {
+    title:   POI_SECTION_TITLES[cat] || cat,
+    summary,
+    rows: top.map((p) => ({
+      lbl:  p.name,
+      val:  fmtDist(p.distance),
+      type: 'dist',
+    })),
+    dotColor: dotFromAvgDist(avg),
+  };
+}
+
+/* Construit la section "Risques & Aléas" depuis la synthèse Géorisques */
+function buildRisquesSection(risques) {
+  if (!risques) return null;
+  const rows = [];
+  let warnCount = 0;
+  let badCount = 0;
+
+  /* Inondation (PPRI) */
+  if (risques.inondation) {
+    if (risques.inondation.present) {
+      rows.push({
+        lbl: 'Inondation (PPRI)',
+        val: risques.inondation.niveau || 'Présent',
+        type: 'risk-warn',
+      });
+      warnCount++;
+    } else {
+      rows.push({ lbl: 'Inondation (PPRI)', val: 'Aucun', type: 'risk-ok' });
+    }
+  }
+
+  /* Retrait-gonflement argiles */
+  if (risques.argile && risques.argile.niveau) {
+    const niv = String(risques.argile.niveau).toLowerCase();
+    const isBad  = /fort|élev/.test(niv);
+    const isWarn = /moy/.test(niv);
+    rows.push({
+      lbl:  'Retrait-gonflement argiles',
+      val:  risques.argile.niveau,
+      type: isBad ? 'risk-bad' : isWarn ? 'risk-warn' : 'risk-ok',
+      isImpact: isBad,
+    });
+    if (isBad) badCount++;
+    else if (isWarn) warnCount++;
+  }
+
+  /* Sismicité */
+  if (risques.sismique && risques.sismique.niveau) {
+    const z = parseInt(risques.sismique.zone, 10);
+    const isBad  = z >= 4;
+    const isWarn = z === 3;
+    rows.push({
+      lbl:  `Sismicité (zone ${risques.sismique.zone})`,
+      val:  risques.sismique.niveau,
+      type: isBad ? 'risk-bad' : isWarn ? 'risk-warn' : 'risk-ok',
+    });
+    if (isBad) badCount++;
+    else if (isWarn) warnCount++;
+  }
+
+  /* Potentiel radon */
+  if (risques.radon && risques.radon.potentiel) {
+    const niv = risques.radon.potentiel;
+    const isBad  = niv === 'Élevé';
+    const isWarn = niv === 'Moyen';
+    rows.push({
+      lbl:  'Potentiel radon',
+      val:  niv,
+      type: isBad ? 'risk-bad' : isWarn ? 'risk-warn' : 'risk-ok',
+    });
+    if (isBad) badCount++;
+    else if (isWarn) warnCount++;
+  }
+
+  /* Mouvements de terrain (rayon 500m) */
+  if (risques.mouvement) {
+    rows.push({
+      lbl:  'Mouvements de terrain (500m)',
+      val:  risques.mouvement.present ? `${risques.mouvement.count} signalé(s)` : 'Aucun',
+      type: risques.mouvement.present ? 'risk-warn' : 'risk-ok',
+    });
+    if (risques.mouvement.present) warnCount++;
+  }
+
+  /* BASIAS / installations classées (rayon 500m) */
+  if (risques.basias) {
+    rows.push({
+      lbl:  'Sites BASIAS (500m)',
+      val:  risques.basias.present ? `${risques.basias.count} signalé(s)` : 'Aucun',
+      type: risques.basias.present ? 'risk-warn' : 'risk-ok',
+    });
+    if (risques.basias.present) warnCount++;
+  }
+
+  if (rows.length === 0) return null;
+
+  let summary;
+  if (badCount > 0)       summary = `${badCount} alerte(s) majeure(s)`;
+  else if (warnCount > 0) summary = `${warnCount} point(s) de vigilance`;
+  else                    summary = 'Aucun risque majeur signalé';
+
+  return {
+    title: 'Risques & Aléas',
+    summary,
+    rows,
+    dotColor: badCount > 0 ? 'red' : warnCount > 0 ? 'orange' : 'green',
+  };
+}
+
+/* Section "live indisponible" pour une catégorie POI : signale clairement
+   à l'utilisateur que les données ne sont pas dispos plutôt que d'afficher
+   des POI démo qui ne correspondraient pas à sa localité. */
+function buildEmptyPoiSection(cat) {
+  return {
+    title: POI_SECTION_TITLES[cat] || cat,
+    summary: 'Données live indisponibles pour cette zone',
+    rows: [
+      { lbl: 'Source', val: 'OpenStreetMap / Overpass' },
+      { lbl: 'Statut', val: 'Indisponible — réessayer plus tard' },
+    ],
+    dotColor: '',
+  };
+}
+
+function buildEmptyRisquesSection() {
+  return {
+    title: RISQUES_TITLE,
+    summary: 'Données live indisponibles pour cette zone',
+    rows: [
+      { lbl: 'Source', val: 'Géorisques (data.gouv.fr)' },
+      { lbl: 'Statut', val: 'Indisponible — réessayer plus tard' },
+    ],
+    dotColor: '',
+  };
+}
+
+/* Compose le tableau final de sections (POI + Risques) à passer au rendu.
+   - Si le bien a une vraie localité (citycode) : pas de fallback démo Lyon 3
+     trompeur. À la place on affiche une section "live indispo" explicite.
+   - Sinon (mode démo / pas d'activeBien) : retombe sur contexteZone.sections. */
+function buildDynamicSections({ realPoi, risques, hasRealLocation }, fallback) {
+  const out = [];
+  const order = ['transports', 'commerces', 'education', 'sante', 'environnement'];
+  const fb = Array.isArray(fallback) ? fallback : [];
+  const findFb = (title) => fb.find((s) => s.title === title);
+
+  /* 1. Sections POI : live > (démo si pas de vraie loc) > placeholder */
+  order.forEach((cat) => {
+    const live = realPoi ? buildPoiSection(cat, realPoi[cat]) : null;
+    if (live) {
+      out.push(live);
+    } else if (hasRealLocation) {
+      out.push(buildEmptyPoiSection(cat));
+    } else {
+      const demo = findFb(POI_SECTION_TITLES[cat]);
+      if (demo) out.push(demo);
+    }
+  });
+
+  /* 2. Section Risques : live > (démo si pas de vraie loc) > placeholder */
+  const risk = buildRisquesSection(risques);
+  if (risk) {
+    out.push(risk);
+  } else if (hasRealLocation) {
+    out.push(buildEmptyRisquesSection());
+  } else {
+    const demo = findFb(RISQUES_TITLE);
+    if (demo) out.push(demo);
+  }
+
+  /* 3. Sections additionnelles du fallback (INSEE, etc.) :
+        on les garde uniquement en mode démo sans vraie localité,
+        sinon elles seraient trompeuses (chiffres Lyon 3). */
+  if (!hasRealLocation) {
+    const knownTitles = new Set([...Object.values(POI_SECTION_TITLES), RISQUES_TITLE]);
+    fb.forEach((s) => {
+      if (!knownTitles.has(s.title)) out.push(s);
+    });
+  }
+
+  if (out.length === 0) return fallback;
+  return out;
+}
 
 /* ─── POI simulés autour du bien cible ─── */
 const POI_DATA = {
@@ -432,19 +820,105 @@ const POI_STYLES = {
 
 export default function Step2ContexteZone() {
   const navigate = useNavigate();
+  // Hydratation depuis reportStore (persistance inter-pages)
+  const persistedContexte = useMemo(() => getReportSection('contexteMarche', {}), []);
   const [openSections, setOpenSections] = useState({});
-  const [radiusMeters, setRadiusMeters] = useState(1000);
+  const [radiusMeters, setRadiusMeters] = useState(
+    typeof persistedContexte.rayon === 'number' ? persistedContexte.rayon : 1000
+  );
   const [activeLayers, setActiveLayers] = useState({ transports: true, commerces: true, education: false, sante: false });
+  const [cadastreOn, setCadastreOn] = useState(false);
+  const [realPoi, setRealPoi] = useState(persistedContexte.poi || null);
+  const [poiLoading, setPoiLoading] = useState(false);
+  const [poiError, setPoiError] = useState(null);
+  const [risques, setRisques] = useState(persistedContexte.risques || null);
+  const [risquesLoading, setRisquesLoading] = useState(false);
+  const [dvfStatsLive, setDvfStatsLive] = useState(persistedContexte.dvfLive || null);
+  const [dvfLoading, setDvfLoading] = useState(false);
+  const [refetchTick, setRefetchTick] = useState(0);
+  const [debugOn, setDebugOn] = useState(false);
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const circleRef = useRef(null);
-  const poiLayersRef = useRef({});
+  const poiLayersRef = useRef({});                   // catégorie -> L.layerGroup
+  const cadastreLayerRef = useRef(null);             // L.tileLayer cadastre
+  const targetMarkerRef = useRef(null);              // marker bien-cible
 
   const toggleSection = (idx) => {
     setOpenSections((prev) => ({ ...prev, [idx]: !prev[idx] }));
   };
 
-  const { market, sections } = contexteZone;
+  /* ─── Bien actif : coords / adresse / dvfStats ─────────────────────── */
+  const activeBien = useMemo(() => getActiveBien(), []);
+  const targetCoords = useMemo(() => {
+    if (activeBien?.adresse?.coords && Array.isArray(activeBien.adresse.coords)) {
+      return activeBien.adresse.coords;
+    }
+    return DEMO_TARGET_COORDS;
+  }, [activeBien]);
+  const targetLabel = activeBien?.adresse?.label || DEMO_TARGET_LABEL;
+  const targetCityLine = activeBien?.adresse
+    ? `${activeBien.adresse.postcode || ''} ${activeBien.adresse.city || ''}`.trim()
+    : DEMO_TARGET_CITY_LINE;
+  const dvfStats = activeBien?.dvfStats || null;
+  const hasRealLocationGlobal = !!activeBien?.adresse?.citycode;
+
+  /* Market Card : DVF réel (Step1 OU live Step2) si dispo, sinon
+     - si vraie localité : placeholder "indispo" (ne jamais afficher Lyon 3 démo)
+     - sinon : fallback contexteZone.market (mode démo) */
+  const marketDisplay = useMemo(() => {
+    const dvf = (dvfStats && dvfStats.median) ? dvfStats
+              : (dvfStatsLive && dvfStatsLive.median) ? dvfStatsLive
+              : null;
+    if (dvf) {
+      const fmt = (n) => Number(n).toLocaleString('fr-FR');
+      return {
+        prixM2: fmt(dvf.median),
+        evolution: contexteZone.market.evolution,         // pas dans DVF actuel
+        transactions: dvf.count || '—',
+        delai: contexteZone.market.delai,                  // idem
+        fourchette: dvf.p25 && dvf.p75
+          ? `${fmt(dvf.p25)} – ${fmt(dvf.p75)}`
+          : contexteZone.market.fourchette,
+        source: 'DVF',
+      };
+    }
+    if (hasRealLocationGlobal) {
+      return {
+        prixM2: '—',
+        evolution: '—',
+        transactions: '—',
+        delai: '—',
+        fourchette: '—',
+        source: 'indispo',
+      };
+    }
+    return { ...contexteZone.market, source: 'demo' };
+  }, [dvfStats, dvfStatsLive, hasRealLocationGlobal]);
+
+  const marketTitle = activeBien?.adresse?.city
+    ? `Marché Local — ${activeBien.adresse.city}${activeBien.adresse.postcode ? ' (' + activeBien.adresse.postcode + ')' : ''}`
+    : 'Marché Local — IRIS 693830107';
+
+  /* Lien GPU (Géoportail Urbanisme) : pré-rempli sur la commune (citycode INSEE) */
+  const pluUrl = activeBien?.adresse?.citycode
+    ? `https://www.geoportail-urbanisme.gouv.fr/map/#tile=1&lon=${targetCoords[1]}&lat=${targetCoords[0]}&zoom=17`
+    : 'https://www.geoportail-urbanisme.gouv.fr/';
+
+  /* ─── Construction des sections déroulables ─────────────────────────── */
+  /* Mode démo (pas de bien actif) → contexteZone.sections inchangé.       */
+  /* Mode réel (citycode présent) → on construit dynamiquement, sans       */
+  /* retomber sur les données démo Lyon 3 qui seraient trompeuses.          */
+  const sections = useMemo(() => {
+    const hasRealLocation = !!activeBien?.adresse?.citycode;
+    if (!hasRealLocation && !realPoi && !risques) {
+      return contexteZone.sections;
+    }
+    return buildDynamicSections(
+      { realPoi, risques, hasRealLocation },
+      contexteZone.sections
+    );
+  }, [realPoi, risques, activeBien]);
 
   // Radius presets → meters
   const RADIUS_PRESETS = [
@@ -461,7 +935,7 @@ export default function Step2ContexteZone() {
     const map = mapInstanceRef.current;
     if (map) {
       const zoom = meters <= 500 ? 16 : meters <= 1000 ? 15 : 14;
-      map.setView(TARGET_COORDS, zoom, { animate: true });
+      map.setView(targetCoords, zoom, { animate: true });
     }
   };
 
@@ -487,11 +961,18 @@ export default function Step2ContexteZone() {
     const L = window.L;
     if (!L || !mapRef.current) return;
 
-    const map = L.map(mapRef.current, { zoomControl: false }).setView(TARGET_COORDS, 15);
+    const map = L.map(mapRef.current, { zoomControl: false }).setView(targetCoords, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap',
     }).addTo(map);
     L.control.zoom({ position: 'topright' }).addTo(map);
+
+    /* Cadastre IGN : layer gardé en ref, ajouté/retiré via toggle */
+    cadastreLayerRef.current = L.tileLayer(CADASTRE_TILE_URL, {
+      attribution: '&copy; IGN — Géoplateforme',
+      opacity: 0.7,
+      maxZoom: 20,
+    });
 
     // Target marker
     const targetIcon = L.divIcon({
@@ -505,11 +986,17 @@ export default function Step2ContexteZone() {
       iconSize: [36, 36],
       iconAnchor: [18, 18],
     });
-    L.marker(TARGET_COORDS, { icon: targetIcon, zIndexOffset: 1000 }).addTo(map)
-      .bindPopup('<strong>12 rue des Lilas</strong><br>69003 Lyon');
+    const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const popupHtml = `<strong>${escapeHtml(targetLabel)}</strong>${
+      targetCityLine ? '<br>' + escapeHtml(targetCityLine) : ''
+    }`;
+    targetMarkerRef.current = L.marker(targetCoords, { icon: targetIcon, zIndexOffset: 1000 })
+      .addTo(map)
+      .bindPopup(popupHtml);
 
     // Radius circle
-    const circle = L.circle(TARGET_COORDS, {
+    const circle = L.circle(targetCoords, {
       radius: 1000,
       color: '#46B962',
       fillColor: '#46B962',
@@ -520,27 +1007,9 @@ export default function Step2ContexteZone() {
     }).addTo(map);
     circleRef.current = circle;
 
-    // POI layers per category
-    Object.entries(POI_DATA).forEach(([cat, pois]) => {
-      const style = POI_STYLES[cat];
-      const layerGroup = L.layerGroup();
-
-      pois.forEach((poi) => {
-        const icon = L.divIcon({
-          className: 'poi-icon',
-          html: `<div style="width:26px;height:26px;background:${style.color};border:2.5px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;font-size:12px;line-height:1">${style.icon}</div>`,
-          iconSize: [26, 26],
-          iconAnchor: [13, 13],
-        });
-        L.marker(poi.coords, { icon }).addTo(layerGroup)
-          .bindPopup(`<div style="font-family:'Open Sans',sans-serif;font-size:12px"><strong style="color:${style.color}">${poi.name}</strong><br><span style="color:#666">${poi.detail}</span></div>`);
-      });
-
-      poiLayersRef.current[cat] = layerGroup;
-      // Add initially active layers
-      if (cat === 'transports' || cat === 'commerces') {
-        layerGroup.addTo(map);
-      }
+    // POI : on initialise les layerGroups vides (remplis ensuite par useEffect Overpass)
+    Object.keys(POI_STYLES).forEach((cat) => {
+      poiLayersRef.current[cat] = L.layerGroup();
     });
 
     mapInstanceRef.current = map;
@@ -548,8 +1017,205 @@ export default function Step2ContexteZone() {
     return () => {
       map.remove();
       mapInstanceRef.current = null;
+      cadastreLayerRef.current = null;
+      targetMarkerRef.current = null;
+      poiLayersRef.current = {};
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /* ─── Toggle cadastre IGN ───────────────────────────────────────────── */
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const layer = cadastreLayerRef.current;
+    if (!map || !layer) return;
+    if (cadastreOn && !map.hasLayer(layer)) layer.addTo(map);
+    else if (!cadastreOn && map.hasLayer(layer)) map.removeLayer(layer);
+  }, [cadastreOn]);
+
+  /* ─── Fetch DVF live si manquant ─────────────────────────────────────
+     Step1 essaie de pré-remplir activeBien.dvfStats. Si l'utilisateur a
+     court-circuité Step1 ou si DVF a échoué (petite commune, timeout…),
+     on retente ici en Step2 pour ne pas afficher des chiffres démo Lyon 3
+     trompeurs. */
+  useEffect(() => {
+    const citycode = activeBien?.adresse?.citycode;
+    if (!citycode || (dvfStats && dvfStats.median)) {
+      setDvfStatsLive(null);
+      return undefined;
+    }
+    let cancelled = false;
+    setDvfLoading(true);
+    console.log('[DVF Step2] start fetch citycode=', citycode, 'type=', activeBien?.type);
+
+    (async () => {
+      try {
+        // Proxy serverless Vercel : /api/dvf?citycode=XXXXX[&type=...]
+        // Source côté serveur : Etalab geo-dvf statique. Bypass CORS,
+        // cache CDN 24h, stats déjà calculées.
+        const type = activeBien?.type || '';
+        const url = `/api/dvf?citycode=${encodeURIComponent(citycode)}${type ? `&type=${encodeURIComponent(type)}` : ''}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        console.log('[DVF Step2] /api/dvf →', data);
+        if (cancelled) return;
+        if (data && data.ok && data.median) {
+          // Format compatible avec dvfStats (Step1) : { median, moyenne, min, max, p25, p75, count }
+          setDvfStatsLive({
+            median: data.median,
+            moyenne: data.moyenne,
+            min: data.min,
+            max: data.max,
+            p25: data.p25,
+            p75: data.p75,
+            count: data.countByType ?? data.count,
+          });
+        } else {
+          console.warn('[DVF Step2] api/dvf sans résultat exploitable', data);
+          setDvfStatsLive(null);
+        }
+      } catch (err) {
+        if (!cancelled) console.warn('[DVF Step2] fetch error', err);
+      } finally {
+        if (!cancelled) setDvfLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [activeBien, dvfStats, refetchTick]);
+
+  /* ─── Fetch POI réels via Overpass quand coords / rayon changent ────── */
+  useEffect(() => {
+    if (!targetCoords) return;
+    const ctrl = new AbortController();
+    const debounce = setTimeout(async () => {
+      setPoiLoading(true);
+      setPoiError(null);
+      try {
+        const cats = Object.keys(OVERPASS_QUERIES);
+        const results = await Promise.all(
+          cats.map((cat) => fetchOverpassCategory(cat, targetCoords, radiusMeters, ctrl.signal)
+            .catch((err) => {
+              if (err.name === 'AbortError') throw err;
+              console.warn('[Overpass]', cat, err.message);
+              return null;
+            }))
+        );
+        if (ctrl.signal.aborted) return;
+        const next = {};
+        cats.forEach((cat, i) => {
+          if (Array.isArray(results[i]) && results[i].length > 0) next[cat] = results[i];
+        });
+        console.log('[Overpass] récap final →',
+          Object.entries(next).map(([k, v]) => `${k}:${v.length}`).join(', ') || 'AUCUN POI',
+          '· radius=', radiusMeters, 'm');
+        setRealPoi(Object.keys(next).length > 0 ? next : null);
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.error('[Overpass] global error', err);
+          setPoiError('POI réels indisponibles — affichage des données démo.');
+        }
+      } finally {
+        setPoiLoading(false);
+      }
+    }, 600);
+    return () => {
+      ctrl.abort();
+      clearTimeout(debounce);
+    };
+  }, [targetCoords, radiusMeters, refetchTick]);
+
+  /* ─── Fetch synthèse risques Géorisques ─────────────────────────────── */
+  useEffect(() => {
+    const citycode = activeBien?.adresse?.citycode;
+    if (!citycode || !targetCoords) {
+      setRisques(null);
+      return undefined;
+    }
+    const ctrl = new AbortController();
+    setRisquesLoading(true);
+    getRisquesSynthese(citycode, targetCoords, ctrl.signal)
+      .then((data) => {
+        if (!ctrl.signal.aborted) setRisques(data);
+      })
+      .catch((err) => {
+        if (err.name !== 'AbortError') console.warn('[Géorisques]', err);
+      })
+      .finally(() => {
+        if (!ctrl.signal.aborted) setRisquesLoading(false);
+      });
+    return () => ctrl.abort();
+  }, [activeBien, targetCoords]);
+
+  /* ─── Repeupler les layerGroups POI quand realPoi change ────────────── */
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    const L = window.L;
+    if (!L) return;
+
+    /* Si on a une vraie localité mais pas de POI live → on n'affiche RIEN
+       sur la map (les markers démo Lyon 3 seraient trompeurs). */
+    const hasRealLocation = !!activeBien?.adresse?.citycode;
+    const sourceData = realPoi || (hasRealLocation ? {} : POI_DATA);
+
+    Object.entries(POI_STYLES).forEach(([cat, style]) => {
+      const group = poiLayersRef.current[cat];
+      if (!group) return;
+      group.clearLayers();
+
+      const items = sourceData[cat] || [];
+      items.forEach((poi) => {
+        const icon = L.divIcon({
+          className: 'poi-icon',
+          html: `<div style="width:26px;height:26px;background:${style.color};border:2.5px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;font-size:12px;line-height:1">${style.icon}</div>`,
+          iconSize: [26, 26],
+          iconAnchor: [13, 13],
+        });
+        L.marker(poi.coords, { icon }).addTo(group)
+          .bindPopup(`<div style="font-family:'Open Sans',sans-serif;font-size:12px"><strong style="color:${style.color}">${poi.name}</strong><br><span style="color:#666">${poi.detail}</span></div>`);
+      });
+
+      // (Re)attache le groupe à la carte si la catégorie est active
+      if (activeLayers[cat] && !map.hasLayer(group)) group.addTo(map);
+    });
+  }, [realPoi, activeLayers, activeBien]);
+
+  /* ─── Persistance reportStore : rayon, POI, risques, DVF live, marché ── */
+  useEffect(() => {
+    mergeReportSection('contexteMarche', { rayon: radiusMeters });
+  }, [radiusMeters]);
+
+  useEffect(() => {
+    if (realPoi) mergeReportSection('contexteMarche', { poi: realPoi });
+  }, [realPoi]);
+
+  useEffect(() => {
+    if (risques) mergeReportSection('contexteMarche', { risques });
+  }, [risques]);
+
+  useEffect(() => {
+    if (dvfStatsLive) mergeReportSection('contexteMarche', { dvfLive: dvfStatsLive });
+  }, [dvfStatsLive]);
+
+  /* Persiste la synthèse marché affichée (prixM2 médian, évolution,
+     transactions, délai, fourchette) — utilisée par CompteRendu. */
+  useEffect(() => {
+    if (!marketDisplay) return;
+    const isLiveSrc = marketDisplay.source === 'DVF';
+    mergeReportSection('contexteMarche', {
+      prixM2Median: isLiveSrc ? marketDisplay.prixM2 : undefined,
+      evolution: marketDisplay.evolution,
+      delaiMoyen: marketDisplay.delai,
+      fourchette: marketDisplay.fourchette,
+      transactions: marketDisplay.transactions,
+      source: marketDisplay.source,
+      zoneLabel: activeBien?.adresse?.city
+        ? `${activeBien.adresse.city}${activeBien.adresse.postcode ? ' (' + activeBien.adresse.postcode + ')' : ''}`
+        : undefined,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [marketDisplay]);
 
   return (
     <div className="step2-page">
@@ -626,30 +1292,151 @@ export default function Step2ContexteZone() {
                 <span style={{ fontSize: 10, color: '#949494' }}>m</span>
               </div>
             </div>
+            {/* Ligne 3 : cadastre + PLU + statut POI */}
+            <div className="map-controls-row">
+              <label style={{ color: cadastreOn ? '#393939' : '#949494' }}>
+                <input
+                  type="checkbox"
+                  checked={cadastreOn}
+                  onChange={(e) => setCadastreOn(e.target.checked)}
+                />
+                Cadastre IGN
+              </label>
+              <a
+                href={pluUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="plu-link"
+                title="Ouvrir le PLU de la commune sur le Géoportail Urbanisme"
+              >
+                PLU / GPU &nearr;
+              </a>
+              <span className="poi-status">
+                {poiLoading
+                  ? 'POI : chargement…'
+                  : poiError
+                  ? poiError
+                  : realPoi
+                  ? `POI : OSM (${Object.values(realPoi).reduce((s, a) => s + a.length, 0)})`
+                  : 'POI : démo'}
+                {risquesLoading && ' · Risques : chargement…'}
+                {!risquesLoading && risques && ' · Risques : Géorisques'}
+              </span>
+            </div>
+            {/* Ligne 4 : actions debug — bouton recharger + toggle panneau debug */}
+            <div className="map-controls-row">
+              <button
+                type="button"
+                className="radius-btn"
+                onClick={() => setRefetchTick((t) => t + 1)}
+                disabled={poiLoading}
+                title="Forcer un nouveau fetch Overpass"
+                style={{ fontSize: 11 }}
+              >
+                {poiLoading ? '↻ chargement…' : '↻ Recharger POI'}
+              </button>
+              <label style={{ color: debugOn ? '#393939' : '#949494' }}>
+                <input
+                  type="checkbox"
+                  checked={debugOn}
+                  onChange={(e) => setDebugOn(e.target.checked)}
+                />
+                🐞 Debug
+              </label>
+            </div>
+            {/* Panneau debug — visible uniquement si toggle activé */}
+            {debugOn && (
+              <div
+                style={{
+                  padding: '10px 12px',
+                  borderTop: '1px solid #f0f0f0',
+                  fontSize: 11,
+                  fontFamily: 'monospace',
+                  background: '#fafafa',
+                  color: '#393939',
+                  lineHeight: 1.5,
+                }}
+              >
+                <div style={{ fontWeight: 700, marginBottom: 4, color: '#666' }}>
+                  Diagnostic
+                </div>
+                <div>
+                  <strong>activeBien.label</strong> : {activeBien?.adresse?.label || '(aucun)'}
+                </div>
+                <div>
+                  <strong>activeBien.citycode</strong> : {activeBien?.adresse?.citycode || '(aucun)'}
+                </div>
+                <div>
+                  <strong>targetCoords</strong> : [
+                  {Array.isArray(targetCoords) ? targetCoords.map((n) => Number(n).toFixed(5)).join(', ') : '?'}
+                  ]
+                </div>
+                <div>
+                  <strong>radiusMeters</strong> : {radiusMeters}m · <strong>refetchTick</strong> : {refetchTick}
+                </div>
+                <div>
+                  <strong>poiLoading</strong> : {String(poiLoading)} ·{' '}
+                  <strong>poiError</strong> : {poiError || 'null'}
+                </div>
+                <div>
+                  <strong>realPoi</strong> :{' '}
+                  {realPoi
+                    ? Object.entries(realPoi)
+                        .map(([k, v]) => `${k}=${Array.isArray(v) ? v.length : '?'}`)
+                        .join(' · ')
+                    : 'null'}
+                </div>
+                <div>
+                  <strong>risquesLoading</strong> : {String(risquesLoading)} ·{' '}
+                  <strong>risques</strong> :{' '}
+                  {risques ? Object.keys(risques).join(', ') : 'null'}
+                </div>
+                <div>
+                  <strong>dvfStats (Step1)</strong> :{' '}
+                  {dvfStats?.median ? `median=${dvfStats.median} count=${dvfStats.count}` : 'null'}
+                </div>
+                <div>
+                  <strong>dvfStatsLive (Step2)</strong> :{' '}
+                  {dvfLoading ? 'chargement…' : dvfStatsLive?.median ? `median=${dvfStatsLive.median} count=${dvfStatsLive.count}` : 'null'}
+                </div>
+                <div style={{ marginTop: 6, color: '#949494', fontStyle: 'italic' }}>
+                  Ouvre la console (F12) pour voir les logs [Overpass] / [Géorisques] / [DVF].
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
         <div className="market-card">
-          <div className="market-title">March&eacute; Local &mdash; IRIS 693830107</div>
+          <div className="market-title">
+            {marketTitle}
+            <span className={`market-source ${marketDisplay.source}`}>
+              {marketDisplay.source === 'DVF'
+                ? (dvfLoading ? 'DVF…' : 'DVF')
+                : marketDisplay.source === 'indispo'
+                ? (dvfLoading ? 'chargement…' : 'indispo')
+                : 'démo'}
+            </span>
+          </div>
           <div className="market-price">
-            <span className="big">{market.prixM2} &euro;</span>
+            <span className="big">{marketDisplay.prixM2} &euro;</span>
             <span className="unit">/m&sup2;</span>
           </div>
           <div className="market-stats">
             <div className="market-stat">
-              <div className="val up">{market.evolution}</div>
+              <div className="val up">{marketDisplay.evolution}</div>
               <div className="lbl">&Eacute;volution 12 mois</div>
             </div>
             <div className="market-stat">
-              <div className="val">{market.transactions}</div>
-              <div className="lbl">Transactions/an</div>
+              <div className="val">{marketDisplay.transactions}</div>
+              <div className="lbl">Transactions{marketDisplay.source === 'DVF' ? ' (24 mois)' : '/an'}</div>
             </div>
             <div className="market-stat">
-              <div className="val">{market.delai}</div>
+              <div className="val">{marketDisplay.delai}</div>
               <div className="lbl">D&eacute;lai moyen vente</div>
             </div>
             <div className="market-stat">
-              <div className="val">{market.fourchette} &euro;</div>
+              <div className="val">{marketDisplay.fourchette} &euro;</div>
               <div className="lbl">Fourchette P25&ndash;P75/m&sup2;</div>
             </div>
           </div>
@@ -664,6 +1451,9 @@ export default function Step2ContexteZone() {
             <div key={idx} className="collapse-card">
               <div className="collapse-header" onClick={() => toggleSection(idx)}>
                 <div className="collapse-header-left">
+                  {section.dotColor && (
+                    <span className={`collapse-dot ${section.dotColor}`} />
+                  )}
                   <span className="collapse-title">{section.title}</span>
                   <span className="collapse-summary">{section.summary}</span>
                 </div>

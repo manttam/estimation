@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PropertyCard from '../components/PropertyCard';
 import { property } from '../data/propertyData';
+import { clearActiveBien } from '../utils/activeBien';
 
 const INITIAL_VERSIONS = [
   {
@@ -285,7 +286,7 @@ export default function Dashboard() {
             Historique des estimations
             <span className="hist-count">{versions.length} version{versions.length > 1 ? 's' : ''}</span>
           </div>
-          <button className="btn-new-est" onClick={() => navigate('/step/1')}>
+          <button className="btn-new-est" onClick={() => navigate('/nouveau-bien')}>
             + Nouvelle estimation
           </button>
         </div>
@@ -354,13 +355,22 @@ export default function Dashboard() {
                       </>
                     ) : (
                       <>
-                        <button className="tl-btn" onClick={() => navigate('/step/1')}>
+                        <button
+                          className="tl-btn"
+                          onClick={() => { clearActiveBien(); navigate('/step/1'); }}
+                        >
                           Consulter
                         </button>
-                        <button className="tl-btn" onClick={() => navigate('/avis-valeur')}>
+                        <button
+                          className="tl-btn"
+                          onClick={() => { clearActiveBien(); navigate('/avis-valeur'); }}
+                        >
                           Avis de valeur
                         </button>
-                        <button className="tl-btn" onClick={() => navigate('/report')}>
+                        <button
+                          className="tl-btn"
+                          onClick={() => { clearActiveBien(); navigate('/report'); }}
+                        >
                           Compte rendu
                         </button>
                       </>

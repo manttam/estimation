@@ -1,11 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import PropertyCard from '../components/PropertyCard';
 import Stepper from '../components/Stepper';
-import { bienCibleCategories } from '../data/propertyData';
+import PhotoUploader from '../components/PhotoUploader';
+import { bienCibleCategories as bienCibleCategoriesBase } from '../data/propertyData';
+import { PROPERTY_PHOTOS } from '../data/propertyPhotos';
+import { getActiveBien, buildBienCibleCategories } from '../utils/activeBien';
+import { getAllPhotos, deletePhoto } from '../utils/photosStore';
+import CadastrePLUCards from '../components/CadastrePLUCards';
+import { mergeReportSection, getReportSection, slugifyKey } from '../utils/reportStore';
 
 // Fix default Leaflet marker icon issue in React
 delete L.Icon.Default.prototype._getIconUrl;
@@ -23,22 +29,63 @@ const missingCriticalFields = [
   'Type de vitrage',
 ];
 
-// Photos du bien (donn\u00e9es fictives) ---------------------------------
-// Catalogue de photos avec type de pi\u00e8ce associ\u00e9, pour le filtrage et le lightbox
-const PROPERTY_PHOTOS = [
-  { id: 1,  type: 'salon',     label: 'Salon principal',         url: 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=1400&q=80&auto=format&fit=crop' },
-  { id: 2,  type: 'salon',     label: 'Salon vue chemin\u00e9e',         url: 'https://images.unsplash.com/photo-1567767292278-a4f21aa2d36e?w=1400&q=80&auto=format&fit=crop' },
-  { id: 3,  type: 'salon',     label: 'S\u00e9jour traversant',           url: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=1400&q=80&auto=format&fit=crop' },
-  { id: 4,  type: 'cuisine',   label: 'Cuisine \u00e9quip\u00e9e',            url: 'https://images.unsplash.com/photo-1565538810643-b5bdb714032a?w=1400&q=80&auto=format&fit=crop' },
-  { id: 5,  type: 'cuisine',   label: 'Plan de travail',          url: 'https://images.unsplash.com/photo-1556911220-bff31c812dba?w=1400&q=80&auto=format&fit=crop' },
-  { id: 6,  type: 'chambre',   label: 'Chambre parentale',        url: 'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=1400&q=80&auto=format&fit=crop' },
-  { id: 7,  type: 'chambre',   label: 'Chambre 2',                url: 'https://images.unsplash.com/photo-1540518614846-7eded433c457?w=1400&q=80&auto=format&fit=crop' },
-  { id: 8,  type: 'sdb',       label: 'Salle de bain',            url: 'https://images.unsplash.com/photo-1620626011761-996317b8d101?w=1400&q=80&auto=format&fit=crop' },
-  { id: 9,  type: 'wc',        label: 'WC s\u00e9par\u00e9',                  url: 'https://images.unsplash.com/photo-1564540583246-934409427776?w=1400&q=80&auto=format&fit=crop' },
-  { id: 10, type: 'bureau',    label: 'Bureau / coin lecture',    url: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1400&q=80&auto=format&fit=crop' },
-  { id: 11, type: 'exterieur', label: 'Balcon / vue rue',         url: 'https://images.unsplash.com/photo-1502005229762-cf1b2da7c5d6?w=1400&q=80&auto=format&fit=crop' },
-  { id: 12, type: 'autre',     label: 'Entr\u00e9e / couloir',          url: 'https://images.unsplash.com/photo-1503602642458-232111445657?w=1400&q=80&auto=format&fit=crop' },
-];
+
+// Photos custom du bien actif : Vite scanne le dossier au build et inclut
+// chaque image dans le bundle (avec hash de cache busting). Pour ajouter des
+// photos, il suffit de les deposer dans app/src/photos-bien-actif/ avec le
+// nom <type>-<XX>-<label>.<ext>. Voir le README dans ce dossier.
+const PHOTO_TYPE_VALUES = ['salon', 'cuisine', 'chambre', 'sdb', 'wc', 'bureau', 'exterieur', 'autre'];
+
+// `eager: true` => les URLs sont resolues au build, pas de fetch runtime.
+const customPhotoModules = import.meta.glob(
+  '../photos-bien-actif/*.{jpg,jpeg,png,webp,JPG,JPEG,PNG,WEBP}',
+  { eager: true, import: 'default' }
+);
+
+function parsePhotoFilename(filename) {
+  // ex: "salon-01-vue-cheminee.jpg" -> type="salon", order=1, label="Vue Cheminee"
+  const name = filename.replace(/\.[^.]+$/, '');
+  const parts = name.split('-');
+  let type = 'autre';
+  let order = 999;
+  let labelParts = parts;
+
+  if (parts.length > 0 && PHOTO_TYPE_VALUES.includes(parts[0].toLowerCase())) {
+    type = parts[0].toLowerCase();
+    labelParts = parts.slice(1);
+  }
+  if (labelParts.length > 0 && /^\d+$/.test(labelParts[0])) {
+    order = parseInt(labelParts[0], 10);
+    labelParts = labelParts.slice(1);
+  }
+
+  let label;
+  if (labelParts.length > 0) {
+    label = labelParts.join(' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  } else {
+    label = `${type.charAt(0).toUpperCase() + type.slice(1)} ${String(order).padStart(2, '0')}`;
+  }
+  return { type, order, label };
+}
+
+const CUSTOM_PHOTOS = Object.entries(customPhotoModules)
+  .map(([path, url]) => {
+    const filename = path.split('/').pop();
+    const parsed = parsePhotoFilename(filename);
+    return { ...parsed, url, filename };
+  })
+  .sort((a, b) => {
+    const ta = PHOTO_TYPE_VALUES.indexOf(a.type);
+    const tb = PHOTO_TYPE_VALUES.indexOf(b.type);
+    if (ta !== tb) return ta - tb;
+    return a.order - b.order;
+  })
+  .map((p, i) => ({
+    id: `custom-${i + 1}`,
+    type: p.type,
+    label: p.label,
+    url: p.url,
+  }));
 
 const PHOTO_TYPES = [
   { value: 'all',       label: 'Toutes',        icon: '\ud83d\udcf8' },
@@ -363,8 +410,15 @@ const cssStyles = `
     gap: 8px;
   }
 
+  .photo-thumb-wrapper {
+    position: relative;
+    aspect-ratio: 1;
+  }
+
   .photo-thumb {
     position: relative;
+    width: 100%;
+    height: 100%;
     aspect-ratio: 1;
     background: #f0f0f0;
     border: none;
@@ -379,6 +433,37 @@ const cssStyles = `
   .photo-thumb:hover {
     transform: scale(1.02);
     box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  }
+
+  .photo-thumb-delete {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 2;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    font-family: inherit;
+    transition: background 0.15s, transform 0.1s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  }
+  .photo-thumb-delete:hover {
+    background: #d33;
+    transform: scale(1.1);
+  }
+  .photo-thumb-delete:focus-visible {
+    outline: 2px solid #4a6cf7;
+    outline-offset: 2px;
   }
 
   .photo-thumb img {
@@ -859,23 +944,206 @@ function parseProgress(progress) {
 }
 
 export default function Step1BienCible() {
+  // Bien actif (saisi via /nouveau-bien). Si null, on retombe sur les valeurs
+  // demo (12 rue des Lilas, Lyon 3eme).
+  const [activeBien] = useState(() => getActiveBien());
+
+  // Photos uploadees via PhotoUploader (IndexedDB). Recuperees au mount + apres
+  // chaque ajout/suppression via le callback onChange du composant.
+  // Forme : [{ id, src (objectURL), type, label, order, filename }]
+  const [uploadedPhotos, setUploadedPhotos] = useState([]);
+  // Pour eviter les fuites memoire, on cree les objectURLs ici (un par photo)
+  // et on les revoke quand la liste est remplacee ou au demontage.
+  const uploadedUrlsRef = useRef(new Map());
+
+  const buildUploadedFromRaw = (raw) => {
+    const next = (raw || []).map((p) => {
+      let url = uploadedUrlsRef.current.get(p.id);
+      if (!url) {
+        url = URL.createObjectURL(p.blob);
+        uploadedUrlsRef.current.set(p.id, url);
+      }
+      return {
+        id: `up-${p.id}`,
+        rawId: p.id,
+        type: p.type,
+        label: p.label,
+        order: p.order || 0,
+        url,
+      };
+    });
+    // revoke les URLs orphelines
+    const liveIds = new Set((raw || []).map((p) => p.id));
+    for (const [id, url] of uploadedUrlsRef.current.entries()) {
+      if (!liveIds.has(id)) {
+        try { URL.revokeObjectURL(url); } catch { /* ignore */ }
+        uploadedUrlsRef.current.delete(id);
+      }
+    }
+    // tri par type (selon PHOTO_TYPE_VALUES) puis order
+    next.sort((a, b) => {
+      const ta = PHOTO_TYPE_VALUES.indexOf(a.type);
+      const tb = PHOTO_TYPE_VALUES.indexOf(b.type);
+      if (ta !== tb) return ta - tb;
+      return a.order - b.order;
+    });
+    return next;
+  };
+
+  useEffect(() => {
+    let alive = true;
+    getAllPhotos()
+      .then((raw) => { if (alive) setUploadedPhotos(buildUploadedFromRaw(raw)); })
+      .catch((err) => console.error('[Step1] getAllPhotos', err));
+    // Capture la ref dans une variable locale pour le cleanup (evite warning
+    // react-hooks/exhaustive-deps sur un ref.current "stale").
+    const urlsCache = uploadedUrlsRef.current;
+    return () => {
+      alive = false;
+      for (const url of urlsCache.values()) {
+        try { URL.revokeObjectURL(url); } catch { /* ignore */ }
+      }
+      urlsCache.clear();
+    };
+  }, []);
+
+  // Cle forcant le remount du PhotoUploader quand une photo est supprimee
+  // depuis le carrousel principal (sinon son state interne reste obsolete).
+  const [uploaderKey, setUploaderKey] = useState(0);
+
+  // Suppression d'une photo uploadee depuis le carrousel principal.
+  const handleDeleteUploaded = async (rawId) => {
+    if (!rawId) return;
+    try {
+      await deletePhoto(rawId);
+      const fresh = await getAllPhotos();
+      setUploadedPhotos(buildUploadedFromRaw(fresh));
+      setUploaderKey((k) => k + 1); // resync l'uploader
+      // Si l'index lightbox courant n'existe plus, on ferme.
+      if (lightboxIndex !== null) setLightboxIndex(null);
+    } catch (err) {
+      console.error('[Step1] handleDeleteUploaded', err);
+    }
+  };
+
+  // Catalogue effectif :
+  // - En mode live (activeBien) : UNIQUEMENT les photos uploadees par
+  //   l'utilisateur via le PhotoUploader (zero donnee fake). Si elle n'a
+  //   rien uploade, le carrousel est vide et seul le PhotoUploader est
+  //   propose. Les CUSTOM_PHOTOS bundlees etaient utilisees comme
+  //   "fallback live" mais ne sont jamais supprimables (pas en IDB) -
+  //   donc inadaptees au mode live.
+  // - En mode demo (pas de bien actif) : CUSTOM_PHOTOS > PROPERTY_PHOTOS.
+  let photoCatalog;
+  if (activeBien) {
+    photoCatalog = uploadedPhotos;
+  } else if (CUSTOM_PHOTOS.length > 0) {
+    photoCatalog = CUSTOM_PHOTOS;
+  } else {
+    photoCatalog = PROPERTY_PHOTOS;
+  }
+
+  // Categories pre-remplies dynamiquement a partir du bien actif. Si aucun
+  // bien actif, retombe sur le bien demo statique.
+  const [bienCibleCategories] = useState(() => {
+    return buildBienCibleCategories(bienCibleCategoriesBase, activeBien);
+  });
+
+  // Mini-carte + adresse + CadastrePLU : derivees du bien actif (ou demo).
+  const DEMO_COORDS = [45.758, 4.859];
+  const DEMO_ADDRESS_LINE1 = '12 rue des Lilas';
+  const DEMO_ADDRESS_LINE2 = '69003 Lyon';
+
+  const mapCenter = activeBien?.adresse?.coords || DEMO_COORDS;
+  const cadastreLat = mapCenter[0];
+  const cadastreLon = mapCenter[1];
+
+  // Adresse en deux lignes : "{numero rue}" / "{cp ville}". On essaie d'extraire
+  // a partir du label BAN ; sinon on retombe sur postcode + city ou demo.
+  let addressLine1 = DEMO_ADDRESS_LINE1;
+  let addressLine2 = DEMO_ADDRESS_LINE2;
+  let cadastreAddress = `${DEMO_ADDRESS_LINE1}, ${DEMO_ADDRESS_LINE2}`;
+  if (activeBien?.adresse?.label) {
+    const label = activeBien.adresse.label;
+    const postcode = activeBien.adresse.postcode || '';
+    const city = activeBien.adresse.city || '';
+    const tail = `${postcode} ${city}`.trim();
+    // Le label BAN est souvent du type "12 rue des Lilas 69003 Lyon".
+    // On retire la fin (cp + ville) pour garder la rue seule.
+    if (tail && label.endsWith(tail)) {
+      addressLine1 = label.slice(0, label.length - tail.length).trim();
+    } else {
+      addressLine1 = label;
+    }
+    addressLine2 = tail || addressLine2;
+    cadastreAddress = label;
+  }
+
   // Find the index with defaultOpen, fallback to index 1
   const defaultOpenIdx = bienCibleCategories.findIndex((c) => c.defaultOpen);
   const initialOpen = defaultOpenIdx >= 0 ? defaultOpenIdx : 1;
   const [openSection, setOpenSection] = useState(initialOpen);
-  const [toggleStates, setToggleStates] = useState({});
+
+  // Construit la clé stable d'un champ pour reportStore : "${catSlug}__${fieldSlug}".
+  const fieldKey = (cat, field) => `${slugifyKey(cat.title)}__${slugifyKey(field.label)}`;
+
+  // bienDetails persisté : on hydrate l'état local à partir de reportStore
+  // (saisies précédentes), sinon avec les valeurs/toggles par défaut du
+  // schéma propertyData/buildBienCibleCategories.
+  const [bienDetails, setBienDetails] = useState(() => {
+    const stored = getReportSection('bienDetails', {});
+    const init = { ...stored };
+    bienCibleCategories.forEach((cat) => {
+      (cat.fields || []).forEach((field) => {
+        const key = fieldKey(cat, field);
+        if (init[key] === undefined) {
+          if (field.type === 'toggle') init[key] = !!field.on;
+          else if (field.value !== undefined && field.value !== '') init[key] = field.value;
+        }
+      });
+    });
+    return init;
+  });
+
+  // Snapshot dérivé : toggleStates pour conserver la signature de
+  // getToggleState (catIdx-fieldIdx) sans toucher au rendu.
+  const [toggleStates, setToggleStates] = useState(() => {
+    const out = {};
+    bienCibleCategories.forEach((cat, catIdx) => {
+      (cat.fields || []).forEach((field, fIdx) => {
+        if (field.type !== 'toggle') return;
+        const key = fieldKey(cat, field);
+        const stored = bienDetails[key];
+        out[`${catIdx}-${fIdx}`] = stored !== undefined ? !!stored : !!field.on;
+      });
+    });
+    return out;
+  });
+
+  // Persiste toutes les saisies à chaque modification (rapport y lit).
+  useEffect(() => {
+    mergeReportSection('bienDetails', bienDetails);
+  }, [bienDetails]);
+
+  // Setter générique appelé par les inputs/selects/toggles.
+  const setFieldValue = (cat, field, value) => {
+    const key = fieldKey(cat, field);
+    setBienDetails((prev) => ({ ...prev, [key]: value }));
+  };
 
   // Photos : filtre par type + index lightbox -----------------------------
-  const [photoFilter, setPhotoFilter] = useState('all');
+  // Par defaut on verrouille sur Salon/Sejour pour n'afficher qu'une seule
+  // photo a l'ouverture de l'etape (catalogue demo : 1 seul item de type salon).
+  const [photoFilter, setPhotoFilter] = useState('salon');
   const [lightboxIndex, setLightboxIndex] = useState(null); // null = ferm\u00e9
 
   const filteredPhotos = photoFilter === 'all'
-    ? PROPERTY_PHOTOS
-    : PROPERTY_PHOTOS.filter((p) => p.type === photoFilter);
+    ? photoCatalog
+    : photoCatalog.filter((p) => p.type === photoFilter);
 
-  const photoCountsByType = PROPERTY_PHOTOS.reduce(
+  const photoCountsByType = photoCatalog.reduce(
     (acc, p) => { acc[p.type] = (acc[p.type] || 0) + 1; return acc; },
-    { all: PROPERTY_PHOTOS.length }
+    { all: photoCatalog.length }
   );
 
   const openLightbox = (idx) => setLightboxIndex(idx);
@@ -932,10 +1200,14 @@ export default function Step1BienCible() {
 
   const handleToggle = (catIdx, fieldIdx, currentOn) => {
     const key = `${catIdx}-${fieldIdx}`;
-    setToggleStates((prev) => ({
-      ...prev,
-      [key]: prev[key] !== undefined ? !prev[key] : !currentOn,
-    }));
+    setToggleStates((prev) => {
+      const newVal = prev[key] !== undefined ? !prev[key] : !currentOn;
+      // Persiste aussi dans bienDetails (clé sémantique)
+      const cat = bienCibleCategories[catIdx];
+      const field = cat?.fields?.[fieldIdx];
+      if (cat && field) setFieldValue(cat, field, newVal);
+      return { ...prev, [key]: newVal };
+    });
   };
 
   const getToggleState = (catIdx, fieldIdx, defaultOn) => {
@@ -1000,30 +1272,25 @@ export default function Step1BienCible() {
                             ) : field.type === 'select' ? (
                               <select
                                 className={`form-select${field.error ? ' error' : ''}`}
-                                defaultValue={field.value || ''}
+                                value={bienDetails[fieldKey(cat, field)] ?? field.value ?? ''}
+                                onChange={(e) => setFieldValue(cat, field, e.target.value)}
                               >
-                                {field.value ? (
-                                  <option value={field.value}>{field.value}</option>
-                                ) : (
-                                  <option value="">
-                                    {field.placeholder || '-- Choisir --'}
+                                <option value="">
+                                  {field.placeholder || '-- Choisir --'}
+                                </option>
+                                {field.options && field.options.map((o, oi) => (
+                                  <option key={oi} value={o}>
+                                    {o}
                                   </option>
-                                )}
-                                {field.options &&
-                                  field.options
-                                    .filter((o) => o !== field.value)
-                                    .map((o, oi) => (
-                                      <option key={oi} value={o}>
-                                        {o}
-                                      </option>
-                                    ))}
+                                ))}
                               </select>
                             ) : (
                               <input
                                 className={`form-input${field.error ? ' error' : ''}`}
                                 type={field.type || 'text'}
-                                defaultValue={field.value}
+                                value={bienDetails[fieldKey(cat, field)] ?? field.value ?? ''}
                                 placeholder={field.placeholder || ''}
+                                onChange={(e) => setFieldValue(cat, field, e.target.value)}
                               />
                             )}
                           </div>
@@ -1050,7 +1317,7 @@ export default function Step1BienCible() {
             <div className="photos-section">
               <div className="photos-header">
                 <span>Photos du bien</span>
-                <span className="photos-count-inline">{PROPERTY_PHOTOS.length}</span>
+                <span className="photos-count-inline">{photoCatalog.length}</span>
               </div>
 
               {/* Filtres par type de pi\u00e8ce */}
@@ -1073,19 +1340,41 @@ export default function Step1BienCible() {
               {filteredPhotos.length > 0 ? (
                 <div className="photos-grid">
                   {filteredPhotos.map((p, idx) => (
-                    <button
-                      key={p.id}
-                      className="photo-thumb"
-                      onClick={() => openLightbox(idx)}
-                      aria-label={`Ouvrir ${p.label} en grand`}
-                    >
-                      <img src={p.url} alt={p.label} loading="lazy" />
-                      <span className="photo-thumb-label">{p.label}</span>
-                    </button>
+                    <div key={p.id} className="photo-thumb-wrapper">
+                      <button
+                        type="button"
+                        className="photo-thumb"
+                        onClick={() => openLightbox(idx)}
+                        aria-label={`Ouvrir ${p.label} en grand`}
+                      >
+                        <img src={p.url} alt={p.label} loading="lazy" />
+                        <span className="photo-thumb-label">{p.label}</span>
+                      </button>
+                      {p.rawId && (
+                        <button
+                          type="button"
+                          className="photo-thumb-delete"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteUploaded(p.rawId);
+                          }}
+                          aria-label={`Supprimer ${p.label}`}
+                          title="Supprimer cette photo"
+                        >&times;</button>
+                      )}
+                    </div>
                   ))}
                 </div>
               ) : (
                 <div className="photos-empty">Aucune photo dans cette cat\u00e9gorie</div>
+              )}
+
+              {/* Uploader : disponible des qu'il y a un bien actif. */}
+              {activeBien && (
+                <PhotoUploader
+                  key={uploaderKey}
+                  onChange={(raw) => setUploadedPhotos(buildUploadedFromRaw(raw))}
+                />
               )}
             </div>
 
@@ -1163,7 +1452,8 @@ export default function Step1BienCible() {
             {/* Map */}
             <div className="map-section">
               <MapContainer
-                center={[45.758, 4.859]}
+                key={`${mapCenter[0]}-${mapCenter[1]}`}
+                center={mapCenter}
                 zoom={16}
                 zoomControl={false}
                 scrollWheelZoom={false}
@@ -1173,63 +1463,19 @@ export default function Step1BienCible() {
                   attribution="&copy; OpenStreetMap"
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
-                <Marker position={[45.758, 4.859]}>
+                <Marker position={mapCenter}>
                   <Popup>
-                    <strong>12 rue des Lilas</strong><br />69003 Lyon
+                    <strong>{addressLine1}</strong><br />{addressLine2}
                   </Popup>
                 </Marker>
               </MapContainer>
               <div className="map-address">
-                <strong>12 rue des Lilas</strong><br />69003 Lyon
+                <strong>{addressLine1}</strong><br />{addressLine2}
               </div>
             </div>
 
-            {/* Cadastre + Plan de zone */}
-            <div className="docs-locality">
-              <button
-                type="button"
-                className="doc-card"
-                onClick={() => openMediaModal({
-                  title: 'Cadastre',
-                  url: 'https://images.unsplash.com/photo-1524813686514-a57563d77965?w=1600&q=80',
-                  caption: 'Parcelle cadastrale - 12 rue des Lilas, 69003 Lyon',
-                })}
-              >
-                <div className="doc-thumb">
-                  <img
-                    src="https://images.unsplash.com/photo-1524813686514-a57563d77965?w=600&q=80"
-                    alt="Cadastre"
-                  />
-                  <span className="doc-zoom">&#x2922;</span>
-                </div>
-                <div className="doc-meta">
-                  <div className="doc-title">Cadastre</div>
-                  <div className="doc-sub">Parcelle &amp; limites</div>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                className="doc-card"
-                onClick={() => openMediaModal({
-                  title: 'Plan de zone',
-                  url: 'https://images.unsplash.com/photo-1569336415962-a4bd9f69cd83?w=1600&q=80',
-                  caption: 'Plan de zone urbanistique - PLU Lyon 3e',
-                })}
-              >
-                <div className="doc-thumb">
-                  <img
-                    src="https://images.unsplash.com/photo-1569336415962-a4bd9f69cd83?w=600&q=80"
-                    alt="Plan de zone"
-                  />
-                  <span className="doc-zoom">&#x2922;</span>
-                </div>
-                <div className="doc-meta">
-                  <div className="doc-title">Plan de zone</div>
-                  <div className="doc-sub">PLU &amp; zonage</div>
-                </div>
-              </button>
-            </div>
+            {/* Cadastre + Plan de zone (data.gouv / IGN) */}
+            <CadastrePLUCards lat={cadastreLat} lon={cadastreLon} address={cadastreAddress} />
 
             {/* Critical Fields */}
             <div className="critical-section">

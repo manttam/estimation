@@ -1,11 +1,285 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import PropertyCard from '../components/PropertyCard';
 import Stepper from '../components/Stepper';
 import ComparableDrawer from '../components/ComparableDrawer';
-import { comparables } from '../data/propertyData';
+import ManualComparableDrawer from '../components/ManualComparableDrawer';
+import { getActiveBien, buildBienCibleCategories } from '../utils/activeBien';
+import { bienCibleCategories as bienCibleCategoriesBase } from '../data/propertyData';
+import {
+  getTargetFilledFieldKeys,
+  computeDataCoverage,
+  dataCoverageClass,
+} from '../utils/comparableFields';
+import { setReportState, mergeReportSection, getReportSection } from '../utils/reportStore';
+
+/* Clé localStorage des overrides de similarité.
+ * Format : { [compId: string]: number 0-100 }
+ */
+const SIM_OVERRIDES_KEY = 'ideeri_sim_overrides';
+
+function loadSimOverrides() {
+  try {
+    const raw = typeof window !== 'undefined' ? window.localStorage.getItem(SIM_OVERRIDES_KEY) : null;
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return {};
+    // Sanitize : on garde uniquement les valeurs numériques 0-100.
+    const out = {};
+    Object.keys(parsed).forEach((id) => {
+      const v = Number(parsed[id]);
+      if (!Number.isNaN(v) && v >= 0 && v <= 100) out[id] = Math.round(v);
+    });
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/* Applique un éventuel override de similarité au comparable.
+ * - Conserve la valeur auto dans `_autoSim`
+ * - Marque `_hasSimOverride` true si override actif
+ * - Met à jour les champs dérivés (simScore, simClass) pour cohérence d'affichage
+ */
+function applySimOverride(comp, overrides) {
+  if (!comp) return comp;
+  const auto = Number(comp.similarite) || 0;
+  const ovRaw = overrides ? overrides[comp.id] : undefined;
+  if (ovRaw === undefined || ovRaw === null) {
+    return { ...comp, _autoSim: auto, _hasSimOverride: false };
+  }
+  const eff = Math.max(0, Math.min(100, Math.round(Number(ovRaw))));
+  const simClass = eff >= 80 ? 'high' : eff >= 60 ? 'mid' : 'low';
+  return {
+    ...comp,
+    similarite: eff,
+    simScore: `${eff}% sim.`,
+    simClass,
+    _autoSim: auto,
+    _hasSimOverride: true,
+  };
+}
+
+/* Applique le calcul dynamique de couverture données à un comparable.
+ * Remplace donCount / donScore / donClass par des valeurs calculées sur la
+ * base de l'intersection (champs renseignés Step 1) ∩ (champs comparable).
+ * Si le comp porte déjà ces champs en dur, ils sont écrasés par le calcul.
+ */
+function enrichWithCoverage(comp, targetSet) {
+  if (!comp || !targetSet) return comp;
+  const cov = computeDataCoverage(targetSet, comp);
+  return {
+    ...comp,
+    donCount: `${cov.count}/${cov.total}`,
+    donScore: `${cov.percent}% données`,
+    donClass: dataCoverageClass(cov.percent),
+    _coverage: cov,
+  };
+}
+
+/* Clé localStorage des comparables saisis manuellement (par bien actif).
+ * On les stocke globalement pour l'instant — un futur travail pourra les
+ * indexer par citycode/adresse cible si besoin. */
+const MANUAL_COMPS_KEY = 'ideeri_manual_comps';
+
+function loadManualComps() {
+  try {
+    const raw = localStorage.getItem(MANUAL_COMPS_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveManualComps(list) {
+  try {
+    localStorage.setItem(MANUAL_COMPS_KEY, JSON.stringify(list));
+  } catch {
+    /* quota / mode privé : silencieux */
+  }
+}
+
+/* Transforme la sortie riche du ManualComparableDrawer en card "compact"
+ * compatible avec OTHERS / CompactCompCard (champs : meta, simScore,
+ * simClass, donScore, donClass, donCount). On garde toutes les données
+ * riches en surcharge pour que le ComparableDrawer (détail) puisse
+ * encore les afficher. */
+function manualOtherToCompact(manual, targetCoords) {
+  const distance = (manual.coords && targetCoords)
+    ? haversineMeters(targetCoords, manual.coords)
+    : null;
+  const distanceLabel = distance != null
+    ? (distance >= 1000 ? `${(distance / 1000).toFixed(1)}km` : `${distance}m`)
+    : '—';
+  const sourceLabelCompact = manual.source === 'dvf' ? 'DVF'
+    : manual.source === 'ideeri' ? 'Ideeri'
+    : manual.source === 'encours' ? 'En cours'
+    : manual.portalName || 'Portail';
+  const meta = `${sourceLabelCompact} · ${manual.prix}€ · ${manual.prixM2 ? `${manual.prixM2}€/m²` : '—'} · ${distanceLabel}`;
+  // On fabrique un `fields` agrégé à partir des données manuelles.
+  // Les helpers de couverture calculeront M/N à partir de ce fields.
+  const fields = {
+    type: manual.type,
+    surface: manual.surface,
+    pieces: manual.pieces,
+    chambres: manual.chambres,
+    etage: manual.etage,
+    orientation: manual.orientation,
+    ascenseur: manual.ascenseur,
+    cave: manual.cave,
+    garage: manual.garage,
+    parking: manual.parking,
+    terrasse: manual.terrasse,
+    balcon: manual.balcon,
+    jardin: manual.jardin,
+    anneeConstruction: manual.anneeConstruction || manual.annee,
+    epoqueConstruction: manual.epoqueConstruction || manual.epoque,
+    chauffageType: manual.chauffageType || manual.chauffage,
+    chauffageEnergie: manual.chauffageEnergie || manual.energie,
+    dpe: manual.dpe,
+    ges: manual.ges,
+    cuisineEquipee: manual.cuisineEquipee,
+    etatCuisine: manual.etatCuisine,
+    prix: manual.prix,
+    prixM2: manual.prixM2,
+  };
+  return {
+    ...manual,
+    meta,
+    simScore: '— sim.',
+    simClass: 'mid',
+    fields,
+  };
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Helpers DVF live
+ * ────────────────────────────────────────────────────────────────────────────*/
+
+/* Distance haversine en mètres entre deux paires [lat, lon]. */
+function haversineMeters(a, b) {
+  if (!a || !b) return null;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const R = 6371000;
+  const dLat = toRad(b[0] - a[0]);
+  const dLon = toRad(b[1] - a[1]);
+  const lat1 = toRad(a[0]);
+  const lat2 = toRad(b[0]);
+  const h = Math.sin(dLat / 2) ** 2 + Math.sin(dLon / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
+  return Math.round(2 * R * Math.asin(Math.sqrt(h)));
+}
+
+/* Format compact prix "295 000" ou "295k". */
+function fmtPrix(n) {
+  if (!Number.isFinite(n)) return '—';
+  if (n >= 1000) return `${Math.round(n / 1000)}k`;
+  return String(n);
+}
+
+/* Format date ISO "YYYY-MM-DD" → "Mar. 2025" (mois court FR). */
+function fmtMoisAnnee(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const mois = ['Janv.', 'Févr.', 'Mars', 'Avr.', 'Mai', 'Juin', 'Juil.', 'Août', 'Sept.', 'Oct.', 'Nov.', 'Déc.'];
+  return `${mois[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+/* Construit un titre type "T3 70m² — 5 rue Duguesclin" à partir d'une transaction DVF. */
+function buildDvfTitle(tx) {
+  const typeLabel = tx.type === 'maison' ? 'Maison' : tx.type === 'appartement' ? 'T' : '';
+  const piecesLabel = tx.pieces && tx.type === 'appartement' ? `T${tx.pieces}` : tx.type === 'maison' ? 'Maison' : 'Bien';
+  const surfaceLabel = tx.surface ? `${Math.round(tx.surface)}m²` : '';
+  const adr = tx.adresse || '';
+  return `${piecesLabel} ${surfaceLabel} — ${adr}`.trim().replace(/\s+/g, ' ');
+}
+
+/* Transforme une transaction DVF brute (issue de /api/dvf) en "comparable card OTHERS". */
+function dvfTxToOther(tx, idx, targetCoords) {
+  const distance = (tx.lat && tx.lon && targetCoords)
+    ? haversineMeters(targetCoords, [tx.lat, tx.lon])
+    : null;
+  const distanceLabel = distance != null ? (distance >= 1000 ? `${(distance / 1000).toFixed(1)}km` : `${distance}m`) : '—';
+  const title = buildDvfTitle(tx);
+  const meta = `DVF · ${fmtPrix(tx.prix)}€ · ${tx.prixM2 ? tx.prixM2.toLocaleString('fr-FR') : '—'}€/m² · ${distanceLabel}${tx.date ? ' · ' + fmtMoisAnnee(tx.date) : ''}`;
+  // Heuristique scoring par défaut : la similarité dépend du type, distance, surface
+  // (on ne peut pas la calculer finement sans le bien cible complet — placeholder doux)
+  const sim = distance != null && distance < 500 ? 80 : distance < 1500 ? 65 : 50;
+  const simClass = sim >= 80 ? 'high' : sim >= 60 ? 'mid' : 'low';
+  // DVF expose un sous-ensemble fixe : type, surface, pieces, prix, prixM2 (+ date).
+  // Le calcul de couverture est branché à l'extérieur via enrichWithCoverage.
+  return {
+    id: `dvf-${idx}`,
+    title,
+    source: 'dvf',
+    meta,
+    simScore: `${sim}% sim.`,
+    simClass,
+    coords: tx.lat && tx.lon ? [tx.lat, tx.lon] : null,
+    fields: {
+      type: tx.type,
+      surface: tx.surface,
+      pieces: tx.pieces,
+      prix: tx.prix,
+      prixM2: tx.prixM2,
+    },
+    // Méta brute conservée pour la sélection / drawer
+    _dvfRaw: tx,
+  };
+}
+
+/* Construit un titre depuis une annonce Leboncoin : "T3 70m² — adresse".
+ * Helper conservé pour ré-activation future du proxy /api/leboncoin
+ * (actuellement débranché du front car Datadome bloque l'IP Vercel). */
+function buildLbcTitle(ad) {
+  const piecesLabel = ad.pieces && ad.type === 'appartement' ? `T${ad.pieces}` : ad.type === 'maison' ? 'Maison' : 'Bien';
+  const surfaceLabel = ad.surface ? `${Math.round(ad.surface)}m²` : '';
+  const adr = ad.adresse || ad.commune || '';
+  return `${piecesLabel} ${surfaceLabel} — ${adr}`.trim().replace(/\s+/g, ' ');
+}
+
+/* Transforme une annonce Leboncoin (issue de /api/leboncoin) en card OTHERS.
+ * Helper conservé pour ré-activation future du proxy. */
+// eslint-disable-next-line no-unused-vars
+function lbcAdToOther(ad, idx, targetCoords) {
+  const distance = (ad.lat && ad.lon && targetCoords)
+    ? haversineMeters(targetCoords, [ad.lat, ad.lon])
+    : null;
+  const distanceLabel = distance != null ? (distance >= 1000 ? `${(distance / 1000).toFixed(1)}km` : `${distance}m`) : '—';
+  const title = buildLbcTitle(ad);
+  const meta = `Leboncoin · ${fmtPrix(ad.prix)}€ · ${ad.prixM2 ? ad.prixM2.toLocaleString('fr-FR') : '—'}€/m² · ${distanceLabel}${ad.date ? ' · ' + fmtMoisAnnee(ad.date) : ''}`;
+  // Heuristique scoring : annonce active = signal d'offre, distance prime
+  const sim = distance != null && distance < 500 ? 75 : distance < 1500 ? 60 : 45;
+  const simClass = sim >= 80 ? 'high' : sim >= 60 ? 'mid' : 'low';
+  // Leboncoin expose : type, surface, pieces, prix, prixM2 + parfois etage/dpe.
+  // Le calcul de couverture est branché à l'extérieur via enrichWithCoverage.
+  return {
+    id: ad.id || `lbc-${idx}`,
+    title,
+    source: 'portail',
+    portalName: 'Leboncoin',
+    meta,
+    simScore: `${sim}% sim.`,
+    simClass,
+    coords: ad.lat && ad.lon ? [ad.lat, ad.lon] : null,
+    fields: {
+      type: ad.type,
+      surface: ad.surface,
+      pieces: ad.pieces,
+      etage: ad.etage,
+      dpe: ad.dpe,
+      prix: ad.prix,
+      prixM2: ad.prixM2,
+    },
+    _lbcRaw: ad,
+    photoUrl: ad.photo || null,
+    url: ad.url || null,
+  };
+}
 
 const SOURCE_COLORS = {
   DVF: '#4a6cf7',
@@ -110,27 +384,7 @@ const cssStyles = `
     font-size: 10px;
     color: #bbb;
   }
-  .radius-slider {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 100%;
-    height: 6px;
-    border-radius: 3px;
-    background: #eee;
-    outline: none;
-    cursor: pointer;
-  }
-  .radius-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: #46B962;
-    border: 3px solid white;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
-    cursor: pointer;
-  }
+  /* (Ancien .radius-slider remplacé par .cs-slider — voir plus bas) */
   .radius-value {
     font-size: 16px;
     font-weight: 700;
@@ -174,73 +428,196 @@ const cssStyles = `
     flex-direction: column;
     gap: 8px;
   }
+  /* ═══════════════════════════════════════════════════════════════
+   * Sources modernes : card row cliquable + checkbox custom + slider
+   * ═══════════════════════════════════════════════════════════════ */
+  .source-row {
+    display: grid;
+    grid-template-columns: 22px 145px 1fr 64px;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    background: #fff;
+    border: 1.5px solid #ececec;
+    border-radius: 10px;
+    margin-bottom: 6px;
+    transition: all 0.15s ease;
+    cursor: pointer;
+  }
+  .source-row:hover {
+    border-color: #cfd6df;
+    background: #fcfdfe;
+  }
+  .source-row:not(.disabled) {
+    border-color: #d4ead8;
+    background: #f7fbf8;
+  }
+  .source-row:not(.disabled):hover {
+    border-color: #46B962;
+    background: #effaf2;
+  }
+  .source-row.disabled {
+    opacity: 0.55;
+    background: #fafafa;
+    border-color: #ececec;
+  }
+  /* Checkbox custom — carré arrondi avec coche quand checked */
   .source-cb-label {
     display: flex;
     align-items: center;
-    gap: 6px;
-    font-size: 12px;
+    margin: 0;
     cursor: pointer;
-    padding: 3px 0;
   }
   .source-cb-label input[type="checkbox"] {
-    accent-color: #46B962;
-    width: 14px;
-    height: 14px;
-    cursor: pointer;
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+    width: 0;
+    height: 0;
   }
-  .source-row {
+  .source-check-box {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    border: 2px solid #d0d6dd;
+    background: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .source-cb-label input[type="checkbox"]:checked + .source-check-box {
+    background: #46B962;
+    border-color: #46B962;
+    box-shadow: 0 2px 5px rgba(70, 185, 98, 0.25);
+  }
+  .source-check-box::after {
+    content: '';
+    width: 5px;
+    height: 10px;
+    border: solid #fff;
+    border-width: 0 2.5px 2.5px 0;
+    transform: rotate(45deg) scale(0);
+    transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+    margin-top: -2px;
+  }
+  .source-cb-label input[type="checkbox"]:checked + .source-check-box::after {
+    transform: rotate(45deg) scale(1);
+  }
+  .source-row:hover .source-check-box {
+    border-color: #46B962;
+  }
+  /* Label dot + nom */
+  .source-label-text {
     display: flex;
     align-items: center;
     gap: 8px;
-  }
-  .source-row .source-cb-label {
-    flex: 0 0 auto;
-    padding: 0;
-  }
-  .source-row .source-mini-slider {
-    -webkit-appearance: none;
-    appearance: none;
-    flex: 1 1 80px;
-    min-width: 0;
-    max-width: 90px;
-    height: 3px;
-    border-radius: 2px;
-    background: #eee;
-    outline: none;
-    cursor: pointer;
-    margin: 0;
-  }
-  .source-row .source-mini-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 11px;
-    height: 11px;
-    border-radius: 50%;
-    background: #46B962;
-    border: 1.5px solid white;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
-    cursor: pointer;
-  }
-  .source-row .source-mini-slider::-moz-range-thumb {
-    width: 11px;
-    height: 11px;
-    border-radius: 50%;
-    background: #46B962;
-    border: 1.5px solid white;
-    cursor: pointer;
-  }
-  .source-row .source-delay-value {
-    flex: 0 0 auto;
-    margin-left: auto;
-    font-size: 10px;
-    font-weight: 600;
-    color: #46B962;
-    text-align: right;
+    font-size: 13px;
+    color: #1a1a1a;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .source-row.disabled .source-mini-slider,
+  /* ═══════════════════════════════════════════════════════════════
+   * Slider custom 100% — pas d'input range visuel (qui ajoutait toujours
+   * un contour gris natif quoi qu'on fasse). À la place :
+   * - <div class="cs-track"> = barre de fond grise arrondie
+   * - <div class="cs-fill"> = portion remplie verte (width: pct%)
+   * - <div class="cs-thumb"> = cercle blanc à bord vert (left: pct%)
+   * - <input type="range"> invisible (opacity 0) gère drag + clavier
+   * --cs-pct = pourcentage 0-100 passé en CSS variable (sans %)
+   * ═══════════════════════════════════════════════════════════════ */
+  .cs-slider {
+    position: relative;
+    width: 100%;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+  }
+  .cs-track {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 8px;
+    border-radius: 9999px;
+    background: #ececec;
+    transform: translateY(-50%);
+    pointer-events: none;
+  }
+  .cs-fill {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    height: 8px;
+    width: calc(var(--cs-pct, 0) * 1%);
+    border-radius: 9999px;
+    background: #46B962;
+    transform: translateY(-50%);
+    pointer-events: none;
+    transition: width 0.05s linear;
+  }
+  /* Thumb : centré sur la position du thumb natif (10px à value=min,
+   * 100%-10px à value=max → formule calc avec 20px = thumb width) */
+  .cs-thumb {
+    position: absolute;
+    top: 50%;
+    left: calc(10px + (var(--cs-pct, 0) / 100) * (100% - 20px));
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: inset 0 0 0 3px #46B962;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    transition: left 0.05s linear, transform 0.1s;
+    z-index: 2;
+  }
+  .cs-slider:active .cs-thumb {
+    transform: translate(-50%, -50%) scale(1.15);
+    box-shadow: inset 0 0 0 3px #46B962, 0 2px 6px rgba(70, 185, 98, 0.30);
+  }
+  /* Input range invisible mais cliquable / draggable / clavier */
+  .cs-input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    opacity: 0;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .cs-input:disabled { cursor: not-allowed; }
+  /* États désactivés */
+  .source-row.disabled .cs-slider { cursor: not-allowed; }
+  .source-row.disabled .cs-fill { background: #d4dcdf; }
+  .source-row.disabled .cs-thumb { box-shadow: inset 0 0 0 3px #b8c5cf; }
+  /* Valeur en pill */
+  .source-delay-value {
+    font-size: 11px;
+    font-weight: 700;
+    color: #2d8856;
+    background: #e4f3e8;
+    padding: 4px 10px;
+    border-radius: 12px;
+    text-align: center;
+    white-space: nowrap;
+    border: 1px solid #c8e6cf;
+    transition: all 0.15s;
+  }
   .source-row.disabled .source-delay-value {
-    opacity: 0.4;
+    color: #aaa;
+    background: #f0f0f0;
+    border-color: #e6e6e6;
   }
   .source-dot {
     width: 8px;
@@ -253,6 +630,22 @@ const cssStyles = `
   .dot-ideeri { background: #46B962; }
   .dot-encours { background: #f5a623; }
   .dot-portail { background: #e74c3c; }
+  /* Sources Papiris additionnelles */
+  .dot-estimation { background: #9b59b6; }
+  .dot-mandat-clos { background: #7f8c8d; }
+  .dot-autre-agence { background: #16a085; }
+  /* Sous-groupe Papiris dans le panneau Source & ancienneté */
+  .source-subgroup-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #888;
+    font-weight: 600;
+    padding: 6px 0 2px;
+    margin-top: 4px;
+    border-top: 1px dashed #eee;
+  }
+  .source-subgroup-label:first-of-type { border-top: none; margin-top: 0; }
   .source-cb-count {
     font-size: 10px;
     color: #888;
@@ -301,6 +694,94 @@ const cssStyles = `
   .filter-select:focus {
     border-color: #46B962;
     outline: none;
+  }
+  /* Multiselect "Type de bien" — dropdown avec checkboxes */
+  .type-multi {
+    position: relative;
+    width: 100%;
+  }
+  .type-multi-trigger {
+    width: 100%;
+    padding: 5px 28px 5px 8px;
+    border: 1px solid #eee;
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: inherit;
+    background: #fff;
+    cursor: pointer;
+    text-align: left;
+    color: #333;
+    position: relative;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .type-multi-trigger:hover { border-color: #ccc; }
+  .type-multi-trigger.is-open { border-color: #46B962; }
+  .type-multi-trigger::after {
+    content: '▾';
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #888;
+    font-size: 10px;
+    pointer-events: none;
+  }
+  .type-multi-panel {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 50;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+    max-height: 280px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .type-multi-panel-header {
+    display: flex;
+    gap: 6px;
+    padding: 8px 10px;
+    border-bottom: 1px solid #f0f0f0;
+    background: #fafafa;
+  }
+  .type-multi-action {
+    flex: 1;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 5px;
+    padding: 4px 6px;
+    font-size: 11px;
+    cursor: pointer;
+    color: #555;
+    font-family: inherit;
+    transition: all 0.12s;
+  }
+  .type-multi-action:hover { background: #46B962; color: #fff; border-color: #46B962; }
+  .type-multi-list {
+    overflow-y: auto;
+    padding: 4px 0;
+  }
+  .type-multi-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: #333;
+    cursor: pointer;
+    user-select: none;
+  }
+  .type-multi-option:hover { background: #f5f9f6; }
+  .type-multi-option input[type="checkbox"] {
+    cursor: pointer;
+    accent-color: #46B962;
+    margin: 0;
   }
   .filter-hint {
     font-size: 10px;
@@ -471,59 +952,81 @@ const cssStyles = `
     color: #949494;
   }
 
-  /* ═══ RESULTS BANNER ═══ */
-  .results-banner {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 14px 20px;
+  /* ═══ WORKSPACE 3 COLONNES (Carte / Pool / Panier) ═══
+   * Layout CSS Grid avec 2 poignées de redimensionnement entre colonnes.
+   * Les largeurs sont des CSS variables modifiées au drag des poignées.
+   * Inspiration : VSCode / Figma side panels. */
+  .workspace-3col {
+    display: grid;
+    grid-template-columns:
+      minmax(0, var(--col-map, 30%))
+      8px
+      minmax(0, var(--col-pool, 40%))
+      8px
+      minmax(0, var(--col-cart, 30%));
+    gap: 0;
     margin-bottom: 14px;
-    background: linear-gradient(135deg, #f0f8f3 0%, #e8f5ee 100%);
-    border: 1.5px solid #46B962;
+    height: 75vh;
+    min-height: 600px;
+    max-height: 900px;
+  }
+  .workspace-col {
+    display: flex;
+    flex-direction: column;
+    background: #fff;
     border-radius: 10px;
+    border: 1px solid #eee;
+    overflow: hidden;
+    min-width: 0;
+    min-height: 0;
   }
-  .results-banner-count {
-    font-size: 28px;
-    font-weight: 700;
-    color: #46B962;
-    line-height: 1;
-  }
-  .results-banner-text {
-    font-size: 14px;
-    font-weight: 600;
-    color: #333;
-  }
-  .results-banner-details {
-    margin-left: auto;
-    display: flex;
-    gap: 8px;
-    align-items: center;
-  }
-  .results-tag {
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 600;
-    background: #46B962;
-    color: white;
-  }
-  .results-tag.outline {
+  .col-resize-handle {
+    cursor: col-resize;
     background: transparent;
-    color: #46B962;
-    border: 1.5px solid #46B962;
-  }
-
-  /* ═══ SPLIT VIEW ═══ */
-  .split-view {
+    position: relative;
+    z-index: 5;
     display: flex;
-    gap: 14px;
-    margin-bottom: 14px;
-    height: 440px;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+    border: none;
+    padding: 0;
+  }
+  .col-resize-handle::before {
+    content: '';
+    width: 2px;
+    height: 36px;
+    background: #d8d8d8;
+    border-radius: 2px;
+    transition: background 0.15s, height 0.15s;
+  }
+  .col-resize-handle:hover {
+    background: rgba(74, 108, 247, 0.06);
+  }
+  .col-resize-handle:hover::before {
+    background: #4a6cf7;
+    height: 64px;
+  }
+  .col-resize-handle.is-dragging {
+    background: rgba(74, 108, 247, 0.12);
+  }
+  .col-resize-handle.is-dragging::before {
+    background: #4a6cf7;
+    height: 96px;
+  }
+  .workspace-3col.is-resizing {
+    cursor: col-resize;
+    user-select: none;
+  }
+  .workspace-3col.is-resizing .map-container,
+  .workspace-3col.is-resizing .pool-grid,
+  .workspace-3col.is-resizing .cart-list {
+    pointer-events: none;
   }
 
-  /* MAP CARD */
+  /* MAP CARD — colonne 1 du workspace */
   .map-card-comp {
-    flex: 1;
+    min-width: 0;
     background: #fff;
     border-radius: 10px;
     border: 1px solid #eee;
@@ -531,13 +1034,14 @@ const cssStyles = `
     position: relative;
     display: flex;
     flex-direction: column;
+    height: 100%;
   }
   .map-card-comp .map-container {
     flex: 1;
     z-index: 1;
   }
 
-  /* MAP BOTTOM INFO BAR */
+  /* MAP BOTTOM INFO BAR — wrap pour rester lisible en colonne étroite */
   .map-info-bar {
     position: absolute;
     bottom: 12px;
@@ -550,13 +1054,16 @@ const cssStyles = `
     background: rgba(255,255,255,0.98);
     backdrop-filter: blur(8px);
     border-radius: 10px;
-    padding: 10px 16px;
+    padding: 10px 14px;
     border: 1px solid rgba(238,238,238,0.8);
+    flex-wrap: wrap;
+    gap: 10px;
   }
   .map-info-left {
     display: flex;
     align-items: center;
     gap: 16px;
+    flex-shrink: 0;
   }
   .map-info-stat {
     display: flex;
@@ -577,32 +1084,95 @@ const cssStyles = `
     height: 28px;
     background: #e5e5e5;
   }
+  /* Légende des sources — chips toggle clairs avec checkbox visible.
+   * Wrap automatique sur 2 lignes si la colonne est étroite. */
   .map-legend-inline {
     display: flex;
-    gap: 12px;
+    flex-wrap: wrap;
+    gap: 5px;
     align-items: center;
+    flex: 1;
+    min-width: 0;
+  }
+  .map-legend-label-hint {
+    font-size: 9px;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 700;
+    margin-right: 2px;
+    white-space: nowrap;
   }
   .map-legend-item {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 4px;
-    font-size: 10px;
-    color: #949494;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    font-family: 'Open Sans', sans-serif;
+    color: #1a1a1a;
     cursor: pointer;
-    padding: 3px 6px;
-    border-radius: 4px;
+    padding: 4px 10px 4px 8px;
+    border-radius: 14px;
+    border: 1.5px solid #d4d4d4;
+    background: #fff;
     transition: all 0.15s;
+    user-select: none;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+  /* Pseudo "checkbox" devant chaque chip */
+  .map-legend-item::before {
+    content: '✓';
+    width: 13px;
+    height: 13px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 800;
+    color: #fff;
+    background: #46B962;
+    border-radius: 50%;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+    flex-shrink: 0;
+  }
+  .map-legend-item.is-inactive::before {
+    content: '';
+    background: #fff;
+    border: 1.5px solid #d4d4d4;
+    box-shadow: none;
   }
   .map-legend-item:hover {
-    background: #f0f0f0;
+    border-color: #46B962;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  }
+  .map-legend-item:focus-visible {
+    outline: 2px solid #46B962;
+    outline-offset: 1px;
+  }
+  .map-legend-item.is-inactive {
+    color: #888;
+    background: #f7f7f7;
+    border-color: #e0e0e0;
+  }
+  .map-legend-item.is-inactive:hover {
+    color: #1a1a1a;
+    background: #fafafa;
+    border-color: #46B962;
+  }
+  .map-legend-item.is-inactive .legend-dot {
+    opacity: 0.4;
   }
   .legend-dot {
-    width: 10px;
-    height: 10px;
+    width: 9px;
+    height: 9px;
     border-radius: 50%;
-    border: 2px solid white;
-    box-shadow: 0 0 0 1px rgba(0,0,0,0.1);
+    border: 1.5px solid white;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.12);
     display: inline-block;
+    flex-shrink: 0;
   }
 
   /* MAP STYLE TOGGLE */
@@ -683,21 +1253,282 @@ const cssStyles = `
     100% { transform: scale(1); opacity: 0; }
   }
 
-  /* LIST PANEL */
-  .list-panel {
-    width: 520px;
+  /* ─── POOL (colonne 2 — biens disponibles) ─── */
+  .pool-panel {
+    display: flex;
+    flex-direction: column;
+  }
+  .pool-header,
+  .cart-header {
+    padding: 11px 14px 9px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    background: #fafbfc;
     flex-shrink: 0;
+  }
+  .pool-header-title,
+  .cart-header-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #2c3e50;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .pool-header-count,
+  .cart-header-count {
+    font-size: 11px;
+    font-weight: 600;
+    color: #777;
+    background: #fff;
+    padding: 2px 9px;
+    border-radius: 12px;
+    border: 1px solid #e8e8e8;
+  }
+  .pool-grid {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 10px;
+    align-content: flex-start;
+  }
+  .pool-grid::-webkit-scrollbar { width: 6px; }
+  .pool-grid::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+
+  /* Carte miniature draggable d'un bien du pool */
+  .pool-card {
+    position: relative;
+    background: #fff;
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: grab;
+    display: flex;
+    flex-direction: column;
+    transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s, opacity 0.15s;
+    user-select: none;
+  }
+  .pool-card:hover {
+    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+    border-color: #4a6cf7;
+    transform: translateY(-1px);
+  }
+  .pool-card:active { cursor: grabbing; }
+  .pool-card.is-dragging {
+    opacity: 0.45;
+    transform: scale(0.97);
+    border-style: dashed;
+  }
+  .pool-card-photo {
+    width: 100%;
+    height: 88px;
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    background-color: #f3f4f6;
+    flex-shrink: 0;
+  }
+  .pool-card-photo.no-photo {
+    background: linear-gradient(135deg, #e6e9ef 0%, #cfd5e0 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #94a3b8;
+    font-size: 26px;
+  }
+  .pool-card-photo.source-dvf.no-photo {
+    background: linear-gradient(135deg, #d8e3f4 0%, #b8c8e6 100%);
+    color: #4a6cf7;
+  }
+  .pool-card-photo.source-ideeri.no-photo {
+    background: linear-gradient(135deg, #d6efdf 0%, #a8d8b8 100%);
+    color: #2d8856;
+  }
+  .pool-card-source-badge {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px 2px 6px;
+    background: rgba(255,255,255,0.96);
+    backdrop-filter: blur(4px);
+    border-radius: 10px;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #444;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .pool-card-score-badge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    padding: 2px 7px;
+    background: rgba(255,255,255,0.96);
+    backdrop-filter: blur(4px);
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .pool-card-score-badge.score-high { color: #15803d; }
+  .pool-card-score-badge.score-mid { color: #c2410c; }
+  .pool-card-score-badge.score-low { color: #b91c1c; }
+  .pool-card-body {
+    padding: 8px 10px 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-height: 0;
+  }
+  .pool-card-title {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #222;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .pool-card-meta {
+    font-size: 10.5px;
+    color: #888;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .pool-card-price {
+    font-size: 13px;
+    font-weight: 700;
+    color: #46B962;
+    margin-top: 3px;
+    line-height: 1.2;
+  }
+  .pool-card-price-m2 {
+    font-size: 10px;
+    font-weight: 500;
+    color: #999;
+    margin-left: 3px;
+  }
+  .pool-card-actions {
+    display: flex;
+    gap: 4px;
+    padding: 6px 8px 8px;
+    flex-shrink: 0;
+  }
+  .pool-card-add-btn {
+    flex: 1;
+    background: #fff;
+    color: #2d8856;
+    border: 1px solid #46B962;
+    padding: 5px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .pool-card-add-btn:hover {
+    background: #46B962;
+    color: white;
+  }
+  .pool-card-drag-hint {
+    font-size: 9px;
+    color: #b0b0b0;
+    text-align: center;
+    padding: 4px 0;
+    border-top: 1px dashed #eee;
+    user-select: none;
+    flex-shrink: 0;
+  }
+
+  /* Bouton "ajouter manuel" en tête du pool */
+  .pool-manual-add {
+    grid-column: 1 / -1;
+    padding: 10px 14px;
+    background: #fff;
+    border: 1px dashed #46B962;
+    color: #2d8856;
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: 'Open Sans', sans-serif;
+    transition: all 0.15s;
+  }
+  .pool-manual-add:hover {
+    background: #f0f8f5;
+  }
+
+  /* ─── CART (colonne 3 — panier sélection) ─── */
+  .cart-panel {
+    display: flex;
+    flex-direction: column;
+  }
+  .cart-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
     display: flex;
     flex-direction: column;
     gap: 10px;
-    overflow-y: auto;
+    transition: background 0.2s;
   }
-  .list-panel::-webkit-scrollbar {
-    width: 5px;
+  .cart-list::-webkit-scrollbar { width: 6px; }
+  .cart-list::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+  .cart-list.is-drag-over {
+    background: rgba(70, 185, 98, 0.05);
   }
-  .list-panel::-webkit-scrollbar-thumb {
-    background: #ddd;
-    border-radius: 3px;
+  .cart-dropzone {
+    border: 2px dashed #d4d4d4;
+    border-radius: 10px;
+    padding: 18px 14px;
+    text-align: center;
+    color: #888;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.2s;
+    background: #fafbfc;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .cart-dropzone .icon {
+    font-size: 22px;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+  }
+  .cart-dropzone .hint {
+    font-size: 10.5px;
+    color: #aaa;
+  }
+  .cart-list.is-drag-over .cart-dropzone {
+    border-color: #46B962;
+    color: #2d8856;
+    background: rgba(70, 185, 98, 0.08);
+    transform: scale(1.02);
+  }
+  .cart-list.is-drag-over .cart-dropzone .icon {
+    opacity: 1;
+  }
+  .cart-dropzone.compact {
+    padding: 12px 10px;
+    font-size: 11px;
+    margin-top: 4px;
+  }
+  .cart-dropzone.compact .icon {
+    font-size: 16px;
   }
   .section-label {
     font-size: 12px;
@@ -1102,49 +1933,79 @@ const cssStyles = `
     font-family: 'Open Sans', sans-serif;
   }
 
-  /* SUMMARY TABLE */
-  .summary-card {
+  /* ═══════════════════════════════════════════════════════════════
+   * Récapitulatif du calcul — version sobre, sans hero.
+   * Le prix au m² apparaît dans la ligne "Moyenne pondérée" du tableau,
+   * pas en gros chiffre. Carte discrète avec fond blanc + bord neutre.
+   * ═══════════════════════════════════════════════════════════════ */
+  .estimation-final-card {
     background: #fff;
-    border-radius: 10px;
-    padding: 16px;
     border: 1px solid #eee;
-    margin-bottom: 14px;
-    position: relative;
-    overflow-x: auto;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin: 8px 0 18px;
   }
-  .summary-title {
-    font-size: 13px;
-    font-weight: 500;
-    margin-bottom: 12px;
+  .estimation-final-card.empty {
+    background: #fafafa;
+    border: 1px dashed #e0e0e0;
+  }
+  .estimation-final-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #888;
+    margin: 0 0 10px;
     display: flex;
     align-items: center;
-    gap: 6px;
+    justify-content: space-between;
   }
-  .summary-card table {
-    width: 100%;
-    border-collapse: collapse;
+  .estimation-final-title-hint {
+    font-size: 10px;
+    color: #aaa;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .estimation-final-empty {
     font-size: 12px;
-    table-layout: fixed;
+    color: #999;
+    font-style: italic;
+    padding: 8px 0;
   }
-  .summary-card th {
+  /* Tableau détaillé du calcul (prix/m² brut → correction → ajusté × poids) */
+  .estimation-recap-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 12px;
+    text-align: center;
+  }
+  .estimation-recap-table th {
     background: #fafafa;
-    padding: 9px 10px;
-    text-align: left;
-    font-weight: 600;
-    color: #949494;
-    border-bottom: 2px solid #f0f0f0;
-    white-space: nowrap;
+    padding: 8px 10px;
     font-size: 10px;
     text-transform: uppercase;
     letter-spacing: 0.3px;
+    color: #888;
+    font-weight: 600;
+    border-bottom: 1px solid #eee;
   }
-  .summary-card td {
-    padding: 10px 10px;
+  .estimation-recap-table td {
+    padding: 9px 10px;
     border-bottom: 1px solid #f5f5f5;
-    white-space: nowrap;
+    color: #333;
   }
-  .summary-card tbody tr:hover {
-    background: #fafafa;
+  .estimation-recap-table .t-left { text-align: left; }
+  .estimation-recap-table tbody tr:last-child td { border-bottom: none; }
+  .estimation-recap-table .t-adj.pos { color: #46B962; font-weight: 600; }
+  .estimation-recap-table .t-adj.neg { color: #e74c3c; font-weight: 600; }
+  .estimation-recap-table .t-row-total td {
+    background: #f7fbf8;
+    border-top: 1.5px solid #46B962;
+    color: #1a1a1a;
+    font-size: 12px;
+    font-weight: 600;
   }
   .t-price {
     font-weight: 600;
@@ -1261,6 +2122,108 @@ const cssStyles = `
     color: #bbb;
   }
 
+  /* MINI SELECTED CARD (split 70/30 layout) */
+  .mini-comp-card {
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .mini-comp-card:hover {
+    border-color: #46B962;
+    box-shadow: 0 2px 8px rgba(70, 185, 98, 0.12);
+  }
+  .mini-comp-card:focus-visible {
+    outline: 2px solid #46B962;
+    outline-offset: 1px;
+  }
+  .mini-comp-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .mini-comp-main {
+    flex: 1;
+    min-width: 0;
+  }
+  .mini-comp-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .mini-comp-sub {
+    font-size: 10.5px;
+    color: #888;
+    margin-top: 2px;
+  }
+  .mini-comp-score {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 7px;
+    border-radius: 10px;
+    background: #f5f5f5;
+    color: #555;
+    flex-shrink: 0;
+  }
+  .mini-comp-score.score-high { background: #e3f5ea; color: #2d8856; }
+  .mini-comp-score.score-mid  { background: #fef4e6; color: #d97706; }
+  .mini-comp-score.score-low  { background: #fdebea; color: #c0392b; }
+  .mini-comp-remove {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1px solid #e5e5e5;
+    background: #fff;
+    cursor: pointer;
+    color: #888;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    flex-shrink: 0;
+    font-family: 'Open Sans', sans-serif;
+  }
+  .mini-comp-remove:hover {
+    border-color: #e74c3c;
+    color: #e74c3c;
+    background: #fef2f2;
+  }
+  .mini-comp-weight {
+    background: #fafbfd;
+    padding: 6px 9px;
+    border-radius: 6px;
+    border: 1px solid #f0f0f0;
+  }
+  .mini-comp-weight-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 10px;
+    color: #888;
+    margin-bottom: 4px;
+  }
+  .mini-comp-weight-header strong {
+    color: #46B962;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .mini-comp-weight .weight-slider {
+    width: 100%;
+    height: 4px;
+    margin: 0;
+  }
+
   /* COMPACT CARD */
   .comp-card.compact {
     padding: 10px 14px;
@@ -1345,6 +2308,248 @@ const cssStyles = `
   }
   .val-delta.pos { color: #46B962; }
   .val-delta.neg { color: #e74c3c; }
+
+  /* ═══════════════════════════════════════════════════════════════
+   * BOUTON FILTRES + DRAWER LATÉRAL
+   * Tous les filtres détaillés sont dans le drawer. La barre principale
+   * ne montre qu'un bouton "Configurer les filtres" + compteur d'actifs.
+   * ═══════════════════════════════════════════════════════════════ */
+  .filter-panel-compact {
+    background: #fff;
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-bottom: 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    border: 1px solid #eee;
+  }
+  .filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .filter-bar h3 {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0;
+    color: #1a1a1a;
+  }
+  .filter-bar-results {
+    font-size: 12px;
+    color: #46B962;
+    font-weight: 600;
+    background: #f0f8f5;
+    padding: 3px 10px;
+    border-radius: 12px;
+    border: 1px solid #d4ead8;
+  }
+  .filter-bar-spacer { flex: 1; }
+  .btn-open-filters {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 14px;
+    background: #1a1a1a;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s;
+  }
+  .btn-open-filters:hover { background: #333; }
+  .btn-open-filters .filters-badge {
+    background: #46B962;
+    color: #fff;
+    border-radius: 10px;
+    padding: 1px 7px;
+    font-size: 11px;
+    font-weight: 700;
+    min-width: 18px;
+    text-align: center;
+  }
+  .btn-reset-compact {
+    background: transparent;
+    border: 1px solid #ddd;
+    color: #666;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .btn-reset-compact:hover { background: #f5f5f5; border-color: #ccc; color: #333; }
+  .filter-bar-second {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #f0f0f0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  /* Légende sources compactée (7 sources colorées) */
+  .filter-legend-7 {
+    display: flex;
+    gap: 10px 14px;
+    flex-wrap: wrap;
+    align-items: center;
+    font-size: 11px;
+    color: #666;
+  }
+  .filter-legend-7 .legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .filter-legend-7 .legend-dot-sm {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  /* Drawer overlay + panel (latéral gauche, slide-in) */
+  .filters-drawer-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.42);
+    z-index: 9998;
+    display: flex;
+    justify-content: flex-start;
+    animation: filters-drawer-fade 0.18s ease;
+  }
+  @keyframes filters-drawer-fade {
+    from { background: rgba(0, 0, 0, 0); }
+    to { background: rgba(0, 0, 0, 0.42); }
+  }
+  .filters-drawer-panel {
+    width: 460px;
+    max-width: 95vw;
+    height: 100vh;
+    background: #fff;
+    overflow-y: auto;
+    animation: filters-drawer-slide 0.25s ease;
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.12);
+    font-family: 'Open Sans', sans-serif;
+    display: flex;
+    flex-direction: column;
+  }
+  @keyframes filters-drawer-slide {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(0); }
+  }
+  .filters-drawer-header {
+    position: sticky;
+    top: 0;
+    background: #fff;
+    padding: 18px 22px 14px;
+    border-bottom: 1px solid #eee;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .filters-drawer-header h2 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+    color: #1a1a1a;
+    flex: 1;
+  }
+  .filters-drawer-results {
+    font-size: 12px;
+    color: #46B962;
+    font-weight: 600;
+    background: #f0f8f5;
+    padding: 4px 10px;
+    border-radius: 12px;
+    border: 1px solid #d4ead8;
+  }
+  .filters-drawer-close {
+    background: #f5f5f5;
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    font-size: 18px;
+    cursor: pointer;
+    color: #666;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+  }
+  .filters-drawer-close:hover { background: #ececec; color: #1a1a1a; }
+  .filters-drawer-body {
+    padding: 14px 22px 28px;
+    flex: 1;
+  }
+  .filters-drawer-section {
+    margin-bottom: 22px;
+  }
+  .filters-drawer-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #888;
+    margin: 0 0 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .filters-drawer-section-hint {
+    font-size: 10px;
+    color: #aaa;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .filters-drawer-section-body {
+    background: #fafafa;
+    border-radius: 10px;
+    padding: 12px 14px;
+    border: 1px solid #eee;
+  }
+  /* Footer drawer avec actions (réinitialiser + appliquer) */
+  .filters-drawer-footer {
+    position: sticky;
+    bottom: 0;
+    background: #fff;
+    padding: 14px 22px;
+    border-top: 1px solid #eee;
+    display: flex;
+    gap: 10px;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .filters-drawer-footer .btn-reset {
+    background: transparent;
+    border: 1px solid #ddd;
+    color: #666;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .filters-drawer-footer .btn-reset:hover { background: #f5f5f5; }
+  .filters-drawer-footer .btn-apply {
+    background: #46B962;
+    color: #fff;
+    border: none;
+    padding: 8px 18px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s;
+  }
+  .filters-drawer-footer .btn-apply:hover { background: #3da653; }
 `;
 
 // Coordinates for comparables (Lyon 3ème area)
@@ -1662,12 +2867,150 @@ const INITIAL_SELECTED = [
   },
 ];
 
+/* Mocks comparables démo (Lyon 3). Le `fields` ↓ porte les valeurs réellement
+ * renseignées sur chaque comparable. Le compteur "X/Y champs" n'est PAS figé :
+ * il est calculé dynamiquement (cf. enrichWithCoverage) en intersection avec
+ * les champs renseignés sur le bien cible (Step 1).
+ *
+ * Variabilité voulue :
+ * - DVF : ~5 champs (donnée publique brute)
+ * - Ideeri complet : ~25-28 champs (mandat saisi à fond par l'agent)
+ * - Ideeri partiel : ~14-18 champs (saisie incomplète)
+ * - En cours : ~14-20 champs (mandat actif, saisie en cours)
+ * - Portails : ~7-9 champs (titre annonce + DPE + prix)
+ */
 const INITIAL_OTHERS = [
-  { id: 'duguesclin', title: 'T3 70m\u00b2 \u2014 5 rue Duguesclin, Lyon 3', source: 'dvf', meta: 'DVF \u00b7 295k\u20ac \u00b7 4 214\u20ac/m\u00b2 \u00b7 750m', simScore: '84% sim.', simClass: 'high', donScore: '62% donn\u00e9es', donClass: 'mid', donCount: '113/182' },
-  { id: 'lafayette', title: 'T4 85m\u00b2 \u2014 18 cours Lafayette, Lyon 3', source: 'portail', portalName: 'SeLoger', meta: 'Portail \u00b7 340k\u20ac \u00b7 4 000\u20ac/m\u00b2 \u00b7 890m', simScore: '58% sim.', simClass: 'mid', donScore: '5% donn\u00e9es', donClass: 'low', donCount: '9/182' },
-  { id: 'mazenod', title: 'T2 55m\u00b2 \u2014 33 rue Mazenod, Lyon 3', source: 'dvf', meta: 'DVF \u00b7 240k\u20ac \u00b7 4 363\u20ac/m\u00b2 \u00b7 420m', simScore: '71% sim.', simClass: 'mid', donScore: '68% donn\u00e9es', donClass: 'mid', donCount: '124/182' },
-  { id: 'guichard', title: 'T3 71m\u00b2 \u2014 7 place Guichard, Lyon 3', source: 'ideeri', meta: 'Ideeri \u00b7 298k\u20ac \u00b7 4 197\u20ac/m\u00b2 \u00b7 310m', simScore: '89% sim.', simClass: 'high', donScore: '93% donn\u00e9es', donClass: 'high', donCount: '538/575' },
+  /* DVF (vente publique, données limitées). */
+  {
+    id: 'duguesclin', title: 'T3 70m\u00b2 \u2014 5 rue Duguesclin, Lyon 3',
+    source: 'dvf', meta: 'DVF \u00b7 295k\u20ac \u00b7 4 214\u20ac/m\u00b2 \u00b7 750m',
+    simScore: '84% sim.', simClass: 'high',
+    fields: { type: 'appartement', surface: 70, pieces: 3, prix: 295000, prixM2: 4214 },
+  },
+  {
+    id: 'mazenod', title: 'T2 55m\u00b2 \u2014 33 rue Mazenod, Lyon 3',
+    source: 'dvf', meta: 'DVF \u00b7 240k\u20ac \u00b7 4 363\u20ac/m\u00b2 \u00b7 420m',
+    simScore: '71% sim.', simClass: 'mid',
+    fields: { type: 'appartement', surface: 55, pieces: 2, prix: 240000, prixM2: 4363 },
+  },
+  /* Vendu par Ideeri (forte qualité données). */
+  {
+    id: 'guichard', title: 'T3 71m\u00b2 \u2014 7 place Guichard, Lyon 3',
+    source: 'ideeri', meta: 'Ideeri \u00b7 298k\u20ac \u00b7 4 197\u20ac/m\u00b2 \u00b7 310m',
+    simScore: '89% sim.', simClass: 'high',
+    fields: {
+      type: 'appartement', surface: 71, surfaceUtile: 71, pieces: 3, chambres: 2,
+      sdb: 1, wc: 1, etage: 4, etagesTotal: 6, orientation: 'Sud-Ouest',
+      ascenseur: true, cave: 4, balcon: 6,
+      anneeConstruction: 1972, epoqueConstruction: 'Ann\u00e9es 70',
+      facadesEtat: 'Bon \u00e9tat', vitrage: 'Double vitrage r\u00e9cent',
+      chauffageType: 'Individuel', chauffageEnergie: 'Gaz',
+      dpe: 'D', dpeConsommation: 195, ges: 'D',
+      cuisineEquipee: true, etatCuisine: 'R\u00e9cente',
+      prix: 298000, prixM2: 4197,
+    },
+  },
+  {
+    id: 'paulbert', title: 'T4 92m\u00b2 \u2014 14 rue Paul Bert, Lyon 3',
+    source: 'ideeri', meta: 'Ideeri \u00b7 410k\u20ac \u00b7 4 456\u20ac/m\u00b2 \u00b7 680m',
+    simScore: '76% sim.', simClass: 'mid',
+    fields: {
+      type: 'appartement', surface: 92, pieces: 4, chambres: 3, sdb: 1, wc: 2,
+      etage: 2, etagesTotal: 5, orientation: 'Est', ascenseur: false, balcon: 4,
+      anneeConstruction: 1965, chauffageType: 'Collectif',
+      dpe: 'E', ges: 'E', cuisineEquipee: true,
+      prix: 410000, prixM2: 4456,
+    },
+  },
+  /* En cours de commercialisation (mandats actifs Ideeri). */
+  {
+    id: 'rambaud', title: 'T3 68m\u00b2 \u2014 22 avenue Rambaud, Lyon 3',
+    source: 'encours', meta: 'En cours \u00b7 285k\u20ac \u00b7 4 191\u20ac/m\u00b2 \u00b7 540m',
+    simScore: '82% sim.', simClass: 'high',
+    fields: {
+      type: 'appartement', surface: 68, pieces: 3, chambres: 2, sdb: 1, wc: 1,
+      etage: 3, etagesTotal: 7, orientation: 'Sud', ascenseur: true,
+      cave: 3, balcon: 5,
+      anneeConstruction: 1980, epoqueConstruction: 'Ann\u00e9es 80',
+      vitrage: 'Double vitrage',
+      chauffageType: 'Individuel', chauffageEnergie: '\u00c9lectrique',
+      dpe: 'D', ges: 'C', cuisineEquipee: true, etatCuisine: '\u00c0 r\u00e9nover',
+      prix: 285000, prixM2: 4191,
+    },
+  },
+  {
+    id: 'felixfaure', title: 'T2 48m\u00b2 \u2014 9 avenue F\u00e9lix Faure, Lyon 3',
+    source: 'encours', meta: 'En cours \u00b7 215k\u20ac \u00b7 4 479\u20ac/m\u00b2 \u00b7 920m',
+    simScore: '64% sim.', simClass: 'mid',
+    fields: {
+      type: 'appartement', surface: 48, pieces: 2, chambres: 1, sdb: 1, wc: 1,
+      etage: 1, etagesTotal: 4, anneeConstruction: 1980,
+      chauffageType: 'Collectif', chauffageEnergie: 'Gaz',
+      dpe: 'D', ges: 'D',
+      prix: 215000, prixM2: 4479,
+    },
+  },
+  /* Portails (SeLoger, Leboncoin, Bien'ici) — données partielles, public. */
+  {
+    id: 'lafayette', title: 'T4 85m\u00b2 \u2014 18 cours Lafayette, Lyon 3',
+    source: 'portail', portalName: 'SeLoger',
+    meta: 'SeLoger \u00b7 340k\u20ac \u00b7 4 000\u20ac/m\u00b2 \u00b7 890m',
+    simScore: '58% sim.', simClass: 'mid',
+    fields: {
+      type: 'appartement', surface: 85, pieces: 4, chambres: 3,
+      etage: 2, dpe: 'D', prix: 340000, prixM2: 4000,
+    },
+  },
+  {
+    id: 'villeroy', title: 'T3 65m\u00b2 \u2014 41 rue de Villeroy, Lyon 3',
+    source: 'portail', portalName: 'Leboncoin',
+    meta: 'Leboncoin \u00b7 275k\u20ac \u00b7 4 230\u20ac/m\u00b2 \u00b7 470m',
+    simScore: '69% sim.', simClass: 'mid',
+    fields: {
+      type: 'appartement', surface: 65, pieces: 3, etage: 3, dpe: 'E',
+      prix: 275000, prixM2: 4230,
+    },
+  },
+  {
+    id: 'lacassagne', title: 'T3 74m\u00b2 \u2014 65 cours Lacassagne, Lyon 3',
+    source: 'portail', portalName: "Bien'ici",
+    meta: "Bien'ici \u00b7 320k\u20ac \u00b7 4 324\u20ac/m\u00b2 \u00b7 1.1km",
+    simScore: '54% sim.', simClass: 'mid',
+    fields: {
+      type: 'appartement', surface: 74, pieces: 3, chambres: 2,
+      balcon: 3, dpe: 'D', prix: 320000, prixM2: 4324,
+    },
+  },
 ];
+
+/* Sous-ensemble des mocks INITIAL_OTHERS qui ne sont pas issus de DVF
+ * (mandats Ideeri, transactions en cours, annonces portails SeLoger/Leboncoin/
+ * Bien'ici). En mode live on les conserve tant que les sources live correspon-
+ * dantes ne sont pas opérationnelles (Datadome bloque actuellement
+ * /api/leboncoin, pas de flux live mandats Ideeri ni en cours), pour ne pas
+ * avoir de zone vide à côté des résultats DVF réels. */
+const INITIAL_NON_DVF_MOCKS = INITIAL_OTHERS.filter((c) => c.source !== 'dvf');
+
+/* Projette un mock non-DVF (coordonnées Lyon 3 hardcodées) autour du bien actif
+ * réel, en spirale dorée, à 250m -> ~1000m du target. Permet en mode live de
+ * voir les markers démo près du bien testé plutôt qu'à 50km à Lyon. La distance
+ * affichée est recalculée pour rester cohérente avec la nouvelle position. */
+function projectMockNearTarget(comp, targetCoords, idx) {
+  if (!comp) return comp;
+  if (!targetCoords || !Array.isArray(targetCoords) || targetCoords.length < 2) return comp;
+  // Angle d'or (137.508°) → répartition équilibrée même avec peu de points
+  const angle = (idx * 137.508) * Math.PI / 180;
+  const distMeters = 250 + idx * 120;
+  const lat = targetCoords[0];
+  const lng = targetCoords[1];
+  const dLat = (distMeters / 111320) * Math.cos(angle);
+  const dLng = (distMeters / (111320 * Math.cos(lat * Math.PI / 180))) * Math.sin(angle);
+  return {
+    ...comp,
+    coords: [lat + dLat, lng + dLng],
+    distance: `${Math.round(distMeters)}m`,
+  };
+}
 
 function SelectedCompCard({ comp, onRemove, onOpenDrawer, weight, onWeightChange }) {
   const pertinence = Math.round((comp.similarite || 0) * 0.6 + (comp.donnees || 0) * 0.4);
@@ -1813,10 +3156,63 @@ function SelectedCompCard({ comp, onRemove, onOpenDrawer, weight, onWeightChange
   );
 }
 
-function CompactCompCard({ comp, onAdd }) {
-  const dotClass = comp.source === 'dvf' ? 'dot-dvf' : comp.source === 'ideeri' ? 'dot-ideeri' : comp.source === 'encours' ? 'dot-encours' : 'dot-portail';
+/* MiniSelectedCompCard — vue compacte pour la colonne « Panier » du workspace
+ * 3 colonnes. Affiche l'essentiel (titre, source, prix/m², distance, score
+ * de pertinence) et ouvre le drawer détail au clic. Le slider de poids
+ * dans l'estimation est désormais dans le drawer détail, pas sur cette
+ * carte (pour garder l'aperçu épuré). */
+function MiniSelectedCompCard({ comp, onRemove, onOpenDrawer }) {
+  const dotClass = comp.source === 'dvf'
+    ? 'dot-dvf'
+    : comp.source === 'ideeri'
+    ? 'dot-ideeri'
+    : comp.source === 'encours'
+    ? 'dot-encours'
+    : 'dot-portail';
+  const pertinence = Math.round((comp.similarite || 0) * 0.6 + (comp.donnees || 0) * 0.4);
+  const pertClass = pertinence >= 80 ? 'score-high' : pertinence >= 60 ? 'score-mid' : 'score-low';
+  const openDrawer = () => onOpenDrawer && onOpenDrawer(comp);
   return (
-    <div className="comp-card compact">
+    <div
+      className="mini-comp-card"
+      onClick={openDrawer}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDrawer(); } }}
+    >
+      <div className="mini-comp-row">
+        <span className={`source-dot ${dotClass}`} />
+        <div className="mini-comp-main">
+          <div className="mini-comp-title">{comp.title}</div>
+          <div className="mini-comp-sub">{comp.prix} &euro; &middot; {comp.prixM2} &euro;/m&sup2; &middot; {comp.distance}</div>
+        </div>
+        <span className={`mini-comp-score ${pertClass}`}>{pertinence}%</span>
+        <button
+          type="button"
+          className="mini-comp-remove"
+          onClick={(e) => { e.stopPropagation(); onRemove && onRemove(comp.id); }}
+          title="Retirer ce comparable"
+          aria-label="Retirer"
+        >
+          &times;
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CompactCompCard({ comp, onAdd, onOpenEdit }) {
+  const dotClass = comp.source === 'dvf' ? 'dot-dvf' : comp.source === 'ideeri' ? 'dot-ideeri' : comp.source === 'encours' ? 'dot-encours' : 'dot-portail';
+  const handleCardClick = () => { if (onOpenEdit) onOpenEdit(comp); };
+  const stop = (e) => e.stopPropagation();
+  return (
+    <div
+      className={`comp-card compact${onOpenEdit ? ' clickable' : ''}`}
+      onClick={onOpenEdit ? handleCardClick : undefined}
+      role={onOpenEdit ? 'button' : undefined}
+      tabIndex={onOpenEdit ? 0 : undefined}
+      onKeyDown={onOpenEdit ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCardClick(); } } : undefined}
+    >
       <div className="compact-row">
         <div className="compact-left">
           <div className="compact-title">{comp.title}</div>
@@ -1827,11 +3223,133 @@ function CompactCompCard({ comp, onAdd }) {
             <span className="data-count">{comp.donCount}</span>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
-          {comp.portalName && <a className="btn-view-ad" href="#" onClick={(e) => e.preventDefault()}>&#8599; Annonce</a>}
-          <button className="btn-add" onClick={() => onAdd && onAdd(comp.id)}>+ Ajouter</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }} onClick={stop}>
+          {comp.portalName && <a className="btn-view-ad" href="#" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>&#8599; Annonce</a>}
+          <button className="btn-add" onClick={(e) => { e.stopPropagation(); onAdd && onAdd(comp.id); }}>+ Ajouter</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* PoolCompCard — carte miniature draggable d'un bien disponible (colonne 2
+ * du workspace 3 colonnes). Affiche une vignette photo (ou gradient fallback
+ * par source pour DVF/Ideeri), un badge source, un badge score de similarité,
+ * le prix et un bouton "+ Ajouter" pour fallback non-drag.
+ *
+ * Le drag & drop natif HTML5 : onDragStart pose l'id dans dataTransfer ;
+ * la colonne Panier (cart-list) déclenche addToSelected sur onDrop. */
+function PoolCompCard({ comp, onAdd, onOpenEdit, onFocusOnMap, onDragStart, onDragEnd }) {
+  // Extrait un score numérique 0-100 depuis "85% sim." pour le badge.
+  const simNum = parseInt(String(comp.simScore || '').replace(/\D/g, ''), 10) || 0;
+  const scoreClass = simNum >= 80 ? 'score-high' : simNum >= 60 ? 'score-mid' : 'score-low';
+  const sourceLabel = comp.source === 'dvf'
+    ? 'DVF'
+    : comp.source === 'ideeri'
+    ? 'Ideeri'
+    : comp.source === 'encours'
+    ? 'En cours'
+    : 'Portail';
+  const dotClass = comp.source === 'dvf'
+    ? 'dot-dvf'
+    : comp.source === 'ideeri'
+    ? 'dot-ideeri'
+    : comp.source === 'encours'
+    ? 'dot-encours'
+    : 'dot-portail';
+  // Photo : priorité comp.photos[0], sinon photo stock Unsplash (libre de
+  // droit, déterministe par id). DVF reste sans photo (anonymisé) → fallback
+  // gradient + icon, cohérent avec sa nature de transaction officielle.
+  const photoUrl = getCompPhoto(comp);
+  // Pour les sources DVF / Ideeri vendu, le placeholder a une teinte spécifique.
+  const noPhotoClass = `pool-card-photo no-photo source-${comp.source}`;
+  const photoIcon = comp.source === 'dvf' ? '\ud83d\udcca' : '\ud83c\udfe0';
+  // Parse meta "DVF · 295k€ · 4 214€/m² · 750m" pour extraire prix et m².
+  const parts = String(comp.meta || '').split(' \u00b7 ');
+  const prixLabel = parts[1] || '';
+  const m2Label = parts[2] || '';
+  const distLabel = parts[3] || '';
+
+  const handleCardClick = () => {
+    // Zoom carte sur le bien (action visuelle immédiate) + ouvre le drawer
+    // détails. À la fermeture du drawer, la carte sera déjà positionnée.
+    if (onFocusOnMap) onFocusOnMap(comp);
+    if (onOpenEdit) onOpenEdit(comp);
+  };
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleCardClick();
+    }
+  };
+  const stop = (e) => e.stopPropagation();
+
+  // Drag & drop natif HTML5 : on stocke l'id du comp dans dataTransfer
+  // pour permettre au panier de retrouver le bien dropé.
+  const handleDragStart = (e) => {
+    try {
+      e.dataTransfer.setData('text/plain', String(comp.id));
+      e.dataTransfer.setData('application/x-ideeri-comp-id', String(comp.id));
+      e.dataTransfer.effectAllowed = 'copy';
+    } catch {
+      /* navigateurs anciens (sans dataTransfer.setData) : fallback silencieux */
+    }
+    if (onDragStart) onDragStart(comp.id);
+  };
+  const handleDragEnd = () => { if (onDragEnd) onDragEnd(comp.id); };
+
+  return (
+    <div
+      className="pool-card"
+      role="button"
+      tabIndex={0}
+      draggable
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onClick={handleCardClick}
+      onKeyDown={handleKeyDown}
+      title="Glissez vers le panier ou cliquez pour le détail"
+    >
+      {photoUrl ? (
+        <div
+          className="pool-card-photo"
+          style={{ backgroundImage: `url(${photoUrl})` }}
+        >
+          <span className="pool-card-source-badge">
+            <span className={`source-dot ${dotClass}`} /> {sourceLabel}
+          </span>
+          <span className={`pool-card-score-badge ${scoreClass}`}>{simNum}%</span>
+        </div>
+      ) : (
+        <div className={noPhotoClass}>
+          <span>{photoIcon}</span>
+          <span className="pool-card-source-badge">
+            <span className={`source-dot ${dotClass}`} /> {sourceLabel}
+          </span>
+          <span className={`pool-card-score-badge ${scoreClass}`}>{simNum}%</span>
+        </div>
+      )}
+      <div className="pool-card-body">
+        <div className="pool-card-title">{comp.title}</div>
+        <div className="pool-card-meta">{distLabel || comp.meta}</div>
+        {prixLabel && (
+          <div className="pool-card-price">
+            {prixLabel}
+            {m2Label && <span className="pool-card-price-m2">&middot; {m2Label}</span>}
+          </div>
+        )}
+      </div>
+      <div className="pool-card-actions" onClick={stop}>
+        <button
+          type="button"
+          className="pool-card-add-btn"
+          onClick={(e) => { e.stopPropagation(); if (onAdd) onAdd(comp.id); }}
+          title="Ajouter au panier sans glisser"
+        >
+          + Panier
+        </button>
+      </div>
+      <div className="pool-card-drag-hint">&#8942;&#8942; Glissez vers le panier</div>
     </div>
   );
 }
@@ -1839,8 +3357,244 @@ function CompactCompCard({ comp, onAdd }) {
 // All 47 mock comparables for filtering simulation
 const ALL_COMPS_COUNT = 47;
 
+/* Pool de photos libres de droit (Unsplash, CC0) pour illustrer les
+ * comparables qui n'ont pas de photo réelle. Sélection mixte d'intérieurs
+ * d'appartements / façades / maisons pour rester représentatif. URLs
+ * directes images.unsplash.com (stables, mises en cache CDN).
+ * On exclut DVF du pool (les transactions DVF sont anonymisées et n'ont
+ * jamais de photo associée — afficher une fausse serait trompeur, on
+ * garde le placeholder cadastre/satellite ou bloc gradient). */
+const STOCK_PHOTOS_BIEN = [
+  'https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=400&q=70',
+  'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400&q=70',
+  'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&q=70',
+  'https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=400&q=70',
+  'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=400&q=70',
+  'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=400&q=70',
+  'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=400&q=70',
+  'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&q=70',
+  'https://images.unsplash.com/photo-1576941089067-2de3c901e126?w=400&q=70',
+  'https://images.unsplash.com/photo-1502005229762-cf1b2da7c5d6?w=400&q=70',
+  'https://images.unsplash.com/photo-1480074568708-e7b720bb3f09?w=400&q=70',
+  'https://images.unsplash.com/photo-1554995207-c18c203602cb?w=400&q=70',
+];
+
+/* Assignation déterministe d'une photo stock à un comparable selon son id
+ * (somme des charCodes mod taille du pool). Le même id donne toujours la
+ * même photo → pas de flicker au re-render. */
+function pickStockPhoto(id) {
+  const s = String(id || '');
+  let sum = 0;
+  for (let i = 0; i < s.length; i++) sum += s.charCodeAt(i);
+  return STOCK_PHOTOS_BIEN[sum % STOCK_PHOTOS_BIEN.length];
+}
+
+/* Renvoie l'URL photo à afficher pour un comparable :
+ *  - photos réelles si dispo (Ideeri / Portail avec data)
+ *  - sinon photo stock Unsplash, sauf pour DVF (pas de photo trompeuse)
+ *  - DVF sans photo réelle → null (le caller affiche le placeholder gradient) */
+function getCompPhoto(comp) {
+  if (Array.isArray(comp?.photos) && comp.photos[0]) return comp.photos[0];
+  if (comp?.source === 'dvf') return null;
+  return pickStockPhoto(comp?.id);
+}
+
+/* Liste exhaustive des types de bien pour le filtre "Type de bien"
+ * (multiselect). value = identifiant interne lowercase sans accent,
+ * label = libellé affiché à l'utilisateur. */
+const TYPES_BIEN = [
+  { value: 'appartement',         label: 'Appartement' },
+  { value: 'appartement_duplex',  label: 'Appartement Duplex' },
+  { value: 'appartement_triplex', label: 'Appartement Triplex' },
+  { value: 'autres',              label: 'Autres' },
+  { value: 'batiment',            label: 'Bâtiment' },
+  { value: 'cave',                label: 'Cave' },
+  { value: 'chateau',             label: 'Château' },
+  { value: 'ferme',               label: 'Ferme' },
+  { value: 'fond_commerce',       label: 'Fond de commerce' },
+  { value: 'garages',             label: 'Garages' },
+  { value: 'grange',              label: 'Grange' },
+  { value: 'immeuble',            label: 'Immeuble' },
+  { value: 'local_commercial',    label: 'Local commercial' },
+  { value: 'local_industriel',    label: 'Local industriel' },
+  { value: 'loft',                label: 'Loft' },
+  { value: 'maison',              label: 'Maison' },
+  { value: 'maison_village',      label: 'Maison de village' },
+  { value: 'parking',             label: 'Parking' },
+  { value: 'plateau',             label: 'Plateau' },
+  { value: 'terrain',             label: 'Terrain' },
+  { value: 'villa',               label: 'Villa' },
+];
+const TYPES_BIEN_VALUES = TYPES_BIEN.map((t) => t.value);
+
+/* TypeMultiSelect — dropdown multiselect pour le filtre Type de bien.
+ * - `selected` : array de values (identifiants lowercase)
+ * - `onChange` : (newValues: string[]) => void
+ * - Si selected.length === 0 ou === TYPES_BIEN.length → affiche "Tous types"
+ * - Sinon : "Appartement" (1 sel) ou "3 types sélectionnés" (n sel) */
+function TypeMultiSelect({ selected, onChange }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+
+  // Fermer si clic en dehors
+  useEffect(() => {
+    if (!open) return undefined;
+    const handler = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    window.addEventListener('mousedown', handler);
+    return () => window.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const toggleOne = (value) => {
+    if (selected.includes(value)) {
+      onChange(selected.filter((v) => v !== value));
+    } else {
+      onChange([...selected, value]);
+    }
+  };
+  const selectAll = () => onChange([...TYPES_BIEN_VALUES]);
+  const clearAll = () => onChange([]);
+
+  const allSelected = selected.length === TYPES_BIEN_VALUES.length;
+  const noneSelected = selected.length === 0;
+  let triggerLabel;
+  if (noneSelected || allSelected) {
+    triggerLabel = 'Tous types';
+  } else if (selected.length === 1) {
+    const t = TYPES_BIEN.find((x) => x.value === selected[0]);
+    triggerLabel = t ? t.label : '1 type sélectionné';
+  } else {
+    triggerLabel = `${selected.length} types sélectionnés`;
+  }
+
+  return (
+    <div className="type-multi" ref={wrapRef}>
+      <button
+        type="button"
+        className={`type-multi-trigger${open ? ' is-open' : ''}`}
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        {triggerLabel}
+      </button>
+      {open && (
+        <div className="type-multi-panel" role="listbox">
+          <div className="type-multi-panel-header">
+            <button type="button" className="type-multi-action" onClick={selectAll}>
+              Tout cocher
+            </button>
+            <button type="button" className="type-multi-action" onClick={clearAll}>
+              Tout décocher
+            </button>
+          </div>
+          <div className="type-multi-list">
+            {TYPES_BIEN.map((t) => (
+              <label key={t.value} className="type-multi-option">
+                <input
+                  type="checkbox"
+                  checked={selected.includes(t.value)}
+                  onChange={() => toggleOne(t.value)}
+                />
+                <span>{t.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* SourceRow — rangée moderne d'une source dans le drawer Filtres.
+ * Card cliquable (toggle au clic sur toute la zone sauf le slider et la
+ * pill de valeur), checkbox custom carrée arrondie, slider épais avec fill
+ * vert progressif, valeur en pill verte à droite. */
+function SourceRow({ dotClass, label, checked, onToggle, delay, setDelay, maxMonths = 36 }) {
+  const pct = ((delay - 1) / (maxMonths - 1)) * 100;
+  const stopProp = (e) => e.stopPropagation();
+  return (
+    <div
+      className={`source-row${checked ? '' : ' disabled'}`}
+      onClick={onToggle}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onToggle();
+        }
+      }}
+    >
+      <label className="source-cb-label" onClick={stopProp}>
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={onToggle}
+        />
+        <span className="source-check-box" />
+      </label>
+      <span className="source-label-text">
+        <span className={`source-dot ${dotClass}`} />
+        {label}
+      </span>
+      {/* Slider 100% custom — track/fill/thumb sont des div HTML normaux,
+       * l'input range est invisible (opacity 0) et gère uniquement
+       * l'interaction drag/clavier. Zéro pseudo-element navigateur
+       * → zéro contour gris natif possible. */}
+      <div
+        className="cs-slider"
+        onClick={stopProp}
+        onMouseDown={stopProp}
+        style={{ '--cs-pct': pct }}
+      >
+        <div className="cs-track" />
+        <div className="cs-fill" />
+        <div className="cs-thumb" />
+        <input
+          type="range"
+          className="cs-input"
+          min="1"
+          max={maxMonths}
+          value={delay}
+          disabled={!checked}
+          onChange={(e) => setDelay(Number(e.target.value))}
+          aria-label={`Ancienneté max ${label}`}
+        />
+      </div>
+      <span className="source-delay-value" onClick={stopProp}>{delay} mois</span>
+    </div>
+  );
+}
+
 export default function Step3Comparables() {
   const navigate = useNavigate();
+
+  /* Bien actif (Step1) — donne le citycode + coords pour brancher DVF live.
+   * Si pas de bien actif → fallback démo 12 rue des Lilas Lyon 3 (TARGET_COORDS). */
+  const activeBien = useMemo(() => getActiveBien(), []);
+  const targetCoords = useMemo(() => {
+    if (activeBien?.adresse?.coords && Array.isArray(activeBien.adresse.coords)) {
+      return activeBien.adresse.coords;
+    }
+    return TARGET_COORDS;
+  }, [activeBien]);
+  const targetLabel = activeBien?.adresse?.label || '12 rue des Lilas';
+  const targetCityLine = activeBien?.adresse
+    ? `${activeBien.adresse.postcode || ''} ${activeBien.adresse.city || ''}`.trim()
+    : '69003 Lyon 3ème';
+  const targetCityShort = activeBien?.adresse?.city || 'Lyon 3ème';
+  const hasRealLocation = !!activeBien?.adresse?.citycode;
+
+  /* targetFields = Set des clés (parmi COMPARABLE_FIELDS) renseignées sur le
+   * bien cible (Step 1). C'est le DÉNOMINATEUR du ratio "M/N" affiché sur
+   * chaque carte comparable. Reflète le périmètre réel de comparaison. */
+  const targetFields = useMemo(() => {
+    const cats = buildBienCibleCategories(bienCibleCategoriesBase, activeBien);
+    return getTargetFilledFieldKeys(cats);
+  }, [activeBien]);
+
   const [radius, setRadius] = useState(1000);
   const [mapStyle, setMapStyle] = useState('plan');
   // Délai max par source (en mois) — 3 ans (36 mois) pour "En cours" et "Portail", 8 ans (96 mois) pour DVF et Ideeri/Bien vendus
@@ -1848,92 +3602,332 @@ export default function Step3Comparables() {
   const [delayIdeeri, setDelayIdeeri] = useState(36);
   const [delayEncours, setDelayEncours] = useState(12);
   const [delayPortail, setDelayPortail] = useState(12);
+  // Délais Papiris additionnels — estimation (court terme), mandat clos (moyen
+  // terme : un mandat sans vente), vendu autre agence (info marché)
+  const [delayEstimation, setDelayEstimation] = useState(12);
+  const [delayMandatClos, setDelayMandatClos] = useState(24);
+  const [delayAutreAgence, setDelayAutreAgence] = useState(24);
   const [drawMode, setDrawMode] = useState(false);
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const tileLayerRef = useRef(null);
   const drawLayerRef = useRef(null);
   const radiusCircleRef = useRef(null);
+  // Layer dédiée aux markers comparables (selected + others). Permet de re-render
+  // dynamiquement les markers quand DVF live arrive sans tout recréer.
+  const compMarkersLayerRef = useRef(null);
+  // Map id → marker pour permettre le zoom programmatique au clic sur une card.
+  const markersByIdRef = useRef({});
   const freehandPointsRef = useRef([]);
   const freehandLineRef = useRef(null);
   const isDrawingRef = useRef(false);
   const addCompRef = useRef(null);
 
   // Selected / Others comparable lists (dynamic)
-  const [selected, setSelected] = useState(INITIAL_SELECTED);
-  const [others, setOthers] = useState(INITIAL_OTHERS);
-
-  // Drawer pour afficher le d\u00e9tail d'un comparable
-  const [drawerComp, setDrawerComp] = useState(null);
-
-  // Pond\u00e9ration manuelle des comparables (somme = 100, normalis\u00e9e auto)
-  const [weights, setWeights] = useState(() => {
-    const eq = Math.round(100 / Math.max(INITIAL_SELECTED.length, 1));
-    const obj = {};
-    INITIAL_SELECTED.forEach((c, i) => {
-      obj[c.id] = i === INITIAL_SELECTED.length - 1 ? 100 - eq * (INITIAL_SELECTED.length - 1) : eq;
-    });
-    return obj;
+  // ─── Mode démo (pas de bien actif) : garder les mocks Lyon 3 (4 selected + 4 others)
+  // ─── Mode live (bien actif avec citycode) : démarrer vide, peupler via DVF /api/dvf
+  const [selected, setSelected] = useState(() => (hasRealLocation ? [] : INITIAL_SELECTED));
+  // Mode démo : full mocks. Mode live : on garde tous les mocks non-DVF (mandats
+  // Ideeri, en cours, portails) en attendant les branchements live correspondants,
+  // et on projette leurs coordonnées Lyon 3 autour du bien actif réel pour la carte.
+  const [others, setOthers] = useState(() => {
+    if (!hasRealLocation) return INITIAL_OTHERS;
+    return INITIAL_NON_DVF_MOCKS.map((m, i) => projectMockNearTarget(m, targetCoords, i));
   });
 
-  // Modifier le poids d'un comparable et re-normaliser les autres pour somme = 100
-  const handleWeightChange = (id, newValue) => {
-    setWeights((prev) => {
-      const ids = Object.keys(prev);
-      if (ids.length <= 1) return { ...prev, [id]: 100 };
-      const clamped = Math.max(0, Math.min(100, newValue));
-      const otherIds = ids.filter((k) => k !== id);
-      const otherSumOld = otherIds.reduce((s, k) => s + (prev[k] || 0), 0);
-      const remaining = 100 - clamped;
-      const next = { [id]: clamped };
-      if (otherSumOld <= 0) {
-        // Tous les autres \u00e9taient \u00e0 0 \u2192 r\u00e9partition \u00e9gale
-        const each = Math.floor(remaining / otherIds.length);
-        otherIds.forEach((k, i) => {
-          next[k] = i === otherIds.length - 1 ? remaining - each * (otherIds.length - 1) : each;
+  // Comparables saisis manuellement (persistés dans localStorage).
+  // Source unique de vérité — re-mergés dans `others` à chaque changement.
+  const [manualComps, setManualComps] = useState(() => loadManualComps());
+
+  // Drawer de saisie manuelle (Ajouter un comparable manuel)
+  const [manualDrawerOpen, setManualDrawerOpen] = useState(false);
+
+  /* ─── Fetch DVF live → peuple "others" avec transactions réelles ──────
+   * Pattern Step2 : appel /api/dvf?citycode=XXX&type=YYY (proxy Vercel),
+   * transformation transactions → shape comparable card OTHERS, override état.
+   *
+   * Note : le proxy /api/leboncoin existe mais n'est plus appelé ici (Datadome
+   * bloque l'IP Vercel). Les annonces de portails arrivent désormais via le
+   * formulaire de saisie manuelle (ManualComparableDrawer).
+   *
+   * Retombe gracieusement sur les mocks Lyon 3 si pas de citycode.
+   */
+  useEffect(() => {
+    const citycode = activeBien?.adresse?.citycode;
+    /* Helper : merge des comps manuels (compactés) avec une base donnée. */
+    const mergeManual = (base) => {
+      const manualCards = manualComps.map((m) => manualOtherToCompact(m, targetCoords));
+      return [...manualCards, ...base];
+    };
+
+    if (!citycode) {
+      console.log('[Step3 live] pas de citycode → mode démo (mocks Lyon 3)');
+      // En démo : garder les mocks INITIAL_OTHERS et y ajouter les comps manuels
+      setOthers(mergeManual(INITIAL_OTHERS));
+      return undefined;
+    }
+    let cancelled = false;
+    const type = activeBien?.bien?.type || activeBien?.type || '';
+    const dvfUrl = `/api/dvf?citycode=${encodeURIComponent(citycode)}${type ? `&type=${encodeURIComponent(type)}` : ''}`;
+    console.log('[Step3 live] fetch DVF', dvfUrl);
+
+    fetch(dvfUrl)
+      .then((r) => r.json())
+      .catch((e) => ({ ok: false, error: e.message }))
+      .then((dvfData) => {
+        if (cancelled) return;
+        const dvfCards = (dvfData && dvfData.ok && Array.isArray(dvfData.transactions))
+          ? dvfData.transactions
+              .map((tx, i) => dvfTxToOther(tx, i, targetCoords))
+              .filter((c) => c && c.coords)
+          : [];
+        console.log('[Step3 live] DVF →', dvfCards.length, 'cards');
+        if (!dvfData?.ok) {
+          console.warn('[Step3 live] DVF NOK', dvfData?.error || 'unknown');
+        }
+        dvfCards.sort((a, b) => {
+          const da = haversineMeters(targetCoords, a.coords);
+          const db = haversineMeters(targetCoords, b.coords);
+          return (da ?? 1e9) - (db ?? 1e9);
         });
+        // En mode live on conserve aussi les mocks non-DVF (mandats Ideeri, en cours,
+        // portails SeLoger/Leboncoin/Bien'ici) tant que les sources live correspondantes
+        // ne sont pas opérationnelles. On les place AVANT les cartes DVF pour qu'ils
+        // soient visibles d'emblée (sinon les 100+ DVF les poussent en fin de liste).
+        // Et on projette leurs coordonnées Lyon 3 hardcodées AUTOUR du bien actif
+        // pour qu'ils apparaissent sur la carte (sinon ils sont à 50km du target).
+        const projectedMocks = INITIAL_NON_DVF_MOCKS.map((m, i) => projectMockNearTarget(m, targetCoords, i));
+        setOthers(mergeManual([...projectedMocks, ...dvfCards]));
+      });
+
+    return () => { cancelled = true; };
+  }, [activeBien, targetCoords, manualComps]);
+
+  // Drawer pour afficher le détail d'un comparable (clic sur la carte
+  // ou clic sur un comparable dans la liste "Autres")
+  const [drawerComp, setDrawerComp] = useState(null);
+
+  // Overrides de similarit\u00e9 par comparable (id \u2192 valeur 0-100).
+  // Chargement initial depuis localStorage (cl\u00e9 ideeri_sim_overrides).
+  const [simOverrides, setSimOverrides] = useState(() => loadSimOverrides());
+
+  // Persistance localStorage à chaque modification.
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(SIM_OVERRIDES_KEY, JSON.stringify(simOverrides));
+    } catch {
+      // localStorage indisponible (mode privé, quota plein...) → silent fail
+    }
+  }, [simOverrides]);
+
+  // Persiste les comparables sélectionnés (Top 3) dans le reportStore pour
+  // qu'ils remontent dans la page CompteRendu (/report).
+  useEffect(() => {
+    setReportState({ comparablesSelectionnes: selected });
+  }, [selected]);
+
+  /* ═══════════════════════════════════════════════════════════════
+   * WORKSPACE 3 COLONNES — état + handlers
+   * ═══════════════════════════════════════════════════════════════
+   * Largeurs des 3 colonnes (carte / pool / panier) en % de la rect
+   * du workspace. Modifiées au drag des 2 poignées entre colonnes.
+   * Persistées dans reportStore.comparablesConfig.step3Cols. */
+  const persistedCols = useMemo(
+    () => getReportSection('comparablesConfig', {}).step3Cols || null,
+    []
+  );
+  const [colWidths, setColWidths] = useState(() => ({
+    map: persistedCols?.map ?? 30,
+    pool: persistedCols?.pool ?? 40,
+    cart: persistedCols?.cart ?? 30,
+  }));
+  // Poignée active en cours de drag (1 = entre map/pool, 2 = entre pool/cart)
+  const [activeHandle, setActiveHandle] = useState(null);
+  const [isDragOverCart, setIsDragOverCart] = useState(false);
+  const workspaceRef = useRef(null);
+  // dragCounter gère le fait que dragenter/dragleave fire pour chaque enfant
+  const dragCounterRef = useRef(0);
+
+  /* Bornes min/max (en %) pour chaque colonne — évite qu'une colonne soit
+   * trop écrasée et donc inutilisable. Réglées pour rester lisibles : la
+   * carte garde au moins 15%, le pool 22%, le panier 18%. */
+  const COL_BOUNDS = useMemo(() => ({
+    map: [15, 60],
+    pool: [22, 65],
+    cart: [18, 55],
+  }), []);
+
+  const clampPct = (v, [lo, hi]) => Math.max(lo, Math.min(hi, v));
+
+  /* Démarre le drag d'une poignée (idx = 1 ou 2). Attache mousemove/mouseup
+   * globaux pour suivre la souris hors du handle, puis les retire au mouseup. */
+  const startResize = (e, idx) => {
+    e.preventDefault();
+    setActiveHandle(idx);
+    const rect = workspaceRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    /* Pendant le drag, on demande \u00e0 Leaflet de recalculer sa taille \u00e0
+     * chaque frame pour \u00e9viter la zone grise (tuiles non charg\u00e9es). On
+     * throttle via requestAnimationFrame pour ne pas spammer. */
+    let rafId = null;
+    const requestMapInvalidate = () => {
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        const m = mapInstanceRef.current;
+        if (m) {
+          try { m.invalidateSize({ animate: false, pan: false }); } catch { /* noop */ }
+        }
+      });
+    };
+
+    const handleMove = (mv) => {
+      if (!rect.width) return;
+      const ratio = ((mv.clientX - rect.left) / rect.width) * 100;
+      setColWidths((prev) => {
+        if (idx === 1) {
+          // Handle entre map et pool : ratio = bord droit de la carte
+          const newMap = clampPct(ratio, COL_BOUNDS.map);
+          const newPool = clampPct(100 - newMap - prev.cart, COL_BOUNDS.pool);
+          // Si pool a été clampé, on rétablit map pour conserver 100% total
+          return { map: 100 - newPool - prev.cart, pool: newPool, cart: prev.cart };
+        }
+        // idx === 2 — Handle entre pool et panier : ratio = bord droit de pool
+        const newCart = clampPct(100 - ratio, COL_BOUNDS.cart);
+        const newPool = clampPct(100 - prev.map - newCart, COL_BOUNDS.pool);
+        return { map: prev.map, pool: newPool, cart: 100 - prev.map - newPool };
+      });
+      requestMapInvalidate();
+    };
+    const handleUp = () => {
+      setActiveHandle(null);
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      // Appel final pour bien recharger les tuiles \u00e0 la nouvelle taille
+      const m = mapInstanceRef.current;
+      if (m) {
+        try { m.invalidateSize({ animate: false }); } catch { /* noop */ }
+      }
+    };
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+  };
+
+  /* Reset des largeurs (double-clic sur une poignée → retour à 30/40/30) */
+  const resetCols = () => setColWidths({ map: 30, pool: 40, cart: 30 });
+
+  // Persiste les largeurs dans reportStore (debounced naturel via useEffect)
+  // + invalide la taille de la map pour les changements via reset / state load
+  useEffect(() => {
+    mergeReportSection('comparablesConfig', { step3Cols: colWidths });
+    const t = setTimeout(() => {
+      const m = mapInstanceRef.current;
+      if (m) {
+        try { m.invalidateSize({ animate: false }); } catch { /* noop */ }
+      }
+    }, 60);
+    return () => clearTimeout(t);
+  }, [colWidths]);
+
+  /* Drag & drop natif HTML5 du pool vers le panier.
+   * Le PoolCompCard pose son id dans dataTransfer ; ici on l'extrait au drop
+   * et on appelle addToSelected pour promouvoir le bien dans selected. */
+  const handleCartDragOver = (e) => {
+    // Accepte seulement nos drags (avec custom type ou fallback text/plain)
+    const types = e.dataTransfer?.types || [];
+    if (!Array.from(types).some((t) => t === 'application/x-ideeri-comp-id' || t === 'text/plain')) {
+      return;
+    }
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  };
+  const handleCartDragEnter = (e) => {
+    e.preventDefault();
+    dragCounterRef.current += 1;
+    setIsDragOverCart(true);
+  };
+  const handleCartDragLeave = () => {
+    dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
+    if (dragCounterRef.current === 0) setIsDragOverCart(false);
+  };
+  const handleCartDrop = (e) => {
+    e.preventDefault();
+    dragCounterRef.current = 0;
+    setIsDragOverCart(false);
+    const id = e.dataTransfer.getData('application/x-ideeri-comp-id')
+      || e.dataTransfer.getData('text/plain');
+    if (!id) return;
+    // addToSelected gère la promotion (others → selected) + cleanup
+    addToSelected(id);
+  };
+
+  // Met \u00e0 jour ou supprime l'override pour un id donn\u00e9.
+  const setSimOverrideFor = (id, value) => {
+    setSimOverrides((prev) => {
+      const next = { ...prev };
+      if (value === undefined || value === null) {
+        delete next[id];
       } else {
-        // R\u00e9partition proportionnelle, derni\u00e8re cl\u00e9 absorbe l'arrondi
-        let allocated = 0;
-        otherIds.forEach((k, i) => {
-          if (i === otherIds.length - 1) {
-            next[k] = Math.max(0, remaining - allocated);
-          } else {
-            const v = Math.round((prev[k] / otherSumOld) * remaining);
-            next[k] = v;
-            allocated += v;
-          }
-        });
+        const v = Math.max(0, Math.min(100, Math.round(Number(value))));
+        if (Number.isNaN(v)) delete next[id];
+        else next[id] = v;
       }
       return next;
     });
   };
 
-  // Nettoyage du poids associ\u00e9 \u00e0 un comparable supprim\u00e9 (re-normalisation \u00e0 100%)
+  const clearSimOverrideFor = (id) => setSimOverrideFor(id, null);
+
+  // Pond\u00e9ration manuelle des comparables : chaque comparable a son propre
+  // poids (0-100) ind\u00e9pendant des autres. La moyenne pond\u00e9r\u00e9e finale est
+  // calcul\u00e9e en normalisant \u00e0 la somme (peu importe qu'elle vaille 100% ou non).
+  // En mode live (selected vide au start), reste vide jusqu'à ce que l'user ajoute des comparables.
+  const [weights, setWeights] = useState(() => {
+    // Hydratation depuis reportStore si dispo
+    const persisted = getReportSection('comparablesConfig', {}).weights;
+    if (persisted && typeof persisted === 'object' && Object.keys(persisted).length > 0) {
+      return persisted;
+    }
+    if (hasRealLocation) return {};
+    // Poids par défaut = pertinence (similarité × 0.6 + données × 0.4)
+    // Chaque comparable part avec son propre score, pas une répartition uniforme.
+    const obj = {};
+    INITIAL_SELECTED.forEach((c) => {
+      obj[c.id] = Math.round((c.similarite || 0) * 0.6 + (c.donnees || 0) * 0.4);
+    });
+    return obj;
+  });
+
+  // Persiste les weights dans le reportStore
+  useEffect(() => {
+    mergeReportSection('comparablesConfig', { weights });
+  }, [weights]);
+
+  // Poids par défaut d'un comparable = sa pertinence (Sim x0.6 + Donn x0.4).
+  // Utilisé comme fallback partout où weights[c.id] est undefined : slider,
+  // cellule récap, calcul de moyenne pondérée. Garantit qu'on n'affiche
+  // jamais 0% par défaut — chaque comparable part avec son propre score.
+  const defaultWeightFor = (c) =>
+    Math.round((Number(c.similarite) || 0) * 0.6 + (Number(c.donnees) || 0) * 0.4);
+  const effectiveWeight = (c) =>
+    weights[c.id] !== undefined ? weights[c.id] : defaultWeightFor(c);
+
+  // Modifier le poids d'un comparable : poids ind\u00e9pendant, pas de
+  // re-normalisation des autres. Le total des poids n'est pas contraint
+  // \u00e0 100% \u2014 la moyenne pond\u00e9r\u00e9e finale normalise par sumW.
+  const handleWeightChange = (id, newValue) => {
+    const clamped = Math.max(0, Math.min(100, Number(newValue) || 0));
+    setWeights((prev) => ({ ...prev, [id]: clamped }));
+  };
+
+  // Nettoyage du poids associ\u00e9 \u00e0 un comparable supprim\u00e9.
+  // Pas de re-normalisation \u2014 les autres poids restent inchang\u00e9s.
   const cleanupWeight = (id) => {
     setWeights((prev) => {
       const { [id]: _removed, ...rest } = prev;
-      const ids = Object.keys(rest);
-      if (ids.length === 0) return {};
-      const sum = ids.reduce((s, k) => s + (rest[k] || 0), 0);
-      if (sum === 0) {
-        const eq = Math.round(100 / ids.length);
-        const next = {};
-        ids.forEach((k, i) => { next[k] = i === ids.length - 1 ? 100 - eq * (ids.length - 1) : eq; });
-        return next;
-      }
-      let allocated = 0;
-      const next = {};
-      ids.forEach((k, i) => {
-        if (i === ids.length - 1) {
-          next[k] = Math.max(0, 100 - allocated);
-        } else {
-          const v = Math.round((rest[k] / sum) * 100);
-          next[k] = v;
-          allocated += v;
-        }
-      });
-      return next;
+      return rest;
     });
   };
 
@@ -1949,16 +3943,44 @@ export default function Step3Comparables() {
     const sourceLabel = comp.source === 'dvf' ? 'DVF' : comp.source === 'ideeri' ? 'Ideeri vendu' : comp.source === 'encours' ? 'En cours' : 'Portail';
     const simVal = parseInt(comp.simScore) || 70;
     const donVal = parseInt(comp.donScore) || 50;
+    // Adresse "humaine" : DVF live → adresse réelle ; sinon mock Lyon 3ème
+    const liveAddr = comp._dvfRaw?.commune
+      ? `${comp._dvfRaw.cp || ''} ${comp._dvfRaw.commune}`.trim()
+      : null;
+    // Champs structurés conservés pour le rapport CompteRendu (sinon le
+    // /report affichait "—" partout : surface, pieces, type, date…).
+    const f = comp.fields || {};
+    const raw = comp._dvfRaw || {};
+    const surfaceNum = Number(f.surface ?? raw.surface) || null;
+    const piecesNum = Number(f.pieces ?? raw.pieces) || null;
+    const typeStr = f.type || raw.type || null;
+    const prixRawNum = Number(f.prix ?? raw.prix) || Number(parseInt(prixNum)) || 0;
+    const prixM2RawNum = Number(f.prixM2 ?? raw.prixM2)
+      || (surfaceNum && prixRawNum ? Math.round(prixRawNum / surfaceNum) : 0);
+    const dateRaw = raw.date || raw.date_mutation || null;
+    const dateLabel = dateRaw
+      ? new Date(dateRaw).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })
+      : null;
     // Build a full selected-format object
     const promoted = {
       id: comp.id,
       title: comp.title,
-      addr: 'Lyon 3\u00e8me',
+      addr: liveAddr || raw.adresse || 'Lyon 3\u00e8me',
       source: comp.source,
       sourceLabel,
       prix: parseInt(prixNum).toLocaleString('fr-FR').replace(/,/g, ' ').replace(/\./g, ' '),
       prixM2: prixM2Str.replace('/m\u00b2', '').replace('\u20ac', '').trim(),
+      // Versions numériques pour CompteRendu (calculs + rendu propre)
+      prixRaw: prixRawNum,
+      prixM2Raw: prixM2RawNum,
+      surface: surfaceNum,
+      pieces: piecesNum,
+      type: typeStr,
+      dateLabel,
       distance: distanceStr,
+      // Préserve les coords (DVF live a tx.lat/tx.lon ; mocks utilisent COMP_COORDS)
+      coords: comp.coords || COMP_COORDS[comp.id],
+      _dvfRaw: comp._dvfRaw,
       venteLabel: comp.source === 'encours' ? '\u2014 En cours de vente' : parseInt(prixNum).toLocaleString('fr-FR').replace(/,/g, ' ').replace(/\./g, ' ') + ' \u20ac',
       venteDetail: comp.source === 'dvf' ? 'Transaction r\u00e9elle DVF' : 'Prix affich\u00e9',
       venteNa: comp.source === 'encours',
@@ -1977,12 +3999,27 @@ export default function Step3Comparables() {
       adjTotalClass: 'pos',
       adjustments: [],
       description: '',
-      noPhoto: comp.source === 'dvf',
-      photoUrl: comp.source !== 'dvf' ? `https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=520&h=140&fit=crop&crop=center&seed=${comp.id}` : undefined,
+      noPhoto: comp.source === 'dvf' && !(Array.isArray(comp.photos) && comp.photos.length > 0),
+      // Priorité : photo réelle saisie par l'agent (manual / portail) →
+      // placeholder unsplash pour non-DVF → undefined pour DVF (transaction).
+      photoUrl: (Array.isArray(comp.photos) && comp.photos[0])
+        || (comp.source !== 'dvf' ? `https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=520&h=140&fit=crop&crop=center&seed=${comp.id}` : undefined),
+      // On préserve aussi le tableau complet et l'URL de l'annonce source.
+      photos: Array.isArray(comp.photos) ? comp.photos : [],
+      urlAnnonce: comp.urlAnnonce || comp.urlSource || null,
       portalName: comp.portalName || (comp.source === 'portail' ? randomPortalName() : undefined),
     };
     setOthers(prev => prev.filter(c => c.id !== compId));
     setSelected(prev => [...prev, promoted]);
+    // Poids par défaut du nouveau comparable = sa pertinence
+    // (similarité × 0.6 + données × 0.4). L'utilisateur peut ensuite
+    // ajuster manuellement via le slider sur la carte.
+    setWeights(prev => ({
+      ...prev,
+      [promoted.id]: prev[promoted.id] !== undefined
+        ? prev[promoted.id]
+        : Math.round((promoted.similarite || 0) * 0.6 + (promoted.donnees || 0) * 0.4),
+    }));
   };
 
   const removeFromSelected = (compId) => {
@@ -2001,6 +4038,9 @@ export default function Step3Comparables() {
       donClass: comp.donnees >= 80 ? 'high' : comp.donnees >= 40 ? 'mid' : 'low',
       donCount: comp.donCount,
       portalName: comp.portalName,
+      // Préserve coords + raw DVF lors du retour en "Autres"
+      coords: comp.coords || COMP_COORDS[comp.id],
+      _dvfRaw: comp._dvfRaw,
     };
     setSelected(prev => prev.filter(c => c.id !== compId));
     setOthers(prev => [...prev, demoted]);
@@ -2010,6 +4050,19 @@ export default function Step3Comparables() {
   // Alias utilis\u00e9 par la card et le tableau r\u00e9cap pour la suppression
   const handleRemoveComparable = removeFromSelected;
 
+  /* Handler de sauvegarde d'un comparable saisi manuellement.
+   * Appelé par <ManualComparableDrawer onSave={...}>. Ajoute le comparable
+   * à la liste des manuels (qui re-merge automatiquement dans `others` via
+   * le useEffect DVF) et persiste en localStorage. */
+  const handleSaveManualComparable = (richManual) => {
+    setManualComps((prev) => {
+      const next = [...prev, richManual];
+      saveManualComps(next);
+      return next;
+    });
+    setManualDrawerOpen(false);
+  };
+
   // Expose addToSelected for Leaflet popups
   addCompRef.current = addToSelected;
   useEffect(() => {
@@ -2017,18 +4070,61 @@ export default function Step3Comparables() {
     return () => { delete window.__addComp; };
   }, []);
 
-  // Filter states
-  const [surfaceMin, setSurfaceMin] = useState(55);
-  const [surfaceMax, setSurfaceMax] = useState(90);
-  const [piecesMin, setPiecesMin] = useState(2);
-  const [piecesMax, setPiecesMax] = useState(4);
-  const [prixMin, setPrixMin] = useState(200000);
-  const [prixMax, setPrixMax] = useState(400000);
-  const [typeFilter, setTypeFilter] = useState('appartement');
-  const [sourceDvf, setSourceDvf] = useState(true);
-  const [sourceIdeeri, setSourceIdeeri] = useState(true);
-  const [sourceEncours, setSourceEncours] = useState(true);
-  const [sourcePortail, setSourcePortail] = useState(true);
+  // Filter states — hydratation depuis reportStore pour persistance inter-pages
+  const persistedFiltres = useMemo(
+    () => getReportSection('comparablesConfig', {}).filtres || {},
+    []
+  );
+  const [surfaceMin, setSurfaceMin] = useState(persistedFiltres.surfaceMin ?? 55);
+  const [surfaceMax, setSurfaceMax] = useState(persistedFiltres.surfaceMax ?? 90);
+  const [piecesMin, setPiecesMin] = useState(persistedFiltres.piecesMin ?? 2);
+  const [piecesMax, setPiecesMax] = useState(persistedFiltres.piecesMax ?? 4);
+  const [prixMin, setPrixMin] = useState(persistedFiltres.prixMin ?? 200000);
+  const [prixMax, setPrixMax] = useState(persistedFiltres.prixMax ?? 400000);
+  /* typeFilters : array de values TYPES_BIEN. Si [] ou contient tout → "Tous types".
+   * Migration depuis l'ancien format string (typeFilter) pour les rapports
+   * sauvegardés avant l'introduction du multiselect. */
+  const [typeFilters, setTypeFilters] = useState(() => {
+    if (Array.isArray(persistedFiltres.typeFilters)) return persistedFiltres.typeFilters;
+    const legacy = persistedFiltres.typeFilter;
+    if (legacy === 'tous' || legacy == null) return ['appartement'];
+    return [legacy];
+  });
+  const [sourceDvf, setSourceDvf] = useState(persistedFiltres.sourceDvf ?? true);
+  const [sourceIdeeri, setSourceIdeeri] = useState(persistedFiltres.sourceIdeeri ?? true);
+  const [sourceEncours, setSourceEncours] = useState(persistedFiltres.sourceEncours ?? true);
+  // Sources Papiris additionnelles : estimation (avis Ideeri non concrétisé),
+  // mandat clos (mandat fini sans vente, info négative), vendu autre agence
+  // (signal marché de la zone).
+  const [sourceEstimation, setSourceEstimation] = useState(persistedFiltres.sourceEstimation ?? true);
+  const [sourceMandatClos, setSourceMandatClos] = useState(persistedFiltres.sourceMandatClos ?? false);
+  const [sourceAutreAgence, setSourceAutreAgence] = useState(persistedFiltres.sourceAutreAgence ?? true);
+  // Drawer filtres : ouvert/fermé. Le bouton "Configurer les filtres" l'ouvre.
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [sourcePortail, setSourcePortail] = useState(persistedFiltres.sourcePortail ?? true);
+
+  // Persiste les filtres dans le reportStore
+  useEffect(() => {
+    mergeReportSection('comparablesConfig', {
+      filtres: {
+        surfaceMin, surfaceMax,
+        piecesMin, piecesMax,
+        prixMin, prixMax,
+        typeFilters,
+        sourceDvf, sourceIdeeri, sourceEncours, sourcePortail,
+        sourceEstimation, sourceMandatClos, sourceAutreAgence,
+        radius, delayDvf, delayIdeeri, delayEncours, delayPortail,
+        delayEstimation, delayMandatClos, delayAutreAgence,
+      },
+    });
+  }, [
+    surfaceMin, surfaceMax, piecesMin, piecesMax,
+    prixMin, prixMax, typeFilters,
+    sourceDvf, sourceIdeeri, sourceEncours, sourcePortail,
+    sourceEstimation, sourceMandatClos, sourceAutreAgence,
+    radius, delayDvf, delayIdeeri, delayEncours, delayPortail,
+    delayEstimation, delayMandatClos, delayAutreAgence,
+  ]);
 
   // Additional optional filters
   const [extraFilters, setExtraFilters] = useState([]);
@@ -2044,8 +4140,57 @@ export default function Step3Comparables() {
   const addExtraFilter = (key) => setExtraFilters(prev => [...prev, key]);
   const removeExtraFilter = (key) => setExtraFilters(prev => prev.filter(k => k !== key));
 
-  // Simulated dynamic bien count based on filters
+  // Filtre live unifié : applique sources + type + surface + pièces + prix + rayon
+  // Utilisé à la fois par le count (computeFilteredCount) et la liste visible
+  // (visibleOthers), pour que les 2 affichages soient toujours alignés.
+  const passesLiveFilters = (c) => {
+    // Les comparables ajoutés manuellement par l'utilisateur ne sont JAMAIS
+    // filtrés (sinon on lui cache son propre ajout si surface/pièces/prix sont
+    // hors plage par défaut, ou si la source correspondante est décochée).
+    if (c.manual) return true;
+    // Filtre source (checkboxes)
+    if (c.source === 'dvf' && !sourceDvf) return false;
+    if (c.source === 'portail' && !sourcePortail) return false;
+    if (c.source === 'ideeri' && !sourceIdeeri) return false;
+    if (c.source === 'encours' && !sourceEncours) return false;
+    if (c.source === 'estimation' && !sourceEstimation) return false;
+    if (c.source === 'mandat_clos' && !sourceMandatClos) return false;
+    if (c.source === 'autre_agence' && !sourceAutreAgence) return false;
+    // Filtre type (multiselect)
+    // - typeFilters vide ou contient tous les types → "Tous types" (pas de filtre)
+    // - sinon : on garde si le type du comp matche l'une des values cochées
+    if (typeFilters.length > 0 && typeFilters.length < TYPES_BIEN_VALUES.length) {
+      const compType = c.fields?.type || c._dvfRaw?.type;
+      if (compType) {
+        const normalized = String(compType).toLowerCase().trim();
+        if (!typeFilters.includes(normalized)) return false;
+      }
+    }
+    // Filtre surface
+    const compSurface = c.fields?.surface ?? c._dvfRaw?.surface;
+    if (typeof compSurface === 'number' && (compSurface < surfaceMin || compSurface > surfaceMax)) return false;
+    // Filtre pièces
+    const compPieces = c.fields?.pieces ?? c._dvfRaw?.pieces;
+    if (typeof compPieces === 'number' && (compPieces < piecesMin || compPieces > piecesMax)) return false;
+    // Filtre prix
+    const compPrix = c.fields?.prix ?? c._dvfRaw?.prix;
+    if (typeof compPrix === 'number' && (compPrix < prixMin || compPrix > prixMax)) return false;
+    // Filtre rayon (distance haversine depuis le target)
+    if (c.coords && targetCoords) {
+      const dist = haversineMeters(targetCoords, c.coords);
+      if (dist != null && dist > radius) return false;
+    }
+    return true;
+  };
+
+  // Bien count : en mode live (DVF), on s'appuie sur le count réel de transactions.
+  // En mode démo (pas de bien actif), on simule via les filtres pour garder l'UX initiale.
   const computeFilteredCount = () => {
+    // Mode live : count réel des cards "others" filtré selon tous les filtres actifs.
+    if (hasRealLocation && others.length > 0) {
+      const filtered = others.filter(passesLiveFilters);
+      return Math.max(filtered.length, 0);
+    }
     let count = ALL_COMPS_COUNT;
     // Radius effect
     if (radius < 500) count = Math.round(count * 0.3);
@@ -2064,37 +4209,73 @@ export default function Step3Comparables() {
     if (prixRange < 100000) count = Math.max(Math.round(count * 0.5), 1);
     else if (prixRange < 150000) count = Math.round(count * 0.75);
     // Source effect
-    const sourcesOn = [sourceDvf, sourceIdeeri, sourceEncours, sourcePortail].filter(Boolean).length;
-    if (sourcesOn < 4) count = Math.max(Math.round(count * (sourcesOn / 4)), 1);
+    const allSourceFlags = [
+      sourceDvf, sourceIdeeri, sourceEncours, sourcePortail,
+      sourceEstimation, sourceMandatClos, sourceAutreAgence,
+    ];
+    const sourcesOn = allSourceFlags.filter(Boolean).length;
+    const sourcesTotal = allSourceFlags.length;
+    if (sourcesOn < sourcesTotal) count = Math.max(Math.round(count * (sourcesOn / sourcesTotal)), 1);
     // Délai par source — chaque source contribue proportionnellement à son délai
-    // DVF & Ideeri : pleine contribution à 96 mois (8 ans)
-    // En cours & Portail : pleine contribution à 36 mois (3 ans)
+    // DVF & Ideeri vendus : pleine contribution à 96 mois (8 ans)
+    // En cours, Portail, Estimation, Mandat clos, Autre agence : 36 mois (3 ans)
     const sourceContribs = [];
     if (sourceDvf) sourceContribs.push(Math.min(delayDvf / 96, 1));
     if (sourceIdeeri) sourceContribs.push(Math.min(delayIdeeri / 96, 1));
     if (sourceEncours) sourceContribs.push(Math.min(delayEncours / 36, 1));
     if (sourcePortail) sourceContribs.push(Math.min(delayPortail / 36, 1));
+    if (sourceEstimation) sourceContribs.push(Math.min(delayEstimation / 36, 1));
+    if (sourceMandatClos) sourceContribs.push(Math.min(delayMandatClos / 36, 1));
+    if (sourceAutreAgence) sourceContribs.push(Math.min(delayAutreAgence / 36, 1));
     const dateFactor = sourceContribs.length
       ? sourceContribs.reduce((a, b) => a + b, 0) / sourceContribs.length
       : 1;
     // Pondération non-linéaire : courbe douce pour que les petits délais réduisent fortement
     count = Math.max(Math.round(count * (0.15 + 0.85 * dateFactor)), 1);
-    // Type
-    if (typeFilter === 'tous') count = Math.min(count + 8, 90);
+    // Type (multiselect) : si "tous types" (vide ou tout coché) → bonus de biens
+    // disponibles ; sinon, plus on a coché de types, plus on a de biens potentiels
+    const allTypes = typeFilters.length === 0 || typeFilters.length === TYPES_BIEN_VALUES.length;
+    if (allTypes) count = Math.min(count + 8, 90);
+    else if (typeFilters.length >= 3) count = Math.min(count + 4, 90);
     return Math.max(count, 1);
   };
   const filteredCount = computeFilteredCount();
+
+  /* Compte des filtres qui s'\u00e9cartent de la configuration par d\u00e9faut, pour
+   * afficher un badge sur le bouton "Configurer les filtres". Une source est
+   * "active" si elle est d\u00e9coch\u00e9e (toutes coch\u00e9es par d\u00e9faut sauf mandat_clos
+   * d\u00e9coch\u00e9 par d\u00e9faut). */
+  const activeFiltersCount = (() => {
+    let n = 0;
+    if (!sourceDvf) n += 1;
+    if (!sourceIdeeri) n += 1;
+    if (!sourceEncours) n += 1;
+    if (!sourcePortail) n += 1;
+    if (!sourceEstimation) n += 1;
+    if (sourceMandatClos) n += 1; // décoché par défaut
+    if (!sourceAutreAgence) n += 1;
+    if (typeFilters.length > 0 && typeFilters.length < TYPES_BIEN_VALUES.length) n += 1;
+    if (surfaceMin !== 55 || surfaceMax !== 90) n += 1;
+    if (piecesMin !== 2 || piecesMax !== 4) n += 1;
+    if (prixMin !== 200000 || prixMax !== 400000) n += 1;
+    if (extraFilters && extraFilters.length > 0) n += extraFilters.length;
+    return n;
+  })();
 
   const formatRadius = (v) => (v >= 1000 ? `${(v / 1000).toFixed(v % 1000 === 0 ? 0 : 1)} km` : `${v}m`);
   const sliderPct = ((radius - 100) / (5000 - 100)) * 100;
 
   // Source → marker color mapping
   // vert = Ideeri vendu (mandat) · bleu = DVF officiel · orange = Ideeri en cours · rouge = Portails
+  // violet = estimation · gris = mandat clos · teal = vendu autre agence
   const sourceMarkerColor = {
     dvf: '#4a6cf7',
     ideeri: '#46B962',
     encours: '#f5a623',
     portail: '#e74c3c',
+    estimation: '#9b59b6',
+    mandat_clos: '#7f8c8d',
+    autre_agence: '#16a085',
   };
 
   // Initialize Leaflet map with markers and draw tool
@@ -2102,13 +4283,13 @@ export default function Step3Comparables() {
     if (mapInstanceRef.current) return;
     if (!L || !mapRef.current) return;
 
-    const map = L.map(mapRef.current, { zoomControl: false, attributionControl: false }).setView(TARGET_COORDS, 15);
+    const map = L.map(mapRef.current, { zoomControl: false, attributionControl: false }).setView(targetCoords, 15);
     const tile = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
     tileLayerRef.current = tile;
     L.control.zoom({ position: 'topleft' }).addTo(map);
 
     // Radius circle (will be hidden when user draws a custom zone)
-    const radiusCircle = L.circle(TARGET_COORDS, { radius: 1000, color: '#46B962', weight: 2, opacity: 0.6, fillColor: '#46B962', fillOpacity: 0.06, dashArray: '8, 6' }).addTo(map);
+    const radiusCircle = L.circle(targetCoords, { radius: 1000, color: '#46B962', weight: 2, opacity: 0.6, fillColor: '#46B962', fillOpacity: 0.06, dashArray: '8, 6' }).addTo(map);
     radiusCircleRef.current = radiusCircle;
 
     // Target marker — large, distinctive house icon with pulsing ring
@@ -2124,71 +4305,20 @@ export default function Step3Comparables() {
       iconSize: [40, 40],
       iconAnchor: [20, 20],
     });
-    L.marker(TARGET_COORDS, { icon: targetIcon, zIndexOffset: 1000 }).addTo(map).bindPopup(
+    L.marker(targetCoords, { icon: targetIcon, zIndexOffset: 1000 }).addTo(map).bindPopup(
       `<div style="text-align:center;padding:4px 0">
-        <div style="font-weight:700;font-size:14px;color:#333;margin-bottom:4px">12 rue des Lilas</div>
-        <div style="font-size:12px;color:#666;margin-bottom:6px">69003 Lyon 3ème</div>
+        <div style="font-weight:700;font-size:14px;color:#333;margin-bottom:4px">${(targetLabel || '').replace(/</g, '&lt;')}</div>
+        <div style="font-size:12px;color:#666;margin-bottom:6px">${(targetCityLine || '').replace(/</g, '&lt;')}</div>
         <div style="display:inline-block;background:#46B962;color:white;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600">Bien cible</div>
       </div>`
     );
 
-    // Add comparable markers — SELECTED (large, prominent)
-    INITIAL_SELECTED.forEach((comp) => {
-      const coords = COMP_COORDS[comp.id];
-      if (!coords) return;
-      const color = sourceMarkerColor[comp.source] || '#999';
-      const icon = L.divIcon({
-        className: 'comp-marker-icon',
-        html: `<div style="width:22px;height:22px;background:${color};border:3px solid white;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.35);cursor:pointer;position:relative">
-          <div style="position:absolute;inset:-4px;border:2px solid ${color};border-radius:50%;opacity:0.25"></div>
-        </div>`,
-        iconSize: [22, 22],
-        iconAnchor: [11, 11],
-      });
-      const simClass = comp.similarite >= 80 ? '#46B962' : comp.similarite >= 60 ? '#d97706' : '#e74c3c';
-      L.marker(coords, { icon, zIndexOffset: 500 }).addTo(map).bindPopup(
-        `<div style="min-width:220px;padding:2px 0">
-          <div style="font-weight:700;font-size:13px;margin-bottom:3px">${comp.title}</div>
-          <div style="font-size:11px;color:#666;margin-bottom:6px">${comp.addr} · ${comp.distance}</div>
-          <div style="display:flex;gap:12px;margin-bottom:6px">
-            <div><div style="font-size:10px;color:#999">Prix</div><div style="font-weight:700;font-size:13px">${comp.prix} €</div></div>
-            <div><div style="font-size:10px;color:#999">Prix/m²</div><div style="font-weight:600;font-size:13px">${comp.prixM2} €</div></div>
-          </div>
-          <div style="display:flex;gap:8px;margin-bottom:6px">
-            <span style="background:${simClass}22;color:${simClass};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">${comp.similarite}% sim.</span>
-            <span style="background:#4a6cf722;color:#4a6cf7;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">${comp.donnees}% données</span>
-          </div>
-          <div style="display:inline-block;background:#46B962;color:white;padding:3px 10px;border-radius:10px;font-size:10px;font-weight:600">✓ Sélectionné</div>
-        </div>`
-      );
-    });
-
-    // Add comparable markers — OTHERS (medium, with rich popup + Ajouter button)
-    INITIAL_OTHERS.forEach((comp) => {
-      const coords = COMP_COORDS[comp.id];
-      if (!coords) return;
-      const color = sourceMarkerColor[comp.source] || '#999';
-      const icon = L.divIcon({
-        className: 'comp-marker-icon',
-        html: `<div style="width:16px;height:16px;background:${color};border:2.5px solid white;border-radius:50%;box-shadow:0 1px 6px rgba(0,0,0,0.25);cursor:pointer;opacity:0.85"></div>`,
-        iconSize: [16, 16],
-        iconAnchor: [8, 8],
-      });
-      // Parse meta for popup details
-      const metaParts = comp.meta.split(' · ');
-      const simColor = comp.simClass === 'high' ? '#46B962' : comp.simClass === 'mid' ? '#d97706' : '#e74c3c';
-      L.marker(coords, { icon }).addTo(map).bindPopup(
-        `<div style="min-width:220px;padding:2px 0">
-          <div style="font-weight:700;font-size:13px;margin-bottom:3px">${comp.title}</div>
-          <div style="font-size:11px;color:#666;margin-bottom:6px">${metaParts.join(' · ')}</div>
-          <div style="display:flex;gap:8px;margin-bottom:8px">
-            <span style="background:${simColor}22;color:${simColor};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">${comp.simScore}</span>
-            <span style="background:#88888822;color:#666;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">${comp.donScore}</span>
-          </div>
-          <button onclick="window.__addComp&amp;&amp;window.__addComp('${comp.id}');this.textContent='✓ Ajouté';this.style.background='#46B962';this.style.color='white';this.style.borderColor='#46B962';this.disabled=true" style="width:100%;padding:6px 0;background:white;border:1.5px solid #46B962;color:#46B962;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:Open Sans,sans-serif;transition:all 0.15s">+ Ajouter aux comparables</button>
-        </div>`
-      );
-    });
+    // Layer dédiée aux markers comparables — vide à l'init, peuplée par
+    // un useEffect séparé qui réagit aux changements de selected/others
+    // (inclut les transactions DVF live arrivant après l'init).
+    const compMarkers = new L.FeatureGroup();
+    map.addLayer(compMarkers);
+    compMarkersLayerRef.current = compMarkers;
 
     // Drawing layer for user-drawn zones
     const drawnItems = new L.FeatureGroup();
@@ -2255,6 +4385,109 @@ export default function Step3Comparables() {
     tile.setUrl(urls[mapStyle] || urls.plan);
   }, [mapStyle]);
 
+  /* ─── Render markers comparables (selected + others) ──────────────────────
+   * Effect dynamique — réagit aux changements de selected/others (par ex.
+   * arrivée des transactions DVF live après fetch). Vide la layer puis
+   * redessine tous les markers.
+   *
+   * Coordonnées : `comp.coords` en priorité (DVF live a lat/lon), sinon
+   * fallback `COMP_COORDS[comp.id]` (mocks Lyon 3). */
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const layer = compMarkersLayerRef.current;
+    if (!map || !layer) return;
+    layer.clearLayers();
+    // Reset le mapping id → marker (sera rempli ci-dessous)
+    markersByIdRef.current = {};
+
+    // SELECTED — markers prominents (22px, ring autour)
+    selected.forEach((rawComp) => {
+      const comp = applySimOverride(rawComp, simOverrides);
+      const coords = comp.coords || COMP_COORDS[comp.id];
+      if (!coords) return;
+      const color = sourceMarkerColor[comp.source] || '#999';
+      const icon = L.divIcon({
+        className: 'comp-marker-icon',
+        html: `<div style="width:22px;height:22px;background:${color};border:3px solid white;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.35);cursor:pointer;position:relative">
+          <div style="position:absolute;inset:-4px;border:2px solid ${color};border-radius:50%;opacity:0.25"></div>
+        </div>`,
+        iconSize: [22, 22],
+        iconAnchor: [11, 11],
+      });
+      const sim = comp.similarite || 0;
+      const simColor = sim >= 80 ? '#46B962' : sim >= 60 ? '#d97706' : '#e74c3c';
+      // Le bloc popup gère deux shapes (mock riche INITIAL_SELECTED + DVF live minimal)
+      const titleSafe = (comp.title || '').replace(/</g, '&lt;');
+      const addrSafe = (comp.addr || comp._dvfRaw?.adresse || '').replace(/</g, '&lt;');
+      const distLabel = comp.distance || '';
+      const prixLabel = comp.prix || (comp._dvfRaw?.prix ? `${comp._dvfRaw.prix.toLocaleString('fr-FR')}` : '—');
+      const prixM2Label = comp.prixM2 || (comp._dvfRaw?.prixM2 ? `${comp._dvfRaw.prixM2.toLocaleString('fr-FR')}` : '—');
+      const selMarker = L.marker(coords, { icon, zIndexOffset: 500 }).addTo(layer).bindPopup(
+        `<div style="min-width:220px;padding:2px 0">
+          <div style="font-weight:700;font-size:13px;margin-bottom:3px">${titleSafe}</div>
+          <div style="font-size:11px;color:#666;margin-bottom:6px">${addrSafe}${distLabel ? ' · ' + distLabel : ''}</div>
+          <div style="display:flex;gap:12px;margin-bottom:6px">
+            <div><div style="font-size:10px;color:#999">Prix</div><div style="font-weight:700;font-size:13px">${prixLabel} €</div></div>
+            <div><div style="font-size:10px;color:#999">Prix/m²</div><div style="font-weight:600;font-size:13px">${prixM2Label} €</div></div>
+          </div>
+          ${sim ? `<div style="display:flex;gap:8px;margin-bottom:6px">
+            <span style="background:${simColor}22;color:${simColor};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">${sim}% sim.</span>
+            ${comp.donnees ? `<span style="background:#4a6cf722;color:#4a6cf7;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">${comp.donnees}% données</span>` : ''}
+          </div>` : ''}
+          <div style="display:inline-block;background:#46B962;color:white;padding:3px 10px;border-radius:10px;font-size:10px;font-weight:600">✓ Sélectionné</div>
+        </div>`
+      );
+      markersByIdRef.current[comp.id] = selMarker;
+    });
+
+    // OTHERS — markers medium (16px) avec popup + bouton "Ajouter"
+    others.forEach((comp) => {
+      const coords = comp.coords || COMP_COORDS[comp.id];
+      if (!coords) return;
+      const color = sourceMarkerColor[comp.source] || '#999';
+      const icon = L.divIcon({
+        className: 'comp-marker-icon',
+        html: `<div style="width:16px;height:16px;background:${color};border:2.5px solid white;border-radius:50%;box-shadow:0 1px 6px rgba(0,0,0,0.25);cursor:pointer;opacity:0.85"></div>`,
+        iconSize: [16, 16],
+        iconAnchor: [8, 8],
+      });
+      const metaParts = (comp.meta || '').split(' · ');
+      const simColor = comp.simClass === 'high' ? '#46B962' : comp.simClass === 'mid' ? '#d97706' : '#e74c3c';
+      const titleSafe = (comp.title || '').replace(/</g, '&lt;');
+      const othMarker = L.marker(coords, { icon }).addTo(layer).bindPopup(
+        `<div style="min-width:220px;padding:2px 0">
+          <div style="font-weight:700;font-size:13px;margin-bottom:3px">${titleSafe}</div>
+          <div style="font-size:11px;color:#666;margin-bottom:6px">${metaParts.join(' · ')}</div>
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <span style="background:${simColor}22;color:${simColor};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">${comp.simScore || ''}</span>
+            <span style="background:#88888822;color:#666;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">${comp.donScore || ''}</span>
+          </div>
+          <button onclick="window.__addComp&amp;&amp;window.__addComp('${comp.id}');this.textContent='✓ Ajouté';this.style.background='#46B962';this.style.color='white';this.style.borderColor='#46B962';this.disabled=true" style="width:100%;padding:6px 0;background:white;border:1.5px solid #46B962;color:#46B962;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:Open Sans,sans-serif;transition:all 0.15s">+ Ajouter aux comparables</button>
+        </div>`
+      );
+      markersByIdRef.current[comp.id] = othMarker;
+    });
+  }, [selected, others, simOverrides]);
+
+  /* Zoom la carte sur les coordonnées d'un comparable + ouvre son popup.
+   * Appelé au clic d'une PoolCompCard pour donner un feedback visuel
+   * immédiat de la position du bien sur la carte. */
+  const focusCompOnMap = (comp) => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    const coords = comp.coords || COMP_COORDS[comp.id];
+    if (!coords) return;
+    // flyTo avec animation fluide, zoom 17 (proche mais avec contexte alentour)
+    map.flyTo(coords, 17, { duration: 0.6 });
+    const marker = markersByIdRef.current[comp.id];
+    if (marker) {
+      // Léger délai pour laisser l'animation flyTo se positionner
+      setTimeout(() => {
+        try { marker.openPopup(); } catch { /* noop */ }
+      }, 350);
+    }
+  };
+
   // Toggle freehand drawing mode
   const toggleDrawMode = () => {
     const next = !drawMode;
@@ -2296,31 +4529,53 @@ export default function Step3Comparables() {
       <PropertyCard />
       <Stepper currentStep={3} />
 
-      {/* Filter Panel */}
-      <div className="filter-panel">
-        <div className="filter-top">
-          <div className="filter-top-left">
-            <h3>Filtres</h3>
-            <span className="result-count">{filteredCount} r&eacute;sultats</span>
-          </div>
-          <button className="btn-reset-filters">R&eacute;initialiser les filtres</button>
+      {/* ═══════════════════════════════════════════════════════════════
+        * BANDEAU FILTRES COMPACT
+        * H3 + compteur de résultats + bouton "Configurer les filtres" qui
+        * ouvre le drawer latéral. Le rayon reste visible (contextuel carte).
+        * La légende 7 sources est affichée sous la barre principale.
+        * ═══════════════════════════════════════════════════════════════ */}
+      <div className="filter-panel-compact">
+        <div className="filter-bar">
+          <h3>Filtres</h3>
+          <span className="filter-bar-results">{filteredCount} résultats</span>
+          <div className="filter-bar-spacer" />
+          <button
+            type="button"
+            className="btn-open-filters"
+            onClick={() => setFiltersOpen(true)}
+            aria-label="Ouvrir le panneau des filtres"
+          >
+            ⚙ Configurer les filtres
+            {activeFiltersCount > 0 && (
+              <span className="filters-badge">{activeFiltersCount}</span>
+            )}
+          </button>
+          <button type="button" className="btn-reset-compact">Réinitialiser</button>
         </div>
 
-        {/* Radius Slider */}
+        {/* Radius Slider — reste dans la barre principale car contextuel à la carte */}
         <div className="radius-row">
           <div className="radius-label">Rayon</div>
-          <span className="commune-badge">Lyon 3&egrave;me</span>
+          <span className="commune-badge">{targetCityShort}</span>
           <div className="radius-slider-wrap">
-            <input
-              type="range"
-              className="radius-slider"
-              min="100"
-              max="5000"
-              value={radius}
-              step="100"
-              onChange={(e) => setRadius(Number(e.target.value))}
-              style={{ background: `linear-gradient(to right, #46B962 0%, #46B962 ${sliderPct}%, #eee ${sliderPct}%, #eee 100%)` }}
-            />
+            {/* Slider custom (identique aux sources) — track + fill + thumb en
+             * div HTML, input range invisible pour gérer drag/clavier. */}
+            <div className="cs-slider" style={{ '--cs-pct': sliderPct }}>
+              <div className="cs-track" />
+              <div className="cs-fill" />
+              <div className="cs-thumb" />
+              <input
+                type="range"
+                className="cs-input"
+                min="100"
+                max="5000"
+                step="100"
+                value={radius}
+                onChange={(e) => setRadius(Number(e.target.value))}
+                aria-label="Rayon de recherche"
+              />
+            </div>
             <div className="radius-slider-labels">
               <span>100m</span>
               <span>1km</span>
@@ -2332,449 +4587,613 @@ export default function Step3Comparables() {
           <div className="radius-value">{formatRadius(radius)}</div>
         </div>
 
-        {/* Filter Grid */}
-        <div className="filter-grid">
-          <div className="filter-item">
-            <div className="filter-item-label">Source &amp; anciennet&eacute; max <span className="chip-close">&times;</span></div>
-            <div className="source-checkboxes">
-              <div className={`source-row${sourceDvf ? '' : ' disabled'}`}>
-                <label className="source-cb-label">
-                  <input type="checkbox" checked={sourceDvf} onChange={() => setSourceDvf(!sourceDvf)} />
-                  <span className="source-dot dot-dvf" /> DVF
-                </label>
-                <input
-                  type="range"
-                  className="source-mini-slider"
-                  min="1"
-                  max="96"
-                  value={delayDvf}
-                  disabled={!sourceDvf}
-                  onChange={(e) => setDelayDvf(Number(e.target.value))}
-                />
-                <span className="source-delay-value">{delayDvf} mois</span>
-              </div>
-              <div className={`source-row${sourceIdeeri ? '' : ' disabled'}`}>
-                <label className="source-cb-label">
-                  <input type="checkbox" checked={sourceIdeeri} onChange={() => setSourceIdeeri(!sourceIdeeri)} />
-                  <span className="source-dot dot-ideeri" /> Bien vendus
-                </label>
-                <input
-                  type="range"
-                  className="source-mini-slider"
-                  min="1"
-                  max="96"
-                  value={delayIdeeri}
-                  disabled={!sourceIdeeri}
-                  onChange={(e) => setDelayIdeeri(Number(e.target.value))}
-                />
-                <span className="source-delay-value">{delayIdeeri} mois</span>
-              </div>
-              <div className={`source-row${sourceEncours ? '' : ' disabled'}`}>
-                <label className="source-cb-label">
-                  <input type="checkbox" checked={sourceEncours} onChange={() => setSourceEncours(!sourceEncours)} />
-                  <span className="source-dot dot-encours" /> En cours
-                </label>
-                <input
-                  type="range"
-                  className="source-mini-slider"
-                  min="1"
-                  max="36"
-                  value={delayEncours}
-                  disabled={!sourceEncours}
-                  onChange={(e) => setDelayEncours(Number(e.target.value))}
-                />
-                <span className="source-delay-value">{delayEncours} mois</span>
-              </div>
-              <div className={`source-row${sourcePortail ? '' : ' disabled'}`}>
-                <label className="source-cb-label">
-                  <input type="checkbox" checked={sourcePortail} onChange={() => setSourcePortail(!sourcePortail)} />
-                  <span className="source-dot dot-portail" /> Portails
-                </label>
-                <input
-                  type="range"
-                  className="source-mini-slider"
-                  min="1"
-                  max="36"
-                  value={delayPortail}
-                  disabled={!sourcePortail}
-                  onChange={(e) => setDelayPortail(Number(e.target.value))}
-                />
-                <span className="source-delay-value">{delayPortail} mois</span>
-              </div>
-            </div>
+        {/* Légende des 7 sources colorées */}
+        <div className="filter-bar-second">
+          <div className="filter-legend-7">
+            <span className="legend-item"><span className="legend-dot-sm" style={{ background: '#4a6cf7' }} /> DVF</span>
+            <span className="legend-item"><span className="legend-dot-sm" style={{ background: '#46B962' }} /> Biens vendus</span>
+            <span className="legend-item"><span className="legend-dot-sm" style={{ background: '#f5a623' }} /> En cours</span>
+            <span className="legend-item"><span className="legend-dot-sm" style={{ background: '#9b59b6' }} /> Estimation</span>
+            <span className="legend-item"><span className="legend-dot-sm" style={{ background: '#7f8c8d' }} /> Mandat clos</span>
+            <span className="legend-item"><span className="legend-dot-sm" style={{ background: '#16a085' }} /> Autre agence</span>
+            <span className="legend-item"><span className="legend-dot-sm" style={{ background: '#e74c3c' }} /> Portails</span>
           </div>
-          <div className="filter-item">
-            <div className="filter-item-label">Type de bien <span className="chip-close">&times;</span></div>
-            <select className="filter-select" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-              <option value="appartement">Appartement</option>
-              <option value="maison">Maison</option>
-              <option value="tous">Tous types</option>
-            </select>
-          </div>
-          <div className="filter-item">
-            <div className="filter-item-label">Surface <span className="chip-close">&times;</span></div>
-            <div className="filter-range">
-              <input type="number" value={surfaceMin} min="0" max="500" onChange={(e) => setSurfaceMin(Number(e.target.value))} />
-              <span className="sep">&agrave;</span>
-              <input type="number" value={surfaceMax} min="0" max="500" onChange={(e) => setSurfaceMax(Number(e.target.value))} />
-              <span className="unit">m&sup2;</span>
-            </div>
-            <div className="filter-hint">Bien cible : 72.5 m&sup2; &mdash; <strong style={{ color: '#46B962' }}>{filteredCount} biens</strong></div>
-          </div>
-          <div className="filter-item">
-            <div className="filter-item-label">Nombre de pi&egrave;ces <span className="chip-close">&times;</span></div>
-            <div className="filter-range">
-              <input type="number" value={piecesMin} min="1" max="10" onChange={(e) => setPiecesMin(Number(e.target.value))} />
-              <span className="sep">&agrave;</span>
-              <input type="number" value={piecesMax} min="1" max="10" onChange={(e) => setPiecesMax(Number(e.target.value))} />
-              <span className="unit">pi&egrave;ces</span>
-            </div>
-            <div className="filter-hint">Bien cible : T3 &mdash; <strong style={{ color: '#46B962' }}>{filteredCount} biens</strong></div>
-          </div>
-          <div className="filter-item">
-            <div className="filter-item-label">Fourchette de prix <span className="chip-close">&times;</span></div>
-            {(() => {
-              // Distribution des biens par tranche de 10k€ (gaussienne ~ centrée 300k)
-              // Total ≈ ALL_COMPS_COUNT sur la zone. Sert uniquement à afficher
-              // les compteurs aux extrémités du slider.
-              const PRICE_MIN_SCALE = 100000;
-              const PRICE_MAX_SCALE = 600000;
-              const biensAtPrice = (p) => {
-                // Cloche centrée 300k€, σ ≈ 70k. Max ≈ 43 biens, min 2.
-                const center = 300000;
-                const sigma = 70000;
-                const peak = 43;
-                const val = peak * Math.exp(-Math.pow(p - center, 2) / (2 * sigma * sigma));
-                return Math.max(2, Math.round(val));
-              };
-              const leftPct  = ((prixMin - PRICE_MIN_SCALE) / (PRICE_MAX_SCALE - PRICE_MIN_SCALE)) * 100;
-              const rightPct = ((prixMax - PRICE_MIN_SCALE) / (PRICE_MAX_SCALE - PRICE_MIN_SCALE)) * 100;
-              const nMin = biensAtPrice(prixMin);
-              const nMax = biensAtPrice(prixMax);
-              return (
-                <>
-                  <div className="price-dual">
-                    <div className="price-dual-track" />
-                    <div
-                      className="price-dual-selected"
-                      style={{
-                        left: `calc(${Math.max(0, Math.min(100, leftPct))}% + 4px)`,
-                        width: `calc(${Math.max(0, rightPct - leftPct)}% - 0px)`,
-                      }}
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════
+        * DRAWER LATÉRAL FILTRES — tous les filtres détaillés
+        * Slide-in depuis la gauche, overlay sombre, fermable par × / Esc /
+        * clic en dehors. Toutes les sections empilées verticalement.
+        * ═══════════════════════════════════════════════════════════════ */}
+      {filtersOpen && (
+        <div
+          className="filters-drawer-overlay"
+          onClick={() => setFiltersOpen(false)}
+          onKeyDown={(e) => { if (e.key === 'Escape') setFiltersOpen(false); }}
+        >
+          <aside className="filters-drawer-panel" onClick={(e) => e.stopPropagation()}>
+            <header className="filters-drawer-header">
+              <h2>Filtres</h2>
+              <span className="filters-drawer-results">{filteredCount} résultats</span>
+              <button
+                type="button"
+                className="filters-drawer-close"
+                onClick={() => setFiltersOpen(false)}
+                aria-label="Fermer le panneau des filtres"
+              >×</button>
+            </header>
+
+            <div className="filters-drawer-body">
+
+              {/* SECTION 1 — Source & ancienneté max */}
+              <section className="filters-drawer-section">
+                <h3 className="filters-drawer-section-title">
+                  Source &amp; ancienneté max
+                  <span className="filters-drawer-section-hint">7 sources · ancienneté par source</span>
+                </h3>
+                <div className="filters-drawer-section-body">
+                  <div className="source-checkboxes">
+                    <div className="source-subgroup-label">Officiel</div>
+                    <SourceRow
+                      dotClass="dot-dvf"
+                      label="DVF"
+                      checked={sourceDvf}
+                      onToggle={() => setSourceDvf(!sourceDvf)}
+                      delay={delayDvf}
+                      setDelay={setDelayDvf}
+                      maxMonths={96}
                     />
-                    <input
-                      type="range"
-                      min={PRICE_MIN_SCALE}
-                      max={PRICE_MAX_SCALE}
-                      step={5000}
-                      value={prixMin}
-                      onChange={(e) => {
-                        const v = Number(e.target.value);
-                        setPrixMin(Math.min(v, prixMax - 5000));
-                      }}
-                      aria-label="Prix minimum"
+
+                    <div className="source-subgroup-label">Papiris</div>
+                    <SourceRow
+                      dotClass="dot-ideeri"
+                      label="Biens vendus"
+                      checked={sourceIdeeri}
+                      onToggle={() => setSourceIdeeri(!sourceIdeeri)}
+                      delay={delayIdeeri}
+                      setDelay={setDelayIdeeri}
+                      maxMonths={96}
                     />
-                    <input
-                      type="range"
-                      min={PRICE_MIN_SCALE}
-                      max={PRICE_MAX_SCALE}
-                      step={5000}
-                      value={prixMax}
-                      onChange={(e) => {
-                        const v = Number(e.target.value);
-                        setPrixMax(Math.max(v, prixMin + 5000));
-                      }}
-                      aria-label="Prix maximum"
+                    <SourceRow
+                      dotClass="dot-encours"
+                      label="En cours"
+                      checked={sourceEncours}
+                      onToggle={() => setSourceEncours(!sourceEncours)}
+                      delay={delayEncours}
+                      setDelay={setDelayEncours}
+                      maxMonths={36}
                     />
-                    <div className="price-dual-labels">
-                      <span>
-                        <strong>{(prixMin / 1000).toFixed(0)} k&euro;</strong> &middot;{' '}
-                        <span className="count">{nMin} biens</span>
-                      </span>
-                      <span>
-                        <strong>{(prixMax / 1000).toFixed(0)} k&euro;</strong> &middot;{' '}
-                        <span className="count">{nMax} biens</span>
-                      </span>
+                    <SourceRow
+                      dotClass="dot-estimation"
+                      label="Estimation"
+                      checked={sourceEstimation}
+                      onToggle={() => setSourceEstimation(!sourceEstimation)}
+                      delay={delayEstimation}
+                      setDelay={setDelayEstimation}
+                      maxMonths={36}
+                    />
+                    <SourceRow
+                      dotClass="dot-mandat-clos"
+                      label="Mandat clos"
+                      checked={sourceMandatClos}
+                      onToggle={() => setSourceMandatClos(!sourceMandatClos)}
+                      delay={delayMandatClos}
+                      setDelay={setDelayMandatClos}
+                      maxMonths={36}
+                    />
+                    <SourceRow
+                      dotClass="dot-autre-agence"
+                      label="Vendu autre agence"
+                      checked={sourceAutreAgence}
+                      onToggle={() => setSourceAutreAgence(!sourceAutreAgence)}
+                      delay={delayAutreAgence}
+                      setDelay={setDelayAutreAgence}
+                      maxMonths={36}
+                    />
+
+                    <div className="source-subgroup-label">Annonces</div>
+                    <SourceRow
+                      dotClass="dot-portail"
+                      label="Portails"
+                      checked={sourcePortail}
+                      onToggle={() => setSourcePortail(!sourcePortail)}
+                      delay={delayPortail}
+                      setDelay={setDelayPortail}
+                      maxMonths={36}
+                    />
+                  </div>
+                </div>
+              </section>
+
+              {/* SECTION 2 — Type de bien */}
+              <section className="filters-drawer-section">
+                <h3 className="filters-drawer-section-title">Type de bien</h3>
+                <div className="filters-drawer-section-body">
+                  <TypeMultiSelect selected={typeFilters} onChange={setTypeFilters} />
+                </div>
+              </section>
+
+              {/* SECTION 3 — Surface */}
+              <section className="filters-drawer-section">
+                <h3 className="filters-drawer-section-title">
+                  Surface
+                  <span className="filters-drawer-section-hint">Bien cible : 72.5 m²</span>
+                </h3>
+                <div className="filters-drawer-section-body">
+                  <div className="filter-range">
+                    <input type="number" value={surfaceMin} min="0" max="500" onChange={(e) => setSurfaceMin(Number(e.target.value))} />
+                    <span className="sep">à</span>
+                    <input type="number" value={surfaceMax} min="0" max="500" onChange={(e) => setSurfaceMax(Number(e.target.value))} />
+                    <span className="unit">m²</span>
+                  </div>
+                </div>
+              </section>
+
+              {/* SECTION 4 — Nombre de pièces */}
+              <section className="filters-drawer-section">
+                <h3 className="filters-drawer-section-title">
+                  Nombre de pièces
+                  <span className="filters-drawer-section-hint">Bien cible : T3</span>
+                </h3>
+                <div className="filters-drawer-section-body">
+                  <div className="filter-range">
+                    <input type="number" value={piecesMin} min="1" max="10" onChange={(e) => setPiecesMin(Number(e.target.value))} />
+                    <span className="sep">à</span>
+                    <input type="number" value={piecesMax} min="1" max="10" onChange={(e) => setPiecesMax(Number(e.target.value))} />
+                    <span className="unit">pièces</span>
+                  </div>
+                </div>
+              </section>
+
+              {/* SECTION 5 — Fourchette de prix */}
+              <section className="filters-drawer-section">
+                <h3 className="filters-drawer-section-title">Fourchette de prix</h3>
+                <div className="filters-drawer-section-body">
+                  {(() => {
+                    const PRICE_MIN_SCALE = 100000;
+                    const PRICE_MAX_SCALE = 600000;
+                    const biensAtPrice = (p) => {
+                      const center = 300000;
+                      const sigma = 70000;
+                      const peak = 43;
+                      const val = peak * Math.exp(-Math.pow(p - center, 2) / (2 * sigma * sigma));
+                      return Math.max(2, Math.round(val));
+                    };
+                    const leftPct = ((prixMin - PRICE_MIN_SCALE) / (PRICE_MAX_SCALE - PRICE_MIN_SCALE)) * 100;
+                    const rightPct = ((prixMax - PRICE_MIN_SCALE) / (PRICE_MAX_SCALE - PRICE_MIN_SCALE)) * 100;
+                    const nMin = biensAtPrice(prixMin);
+                    const nMax = biensAtPrice(prixMax);
+                    return (
+                      <>
+                        <div className="price-dual">
+                          <div className="price-dual-track" />
+                          <div
+                            className="price-dual-selected"
+                            style={{
+                              left: `calc(${Math.max(0, Math.min(100, leftPct))}% + 4px)`,
+                              width: `calc(${Math.max(0, rightPct - leftPct)}% - 0px)`,
+                            }}
+                          />
+                          <input type="range" min={PRICE_MIN_SCALE} max={PRICE_MAX_SCALE} step={5000} value={prixMin} onChange={(e) => { const v = Number(e.target.value); setPrixMin(Math.min(v, prixMax - 5000)); }} aria-label="Prix minimum" />
+                          <input type="range" min={PRICE_MIN_SCALE} max={PRICE_MAX_SCALE} step={5000} value={prixMax} onChange={(e) => { const v = Number(e.target.value); setPrixMax(Math.max(v, prixMin + 5000)); }} aria-label="Prix maximum" />
+                          <div className="price-dual-labels">
+                            <span>
+                              <strong>{(prixMin / 1000).toFixed(0)} k€</strong> · <span className="count">{nMin} biens</span>
+                            </span>
+                            <span>
+                              <strong>{(prixMax / 1000).toFixed(0)} k€</strong> · <span className="count">{nMax} biens</span>
+                            </span>
+                          </div>
+                        </div>
+                        <div className="filter-hint" style={{ marginTop: 14 }}>
+                          Soit {Math.round(prixMin / 72.5).toLocaleString('fr-FR')} — {Math.round(prixMax / 72.5).toLocaleString('fr-FR')} €/m² —{' '}
+                          <strong style={{ color: '#46B962' }}>{filteredCount} biens</strong> dans la fourchette
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </section>
+
+              {/* SECTION 6 — Filtres avancés (conditionnels) */}
+              <section className="filters-drawer-section">
+                <h3 className="filters-drawer-section-title">
+                  Filtres avancés
+                  {extraFilters.length > 0 && <span className="filters-drawer-section-hint">{extraFilters.length} actif{extraFilters.length > 1 ? 's' : ''}</span>}
+                </h3>
+                <div className="filters-drawer-section-body">
+                  {extraFilters.includes('dpe') && (
+                    <div className="filter-item" style={{ marginBottom: 10 }}>
+                      <div className="filter-item-label">DPE <span className="chip-close" onClick={() => removeExtraFilter('dpe')}>×</span></div>
+                      <select className="filter-select" defaultValue="all">
+                        <option value="all">Tous DPE</option>
+                        <option value="AB">A – B</option>
+                        <option value="CD">C – D</option>
+                        <option value="EFG">E – F – G</option>
+                      </select>
                     </div>
-                  </div>
-                  <div className="filter-hint" style={{ marginTop: 14 }}>
-                    Soit {Math.round(prixMin / 72.5).toLocaleString('fr-FR')} &mdash; {Math.round(prixMax / 72.5).toLocaleString('fr-FR')} &euro;/m&sup2; &mdash;{' '}
-                    <strong style={{ color: '#46B962' }}>{filteredCount} biens</strong> dans la fourchette
-                  </div>
-                </>
-              );
-            })()}
-          </div>
-          {/* Extra filters added dynamically */}
-          {extraFilters.includes('dpe') && (
-            <div className="filter-item">
-              <div className="filter-item-label">DPE <span className="chip-close" onClick={() => removeExtraFilter('dpe')}>&times;</span></div>
-              <select className="filter-select" defaultValue="all">
-                <option value="all">Tous DPE</option>
-                <option value="AB">A &ndash; B</option>
-                <option value="CD">C &ndash; D</option>
-                <option value="EFG">E &ndash; F &ndash; G</option>
-              </select>
+                  )}
+                  {extraFilters.includes('etage') && (
+                    <div className="filter-item" style={{ marginBottom: 10 }}>
+                      <div className="filter-item-label">Étage <span className="chip-close" onClick={() => removeExtraFilter('etage')}>×</span></div>
+                      <div className="filter-range">
+                        <input type="number" defaultValue="0" min="0" max="30" />
+                        <span className="sep">à</span>
+                        <input type="number" defaultValue="10" min="0" max="30" />
+                      </div>
+                    </div>
+                  )}
+                  {extraFilters.includes('parking') && (
+                    <div className="filter-item" style={{ marginBottom: 10 }}>
+                      <div className="filter-item-label">Parking <span className="chip-close" onClick={() => removeExtraFilter('parking')}>×</span></div>
+                      <select className="filter-select" defaultValue="all">
+                        <option value="all">Indifférent</option>
+                        <option value="oui">Avec parking</option>
+                        <option value="non">Sans parking</option>
+                      </select>
+                    </div>
+                  )}
+                  {extraFilters.includes('exterieur') && (
+                    <div className="filter-item" style={{ marginBottom: 10 }}>
+                      <div className="filter-item-label">Extérieur <span className="chip-close" onClick={() => removeExtraFilter('exterieur')}>×</span></div>
+                      <select className="filter-select" defaultValue="all">
+                        <option value="all">Indifférent</option>
+                        <option value="balcon">Balcon / Terrasse</option>
+                        <option value="jardin">Jardin</option>
+                        <option value="aucun">Aucun</option>
+                      </select>
+                    </div>
+                  )}
+                  {extraFilters.includes('annee') && (
+                    <div className="filter-item" style={{ marginBottom: 10 }}>
+                      <div className="filter-item-label">Année construction <span className="chip-close" onClick={() => removeExtraFilter('annee')}>×</span></div>
+                      <div className="filter-range">
+                        <input type="number" defaultValue="1950" min="1800" max="2026" />
+                        <span className="sep">à</span>
+                        <input type="number" defaultValue="2026" min="1800" max="2026" />
+                      </div>
+                    </div>
+                  )}
+                  {extraFilters.includes('etat') && (
+                    <div className="filter-item" style={{ marginBottom: 10 }}>
+                      <div className="filter-item-label">État général <span className="chip-close" onClick={() => removeExtraFilter('etat')}>×</span></div>
+                      <select className="filter-select" defaultValue="all">
+                        <option value="all">Tous états</option>
+                        <option value="neuf">Neuf / Rénové</option>
+                        <option value="bon">Bon état</option>
+                        <option value="travaux">À rénover</option>
+                      </select>
+                    </div>
+                  )}
+                  {availableExtraFilters.length > 0 && (
+                    <div className="filter-add-row" style={{ marginTop: extraFilters.length > 0 ? 12 : 0 }}>
+                      <span style={{ fontSize: 11, color: '#949494', marginRight: 4 }}>Ajouter :</span>
+                      {availableExtraFilters.map((f) => (
+                        <button key={f.key} type="button" className="filter-chip-add" onClick={() => addExtraFilter(f.key)}>+ {f.label}</button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </section>
             </div>
-          )}
-          {extraFilters.includes('etage') && (
-            <div className="filter-item">
-              <div className="filter-item-label">&Eacute;tage <span className="chip-close" onClick={() => removeExtraFilter('etage')}>&times;</span></div>
-              <div className="filter-range">
-                <input type="number" defaultValue="0" min="0" max="30" />
-                <span className="sep">&agrave;</span>
-                <input type="number" defaultValue="10" min="0" max="30" />
-              </div>
-            </div>
-          )}
-          {extraFilters.includes('parking') && (
-            <div className="filter-item">
-              <div className="filter-item-label">Parking <span className="chip-close" onClick={() => removeExtraFilter('parking')}>&times;</span></div>
-              <select className="filter-select" defaultValue="all">
-                <option value="all">Indiff&eacute;rent</option>
-                <option value="oui">Avec parking</option>
-                <option value="non">Sans parking</option>
-              </select>
-            </div>
-          )}
-          {extraFilters.includes('exterieur') && (
-            <div className="filter-item">
-              <div className="filter-item-label">Ext&eacute;rieur <span className="chip-close" onClick={() => removeExtraFilter('exterieur')}>&times;</span></div>
-              <select className="filter-select" defaultValue="all">
-                <option value="all">Indiff&eacute;rent</option>
-                <option value="balcon">Balcon / Terrasse</option>
-                <option value="jardin">Jardin</option>
-                <option value="aucun">Aucun</option>
-              </select>
-            </div>
-          )}
-          {extraFilters.includes('annee') && (
-            <div className="filter-item">
-              <div className="filter-item-label">Ann&eacute;e construction <span className="chip-close" onClick={() => removeExtraFilter('annee')}>&times;</span></div>
-              <div className="filter-range">
-                <input type="number" defaultValue="1950" min="1800" max="2026" />
-                <span className="sep">&agrave;</span>
-                <input type="number" defaultValue="2026" min="1800" max="2026" />
-              </div>
-            </div>
-          )}
-          {extraFilters.includes('etat') && (
-            <div className="filter-item">
-              <div className="filter-item-label">&Eacute;tat g&eacute;n&eacute;ral <span className="chip-close" onClick={() => removeExtraFilter('etat')}>&times;</span></div>
-              <select className="filter-select" defaultValue="all">
-                <option value="all">Tous &eacute;tats</option>
-                <option value="neuf">Neuf / R&eacute;nov&eacute;</option>
-                <option value="bon">Bon &eacute;tat</option>
-                <option value="travaux">&Agrave; r&eacute;nover</option>
-              </select>
-            </div>
-          )}
-        </div>
 
-        {/* Add More Filters */}
-        {availableExtraFilters.length > 0 && (
-          <div className="filter-add-row">
-            <span style={{ fontSize: 11, color: '#949494', marginRight: 4 }}>Ajouter :</span>
-            {availableExtraFilters.map((f) => (
-              <button key={f.key} className="filter-chip-add" onClick={() => addExtraFilter(f.key)}>+ {f.label}</button>
-            ))}
-          </div>
-        )}
-
-        {/* Source Legend */}
-        <div className="source-legend">
-          <div className="source-item"><span className="source-dot dot-dvf" /> DVF (transactions r&eacute;elles)</div>
-          <div className="source-item"><span className="source-dot dot-ideeri" /> Ideeri vendus</div>
-          <div className="source-item"><span className="source-dot dot-encours" /> Ideeri en cours</div>
-          <div className="source-item"><span className="source-dot dot-portail" /> Portails immo</div>
-        </div>
-      </div>
-
-      {/* Results Banner */}
-      <div className="results-banner">
-        <div className="results-banner-count">{filteredCount}</div>
-        <div className="results-banner-text">biens comparables trouv&eacute;s</div>
-        <div className="results-banner-details">
-          <span className="results-tag">{selected.length} s&eacute;lectionn&eacute;s</span>
-          <span className="results-tag outline">{filteredCount - selected.length} disponibles</span>
-        </div>
-      </div>
-
-      {/* Split View: Map + List */}
-      <div className="split-view">
-        <div className="map-card-comp">
-          <div ref={mapRef} className="map-container" />
-          {/* Draw controls — top left, below zoom */}
-          <div className="map-draw-controls" style={{ top: 80, left: 12 }}>
-            <button className={`map-draw-btn ${drawMode ? 'active' : ''}`} onClick={toggleDrawMode}>
-              {drawMode ? '✕ Terminer le dessin' : '✏️ Dessiner une zone'}
-            </button>
-            {drawMode && (
-              <div style={{ background: 'rgba(74,108,247,0.9)', color: 'white', padding: '5px 10px', borderRadius: 8, fontSize: 10, fontWeight: 500, maxWidth: 160, textAlign: 'center' }}>
-                Dessinez librement sur la carte, puis relâchez
-              </div>
-            )}
-            {drawLayerRef.current && (
-              <button className="map-draw-btn danger" onClick={clearDrawnZones}>
-                🗑 Effacer les zones
+            <footer className="filters-drawer-footer">
+              <button type="button" className="btn-reset">Réinitialiser tout</button>
+              <button type="button" className="btn-apply" onClick={() => setFiltersOpen(false)}>
+                Voir les {filteredCount} résultats
               </button>
-            )}
-          </div>
-          <div className="map-style-toggle">
-            <button className={`map-style-btn ${mapStyle === 'plan' ? 'active' : ''}`} onClick={() => setMapStyle('plan')}>Plan</button>
-            <button className={`map-style-btn ${mapStyle === 'satellite' ? 'active' : ''}`} onClick={() => setMapStyle('satellite')}>Satellite</button>
-          </div>
-          <div className="map-info-bar">
-            <div className="map-info-left">
-              <div className="map-info-stat">
-                <div className="map-info-stat-val">{filteredCount}</div>
-                <div className="map-info-stat-label">dans le rayon</div>
-              </div>
-              <div className="map-info-divider" />
-              <div className="map-info-stat">
-                <div className="map-info-stat-val">{selected.length}</div>
-                <div className="map-info-stat-label">s&eacute;lectionn&eacute;s</div>
-              </div>
-              <div className="map-info-divider" />
-              <div className="map-info-stat">
-                <div className="map-info-stat-val">4 172 &euro;</div>
-                <div className="map-info-stat-label">moy. /m&sup2;</div>
-              </div>
-            </div>
-            <div className="map-legend-inline">
-              <div className="map-legend-item"><span className="legend-dot" style={{ background: '#46B962' }} /> Ideeri vendu</div>
-              <div className="map-legend-item"><span className="legend-dot" style={{ background: '#4a6cf7' }} /> DVF</div>
-              <div className="map-legend-item"><span className="legend-dot" style={{ background: '#f5a623' }} /> Ideeri en cours</div>
-              <div className="map-legend-item"><span className="legend-dot" style={{ background: '#e74c3c' }} /> Portails</div>
-            </div>
-          </div>
+            </footer>
+          </aside>
         </div>
+      )}
 
-        {/* List Panel */}
-        <div className="list-panel">
-          <div className="section-label">S&eacute;lectionn&eacute;s ({selected.length})</div>
-          {selected.map((c) => (
-            <SelectedCompCard
-              key={c.id}
-              comp={c}
-              onRemove={handleRemoveComparable}
-              onOpenDrawer={setDrawerComp}
-              weight={weights[c.id] !== undefined ? weights[c.id] : 0}
-              onWeightChange={handleWeightChange}
+
+      {/* ═══════════════════════════════════════════════════════════════
+        * WORKSPACE 3 COLONNES — Carte + Pool disponibles + Panier sélection
+        * Layout CSS Grid avec 2 poignées draggable entre colonnes.
+        * Drag & drop natif HTML5 du pool vers le panier.
+        * ═══════════════════════════════════════════════════════════════ */}
+      {(() => {
+        const visibleOthers = others
+          .filter((c) => {
+            if (c.manual) return true;
+            if (hasRealLocation) return passesLiveFilters(c);
+            if (c.source === 'dvf') return sourceDvf;
+            if (c.source === 'portail') return sourcePortail;
+            if (c.source === 'ideeri') return sourceIdeeri;
+            if (c.source === 'encours') return sourceEncours;
+            return true;
+          })
+          .map((c) => enrichWithCoverage(c, targetFields))
+          .map((c) => applySimOverride(c, simOverrides));
+        return (
+          <div
+            ref={workspaceRef}
+            className={`workspace-3col${activeHandle !== null ? ' is-resizing' : ''}`}
+            style={{
+              '--col-map': `${colWidths.map}%`,
+              '--col-pool': `${colWidths.pool}%`,
+              '--col-cart': `${colWidths.cart}%`,
+            }}
+          >
+            {/* COL 1 — CARTE */}
+            <div className="map-card-comp workspace-col">
+              <div ref={mapRef} className="map-container" />
+              {/* Draw controls — top left, below zoom */}
+              <div className="map-draw-controls" style={{ top: 80, left: 12 }}>
+                <button className={`map-draw-btn ${drawMode ? 'active' : ''}`} onClick={toggleDrawMode}>
+                  {drawMode ? '\u2715 Terminer le dessin' : '\u270f\ufe0f Dessiner une zone'}
+                </button>
+                {drawMode && (
+                  <div style={{ background: 'rgba(74,108,247,0.9)', color: 'white', padding: '5px 10px', borderRadius: 8, fontSize: 10, fontWeight: 500, maxWidth: 160, textAlign: 'center' }}>
+                    Dessinez librement sur la carte, puis rel&acirc;chez
+                  </div>
+                )}
+                {drawLayerRef.current && (
+                  <button className="map-draw-btn danger" onClick={clearDrawnZones}>
+                    {'\ud83d\uddd1'} Effacer les zones
+                  </button>
+                )}
+              </div>
+              <div className="map-style-toggle">
+                <button className={`map-style-btn ${mapStyle === 'plan' ? 'active' : ''}`} onClick={() => setMapStyle('plan')}>Plan</button>
+                <button className={`map-style-btn ${mapStyle === 'satellite' ? 'active' : ''}`} onClick={() => setMapStyle('satellite')}>Satellite</button>
+              </div>
+              <div className="map-info-bar">
+                <div className="map-info-left">
+                  <div className="map-info-stat">
+                    <div className="map-info-stat-val">{filteredCount}</div>
+                    <div className="map-info-stat-label">biens trouv&eacute;s</div>
+                  </div>
+                  <div className="map-info-divider" />
+                  <div className="map-info-stat">
+                    <div className="map-info-stat-val">{selected.length}</div>
+                    <div className="map-info-stat-label">s&eacute;lectionn&eacute;s</div>
+                  </div>
+                </div>
+                <div className="map-legend-inline" title="Cliquez sur une source pour l'activer/désactiver">
+                  <span className="map-legend-label-hint">Filtrer</span>
+                  <button
+                    type="button"
+                    className={`map-legend-item${sourceDvf ? '' : ' is-inactive'}`}
+                    onClick={() => setSourceDvf(!sourceDvf)}
+                    aria-pressed={sourceDvf}
+                  >
+                    <span className="legend-dot" style={{ background: '#4a6cf7' }} /> DVF
+                  </button>
+                  <button
+                    type="button"
+                    className={`map-legend-item${sourceIdeeri ? '' : ' is-inactive'}`}
+                    onClick={() => setSourceIdeeri(!sourceIdeeri)}
+                    aria-pressed={sourceIdeeri}
+                  >
+                    <span className="legend-dot" style={{ background: '#46B962' }} /> Biens vendus
+                  </button>
+                  <button
+                    type="button"
+                    className={`map-legend-item${sourceEncours ? '' : ' is-inactive'}`}
+                    onClick={() => setSourceEncours(!sourceEncours)}
+                    aria-pressed={sourceEncours}
+                  >
+                    <span className="legend-dot" style={{ background: '#f5a623' }} /> En cours
+                  </button>
+                  <button
+                    type="button"
+                    className={`map-legend-item${sourceEstimation ? '' : ' is-inactive'}`}
+                    onClick={() => setSourceEstimation(!sourceEstimation)}
+                    aria-pressed={sourceEstimation}
+                  >
+                    <span className="legend-dot" style={{ background: '#9b59b6' }} /> Estimation
+                  </button>
+                  <button
+                    type="button"
+                    className={`map-legend-item${sourceMandatClos ? '' : ' is-inactive'}`}
+                    onClick={() => setSourceMandatClos(!sourceMandatClos)}
+                    aria-pressed={sourceMandatClos}
+                  >
+                    <span className="legend-dot" style={{ background: '#7f8c8d' }} /> Mandat clos
+                  </button>
+                  <button
+                    type="button"
+                    className={`map-legend-item${sourceAutreAgence ? '' : ' is-inactive'}`}
+                    onClick={() => setSourceAutreAgence(!sourceAutreAgence)}
+                    aria-pressed={sourceAutreAgence}
+                  >
+                    <span className="legend-dot" style={{ background: '#16a085' }} /> Autre agence
+                  </button>
+                  <button
+                    type="button"
+                    className={`map-legend-item${sourcePortail ? '' : ' is-inactive'}`}
+                    onClick={() => setSourcePortail(!sourcePortail)}
+                    aria-pressed={sourcePortail}
+                  >
+                    <span className="legend-dot" style={{ background: '#e74c3c' }} /> Portails
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Poign\u00e9e 1 \u2014 entre Carte et Pool (double-clic = reset 30/40/30) */}
+            <div
+              className={`col-resize-handle${activeHandle === 1 ? ' is-dragging' : ''}`}
+              onMouseDown={(e) => startResize(e, 1)}
+              onDoubleClick={resetCols}
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Redimensionner Carte / Pool — double-clic pour réinitialiser"
+              title="Glissez pour redimensionner · Double-clic pour reset"
             />
-          ))}
-          {others.length > 0 && <div className="section-label others">Autres ({others.length})</div>}
-          {others.map((c) => (
-            <CompactCompCard key={c.id} comp={c} onAdd={addToSelected} />
-          ))}
-        </div>
-      </div>
 
-      {/* Summary Table */}
-      <div className="summary-card">
-        <div className="summary-title">R&eacute;capitulatif</div>
-        <table>
-          <colgroup>
-            <col style={{ width: '22%' }} />
-            <col style={{ width: '10%' }} />
-            <col style={{ width: '8%' }} />
-            <col style={{ width: '13%' }} />
-            <col style={{ width: '12%' }} />
-            <col style={{ width: '10%' }} />
-            <col style={{ width: '13%' }} />
-            <col style={{ width: '8%' }} />
-            <col style={{ width: '4%' }} />
-          </colgroup>
-          <thead>
-            <tr>
-              <th>Comparable</th>
-              <th>Source</th>
-              <th className="t-adj">Pert.</th>
-              <th className="t-price">Prix</th>
-              <th className="t-price">Prix/m&sup2;</th>
-              <th className="t-adj">Corr.</th>
-              <th className="t-price">Ajust&eacute;/m&sup2;</th>
-              <th className="t-adj">Poids</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {selected.map((c) => {
-              const pertinence = Math.round((c.similarite || 0) * 0.6 + (c.donnees || 0) * 0.4);
-              const pertCls = pertinence >= 80 ? 'pos' : pertinence >= 60 ? '' : 'neg';
-              const sourceShort = c.source === 'dvf' ? 'DVF' : c.source === 'ideeri' ? 'Ideeri' : c.source === 'encours' ? 'En cours' : 'Portail';
-              const dotCls = c.source === 'dvf' ? 'dot-dvf' : c.source === 'ideeri' ? 'dot-ideeri' : c.source === 'encours' ? 'dot-encours' : 'dot-portail';
-              // Tentative de calcul Ajust\u00e9/m\u00b2 \u00e0 partir de prix/m\u00b2 et adjTotal
-              const m2Num = parseInt(String(c.prixM2).replace(/\D/g, ''), 10) || 0;
-              const adjPctMatch = String(c.adjTotal || '0%').replace(',', '.').match(/-?\d+(\.\d+)?/);
-              const adjPct = adjPctMatch ? parseFloat(adjPctMatch[0]) * (String(c.adjTotal).startsWith('\u2212') ? -1 : 1) : 0;
-              const adjustedM2 = Math.round(m2Num * (1 + adjPct / 100));
-              return (
-                <tr key={c.id}>
-                  <td><strong>{c.title}</strong></td>
-                  <td><span className={`source-dot ${dotCls}`} style={{ display: 'inline-block', marginRight: 4 }} />{sourceShort}</td>
-                  <td className={`t-adj ${pertCls}`} style={pertCls === '' ? { color: '#d97706' } : {}}>{pertinence}%</td>
-                  <td className="t-price">{c.prix} &euro;</td>
-                  <td className="t-price">{c.prixM2} &euro;</td>
-                  <td className={`t-adj ${c.adjTotalClass || ''}`}>{c.adjTotal}</td>
-                  <td className="t-price">{adjustedM2 ? `${adjustedM2.toLocaleString('fr-FR')} \u20ac` : '\u2014'}</td>
-                  <td className="t-adj">
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={weights[c.id] !== undefined ? weights[c.id] : 0}
-                      onChange={(e) => handleWeightChange(c.id, Number(e.target.value))}
-                      className="t-weight-input"
-                    />
-                    <span style={{ marginLeft: 2, color: '#888', fontSize: 11 }}>%</span>
-                  </td>
-                  <td style={{ textAlign: 'center' }}>
-                    <button
-                      className="btn-trash"
-                      onClick={() => handleRemoveComparable(c.id)}
-                      title="Retirer ce comparable"
-                      aria-label="Retirer"
-                    >
-                      &#128465;
-                    </button>
-                  </td>
+            {/* COL 2 \u2014 POOL (biens disponibles, draggable) */}
+            <div className="workspace-col pool-panel">
+              <div className="pool-header">
+                <span className="pool-header-title">Disponibles</span>
+                <span className="pool-header-count">{visibleOthers.length} bien{visibleOthers.length > 1 ? 's' : ''}</span>
+              </div>
+              <div className="pool-grid">
+                <button
+                  type="button"
+                  className="pool-manual-add"
+                  onClick={() => setManualDrawerOpen(true)}
+                >
+                  + Ajouter un comparable manuel
+                </button>
+                {visibleOthers.map((c) => (
+                  <PoolCompCard
+                    key={c.id}
+                    comp={c}
+                    onAdd={addToSelected}
+                    onOpenEdit={setDrawerComp}
+                    onFocusOnMap={focusCompOnMap}
+                  />
+                ))}
+                {visibleOthers.length === 0 && (
+                  <div style={{ gridColumn: '1 / -1', textAlign: 'center', color: '#999', padding: '30px 14px', fontSize: 12, fontStyle: 'italic' }}>
+                    Aucun bien ne correspond aux filtres actuels
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Poign\u00e9e 2 \u2014 entre Pool et Panier */}
+            <div
+              className={`col-resize-handle${activeHandle === 2 ? ' is-dragging' : ''}`}
+              onMouseDown={(e) => startResize(e, 2)}
+              onDoubleClick={resetCols}
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Redimensionner Pool / Panier — double-clic pour réinitialiser"
+              title="Glissez pour redimensionner · Double-clic pour reset"
+            />
+
+            {/* COL 3 \u2014 PANIER (s\u00e9lection, drop zone) */}
+            <div className="workspace-col cart-panel">
+              <div className="cart-header">
+                <span className="cart-header-title">{'\ud83d\uded2'} Panier sélection</span>
+                <span className="cart-header-count">{selected.length} bien{selected.length > 1 ? 's' : ''}</span>
+              </div>
+              <div
+                className={`cart-list${isDragOverCart ? ' is-drag-over' : ''}`}
+                onDragOver={handleCartDragOver}
+                onDragEnter={handleCartDragEnter}
+                onDragLeave={handleCartDragLeave}
+                onDrop={handleCartDrop}
+              >
+                {selected.length === 0 && (
+                  <div className="cart-dropzone">
+                    <div className="icon">{'\ud83d\uded2'}</div>
+                    <div>Glissez des biens ici</div>
+                    <div className="hint">depuis la colonne &laquo;&nbsp;Disponibles&nbsp;&raquo;</div>
+                  </div>
+                )}
+                {selected.map((c) => applySimOverride(c, simOverrides)).map((c) => (
+                  <MiniSelectedCompCard
+                    key={c.id}
+                    comp={c}
+                    onRemove={handleRemoveComparable}
+                    onOpenDrawer={setDrawerComp}
+                  />
+                ))}
+                {selected.length > 0 && (
+                  <div className="cart-dropzone compact">
+                    <div className="icon">+</div>
+                    <div>Glissez d&rsquo;autres biens ici</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ═══════════════════════════════════════════════════════════════
+        * CARTE ESTIMATION FINALE — prix au m² uniquement
+        * Affiche le prix au m² calculé (moyenne pondérée des comparables
+        * ajustés) + un mini tableau du calcul détaillé (par bien : prix/m²
+        * ajusté × poids). Aucun "total estimé" : seul le €/m² fait sens
+        * comme résultat final de cette étape.
+        * ═══════════════════════════════════════════════════════════════ */}
+      {(() => {
+        if (selected.length === 0) {
+          return (
+            <div className="estimation-final-card empty">
+              <h3 className="estimation-final-title">Récapitulatif du calcul</h3>
+              <div className="estimation-final-empty">
+                Ajoutez au moins 1 comparable au panier pour voir le calcul
+              </div>
+            </div>
+          );
+        }
+        // Pré-calcul par comparable + agrégat pondéré
+        const rows = selected.map((rawC) => {
+          const c = applySimOverride(rawC, simOverrides);
+          const w = effectiveWeight(c);
+          const m2Num = parseInt(String(c.prixM2).replace(/\D/g, ''), 10) || 0;
+          const adjPctMatch = String(c.adjTotal || '0%').replace(',', '.').match(/-?\d+(\.\d+)?/);
+          const adjPct = adjPctMatch ? parseFloat(adjPctMatch[0]) * (String(c.adjTotal).startsWith('\u2212') ? -1 : 1) : 0;
+          const adjustedM2 = Math.round(m2Num * (1 + adjPct / 100));
+          return { id: c.id, title: c.title, source: c.source, prixM2: m2Num, adjPct, adjustedM2, weight: w };
+        });
+        const sumW = rows.reduce((s, r) => s + r.weight, 0);
+        const sumWP = rows.reduce((s, r) => s + r.adjustedM2 * r.weight, 0);
+        const avgM2 = sumW > 0 ? Math.round(sumWP / sumW) : 0;
+        return (
+          <div className="estimation-final-card">
+            <h3 className="estimation-final-title">
+              Récapitulatif du calcul
+              <span className="estimation-final-title-hint">
+                {rows.length} comparable{rows.length > 1 ? 's' : ''} pondéré{rows.length > 1 ? 's' : ''}
+              </span>
+            </h3>
+            {/* Tableau du calcul : prix/m² brut → correction → ajusté × poids
+             *                    → moyenne pondérée en ligne de total */}
+            <table className="estimation-recap-table">
+              <thead>
+                <tr>
+                  <th className="t-left">Comparable</th>
+                  <th>Prix/m²</th>
+                  <th>Correction</th>
+                  <th>Ajusté/m²</th>
+                  <th>Poids</th>
                 </tr>
-              );
-            })}
-            {selected.length === 0 && (
-              <tr>
-                <td colSpan={9} style={{ textAlign: 'center', color: '#999', padding: '20px 0', fontStyle: 'italic' }}>
-                  Aucun comparable s\u00e9lectionn\u00e9
-                </td>
-              </tr>
-            )}
-            {selected.length > 0 && (() => {
-              // Moyenne pond\u00e9r\u00e9e des prix/m\u00b2 ajust\u00e9s
-              let sumW = 0;
-              let sumWP = 0;
-              selected.forEach((c) => {
-                const w = weights[c.id] || 0;
-                const m2Num = parseInt(String(c.prixM2).replace(/\D/g, ''), 10) || 0;
-                const adjPctMatch = String(c.adjTotal || '0%').replace(',', '.').match(/-?\d+(\.\d+)?/);
-                const adjPct = adjPctMatch ? parseFloat(adjPctMatch[0]) * (String(c.adjTotal).startsWith('\u2212') ? -1 : 1) : 0;
-                const adjustedM2 = Math.round(m2Num * (1 + adjPct / 100));
-                sumW += w;
-                sumWP += adjustedM2 * w;
-              });
-              const avgM2 = sumW > 0 ? Math.round(sumWP / sumW) : 0;
-              return (
-                <tr className="t-avg">
-                  <td colSpan={6} style={{ textAlign: 'right', paddingRight: 12 }}><strong>Moyenne pondérée :</strong></td>
-                  <td className="t-price"><strong>{avgM2 ? `${avgM2.toLocaleString('fr-FR')} €/m²` : '—'}</strong></td>
-                  <td className="t-adj"><strong>{sumW}%</strong></td>
-                  <td></td>
+              </thead>
+              <tbody>
+                {rows.map((r) => {
+                  const dotCls = r.source === 'dvf' ? 'dot-dvf'
+                    : r.source === 'ideeri' ? 'dot-ideeri'
+                    : r.source === 'encours' ? 'dot-encours'
+                    : r.source === 'estimation' ? 'dot-estimation'
+                    : r.source === 'mandat_clos' ? 'dot-mandat-clos'
+                    : r.source === 'autre_agence' ? 'dot-autre-agence'
+                    : 'dot-portail';
+                  const adjLabel = r.adjPct === 0
+                    ? '—'
+                    : `${r.adjPct > 0 ? '+' : ''}${r.adjPct.toFixed(1)}%`;
+                  const adjCls = r.adjPct > 0 ? 'pos' : r.adjPct < 0 ? 'neg' : '';
+                  return (
+                    <tr key={r.id}>
+                      <td className="t-left">
+                        <span className={`source-dot ${dotCls}`} style={{ display: 'inline-block', marginRight: 6 }} />
+                        <span style={{ verticalAlign: 'middle' }}>{r.title}</span>
+                      </td>
+                      <td>{r.prixM2 ? `${r.prixM2.toLocaleString('fr-FR')} €` : '—'}</td>
+                      <td className={`t-adj ${adjCls}`}>{adjLabel}</td>
+                      <td>{r.adjustedM2 ? `${r.adjustedM2.toLocaleString('fr-FR')} €` : '—'}</td>
+                      <td>{r.weight}%</td>
+                    </tr>
+                  );
+                })}
+                <tr className="t-row-total">
+                  <td className="t-left" colSpan={3}>Moyenne pondérée</td>
+                  <td>{avgM2 ? `${avgM2.toLocaleString('fr-FR')} €/m²` : '—'}</td>
+                  <td>{sumW}%</td>
                 </tr>
-              );
-            })()}
-          </tbody>
-        </table>
-      </div>
+              </tbody>
+            </table>
+          </div>
+        );
+      })()}
 
       {/* Footer */}
       <div className="footer-buttons">
@@ -2789,10 +5208,35 @@ export default function Step3Comparables() {
         </div>
       </div>
 
-      {/* Drawer d\u00e9tail comparable */}
-      {drawerComp && (
-        <ComparableDrawer comp={drawerComp} onClose={() => setDrawerComp(null)} />
-      )}
+      {/* Drawer d\u00e9tail comparable — slider de poids affich\u00e9 uniquement
+          si le bien fait partie de la s\u00e9lection (panier) */}
+      {drawerComp && (() => {
+        const isSelected = selected.some((c) => c.id === drawerComp.id);
+        return (
+          <ComparableDrawer
+            comp={drawerComp}
+            onClose={() => setDrawerComp(null)}
+            isSelected={isSelected}
+            weight={isSelected ? effectiveWeight(drawerComp) : undefined}
+            onWeightChange={isSelected ? handleWeightChange : undefined}
+          />
+        );
+      })()}
+
+      {/* Le drawer d'override manuel de la similarité a été retiré :
+          le clic sur une carte ouvre désormais directement le drawer
+          détail du comparable (ComparableDrawer ci-dessus). La similarité
+          calculée reste consultable sur la carte (toggle "Pertinence"),
+          et le poids dans l'estimation s'ajuste via le slider exposé
+          dans le drawer détail (uniquement pour les biens sélectionnés). */}
+
+      {/* Drawer de saisie manuelle d'un comparable */}
+      <ManualComparableDrawer
+        open={manualDrawerOpen}
+        onClose={() => setManualDrawerOpen(false)}
+        onSave={handleSaveManualComparable}
+        targetCoords={targetCoords}
+      />
     </div>
   );
 }

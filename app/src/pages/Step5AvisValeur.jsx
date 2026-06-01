@@ -1,8 +1,37 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PropertyCard from '../components/PropertyCard';
 import Stepper from '../components/Stepper';
 import { avisValeur } from '../data/propertyData';
+import { getActiveBien } from '../utils/activeBien';
+import { getAcquereurs } from '../utils/acquereursStore';
+import { setReportState, mergeReportSection, getReportSection, getReportState } from '../utils/reportStore';
+
+const TYPE_LABELS = {
+  appartement: 'Appartement',
+  maison: 'Maison',
+  studio: 'Studio',
+  loft: 'Loft',
+  duplex: 'Duplex',
+  terrain: 'Terrain',
+  parking: 'Parking',
+  local: 'Local',
+};
+
+function describeBien(active) {
+  if (!active || !active.bien) return null;
+  const b = active.bien;
+  const a = active.adresse || {};
+  const type = TYPE_LABELS[b.type] || (b.type ? b.type.charAt(0).toUpperCase() + b.type.slice(1) : 'Bien');
+  const piecesLabel = b.pieces ? `T${b.pieces}` : '';
+  const surfaceLabel = b.surface ? `${b.surface} m²` : '';
+  const cityLabel = a.city || '';
+  const etageLabel = (b.etage !== undefined && b.etage !== null && b.etage !== '')
+    ? (Number(b.etage) === 0 ? 'RDC' : `${b.etage}ème étage`)
+    : '';
+  const parts = [type, piecesLabel, surfaceLabel, cityLabel, etageLabel].filter(Boolean);
+  return parts.join(' · ');
+}
 
 const cssStyles = `
   .step5-page {
@@ -38,6 +67,33 @@ const cssStyles = `
     color: #bbb;
     letter-spacing: 0.5px;
     margin-bottom: 20px;
+  }
+  /* Bouton "Masquer la démo" en mode live */
+  .hide-demo-toggle {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #555;
+    background: #fafafa;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .hide-demo-toggle:hover {
+    background: #f0f0f0;
+    border-color: #c0c0c0;
+  }
+  .hide-demo-toggle.active {
+    background: #fff7e6;
+    border-color: #ffd591;
+    color: #d46b08;
   }
   .hero-prices {
     display: flex;
@@ -354,6 +410,43 @@ const cssStyles = `
   .card.strengths { border-left: 3px solid #46B962; }
   .card.weaknesses { border-left: 3px solid #e74c3c; }
   .card.strategy { border-left: 3px solid #f5a623; }
+  .card.seller-opinion { border-left: 3px solid #6c8cd5; }
+
+  /* ---- Avis du vendeur (saisie libre) ---- */
+  .seller-opinion-input {
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 90px;
+    padding: 10px 12px;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    background: #fafbfd;
+    font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #333;
+    resize: vertical;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .seller-opinion-input:hover {
+    border-color: #cfd6e4;
+  }
+  .seller-opinion-input:focus {
+    outline: none;
+    border-color: #6c8cd5;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(108,140,213,0.12);
+  }
+  .seller-opinion-input::placeholder {
+    color: #b5b5b5;
+    font-style: italic;
+  }
+  .seller-opinion-meta {
+    margin-top: 6px;
+    font-size: 10px;
+    color: #999;
+    text-align: right;
+  }
   .card-title {
     font-size: 13px;
     font-weight: 500;
@@ -710,70 +803,6 @@ const cssStyles = `
     color: white;
   }
   .btn-primary:hover { background: #1aa564; }
-
-  /* RDV Eye toggle (masquer en RDV) */
-  .rdv-eye-btn {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    background: #fff;
-    border: 1px solid #e5e5e5;
-    border-radius: 50%;
-    width: 30px;
-    height: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    color: #666;
-    transition: all 0.15s;
-    z-index: 5;
-    padding: 0;
-  }
-  .rdv-eye-btn:hover {
-    border-color: #46B962;
-    color: #46B962;
-    background: #f6faf7;
-  }
-  .rdv-eye-btn.is-hidden {
-    background: #fff5f5;
-    color: #c0392b;
-    border-color: #f3d4d4;
-  }
-  .rdv-eye-btn.inline {
-    position: static;
-    width: 22px;
-    height: 22px;
-    margin-left: 8px;
-    vertical-align: middle;
-    display: inline-flex;
-  }
-  .confidence-wrap, .card.strategy {
-    position: relative;
-  }
-  /* Section enti\u00e8rement repli\u00e9e en mode RDV : ne reste que l'\u0153il + label discret */
-  .rdv-collapsed {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 14px;
-    background: #fafafa;
-    border: 1px dashed #d8d8d8;
-    border-radius: 10px;
-    margin: 12px 0;
-  }
-  .rdv-collapsed.card-collapsed {
-    margin: 0;
-  }
-  .rdv-collapsed .rdv-eye-btn {
-    position: static;
-    flex-shrink: 0;
-  }
-  .rdv-collapsed-label {
-    font-size: 11px;
-    color: #888;
-    font-style: italic;
-  }
 `;
 
 /* ---------- helpers ---------- */
@@ -781,26 +810,209 @@ function formatPrice(n) {
   return n.toLocaleString('fr-FR') + ' \u20ac';
 }
 
+const DPE_RANK_LOCAL = { A: 7, B: 6, C: 5, D: 4, E: 3, F: 2, G: 1 };
+
 /* ==================== Component ==================== */
 export default function Step5AvisValeur() {
   const navigate = useNavigate();
 
-  const [sliderValue, setSliderValue] = useState(avisValeur.prixMedian);
+  /* ─── Mode live : récupération du bien actif et des acquéreurs réels ─── */
+  const activeBien = useMemo(() => getActiveBien(), []);
+  const hasRealLocation = !!(activeBien && activeBien.adresse && activeBien.adresse.label);
+  const realAcquereurs = useMemo(() => (hasRealLocation ? getAcquereurs() : []), [hasRealLocation]);
+
+  // Surface : depuis activeBien si dispo, sinon mock (72.5m²)
+  const surface = useMemo(() => {
+    const s = Number(activeBien?.bien?.surface);
+    return Number.isFinite(s) && s > 0 ? s : 72.5;
+  }, [activeBien]);
+
+  // Prix de référence : depuis activeBien.result si dispo, sinon mock avisValeur
+  const priceRef = useMemo(() => {
+    if (hasRealLocation && activeBien?.result?.prix) {
+      const prix = Number(activeBien.result.prix);
+      const prixBas = Number(activeBien.result.prixBas) || Math.round(prix * 0.93);
+      const prixHaut = Number(activeBien.result.prixHaut) || Math.round(prix * 1.07);
+      return { prixMedian: prix, prixBas, prixHaut, prixM2: Math.round(prix / surface) };
+    }
+    return {
+      prixMedian: avisValeur.prixMedian,
+      prixBas: avisValeur.prixBas,
+      prixHaut: avisValeur.prixHaut,
+      prixM2: avisValeur.prixM2,
+    };
+  }, [activeBien, hasRealLocation, surface]);
+
+  // Description hero : "Appartement T3 · 72m² · Lyon 3ème · 4ème étage"
+  const heroDescription = useMemo(() => {
+    return describeBien(activeBien) || 'Appartement T3 · 72.5m² · Lyon 3ème · 4ème étage';
+  }, [activeBien]);
+
+  // Décomposition de l'estimation en mode live : prix m² de base + ajustements
+  // breakdown = array de { label, coef } (coef = 1.0 -> neutre, 1.05 -> +5%, 0.95 -> -5%)
+  const breakdownLive = useMemo(() => {
+    if (!hasRealLocation || !activeBien?.result?.breakdown) return null;
+    return {
+      prixM2Base: Number(activeBien.result.prixM2Base) || 0,
+      coef: Number(activeBien.result.coef) || 1,
+      breakdown: Array.isArray(activeBien.result.breakdown) ? activeBien.result.breakdown : [],
+    };
+  }, [activeBien, hasRealLocation]);
+
+  // Comparables DVF : top 10 transactions du quartier persistées dans activeBien
+  const comparablesLive = useMemo(() => {
+    if (!hasRealLocation || !Array.isArray(activeBien?.dvfTopComparables)) return [];
+    return activeBien.dvfTopComparables.slice(0, 5).map((c, i) => {
+      const adresse = c.adresse || c.nom_voie || c.address || `Transaction #${i + 1}`;
+      const prixM2 = Number(c.prix_m2 || c.prixM2 || (c.valeur_fonciere && c.surface_reelle_bati
+        ? c.valeur_fonciere / c.surface_reelle_bati : 0));
+      return { adresse, prixM2: Math.round(prixM2) };
+    }).filter((c) => c.prixM2 > 0);
+  }, [activeBien, hasRealLocation]);
+
+  // Moyenne pondérée des comparables (pondération uniforme pour l'instant)
+  const comparablesAvg = useMemo(() => {
+    if (comparablesLive.length === 0) return 0;
+    const sum = comparablesLive.reduce((acc, c) => acc + c.prixM2, 0);
+    return Math.round(sum / comparablesLive.length);
+  }, [comparablesLive]);
+
+  // Bornes du slider de prix : -17% / +27% autour du prix médian, arrondies au millier
+  const sliderBounds = useMemo(() => {
+    const median = priceRef.prixMedian;
+    const min = Math.max(0, Math.round((median * 0.83) / 1000) * 1000);
+    const max = Math.round((median * 1.27) / 1000) * 1000;
+    return { min, max };
+  }, [priceRef]);
+
+  // Points forts / vigilance auto-générés à partir des caractéristiques du bien
+  // (mode live uniquement). Heuristiques simples sur DPE, étage, ascenseur,
+  // exposition, parking, extérieur, état, année de construction.
+  // En mode démo : on garde les listes statiques d'avisValeur.
+  // En mode live : on génère depuis le bien ; si rien n'est généré, listes
+  // vides (l'utilisateur ajoute ses propres points). Aucune donnée fake.
+  const autoPoints = useMemo(() => {
+    if (!hasRealLocation) {
+      return { forts: avisValeur.pointsForts, vigilance: avisValeur.pointsVigilance };
+    }
+    if (!activeBien?.bien) {
+      return { forts: [], vigilance: [] };
+    }
+    const bien = activeBien.bien;
+    const forts = [];
+    const vigilance = [];
+
+    // DPE
+    const dpe = bien.dpe ? String(bien.dpe).toUpperCase() : null;
+    if (dpe && ['A', 'B', 'C'].includes(dpe)) {
+      forts.push(`DPE ${dpe} — bien performant énergétiquement`);
+    } else if (dpe && ['F', 'G'].includes(dpe)) {
+      vigilance.push(`DPE ${dpe} — passoire thermique (interdiction de location 2025/2028)`);
+    } else if (dpe === 'E') {
+      vigilance.push(`DPE E — interdiction de location prévue en 2034`);
+    }
+
+    // Étage + ascenseur (appartement)
+    if (bien.type === 'appartement') {
+      if (bien.etage != null && bien.etage !== '') {
+        const e = Number(bien.etage);
+        if (e === 0) vigilance.push('Rez-de-chaussée — vis-à-vis et sécurité à anticiper');
+        else if (e >= 6 && !bien.ascenseur) vigilance.push(`${e}e étage sans ascenseur — frein commercial fort`);
+        else if (e >= 3 && bien.ascenseur) forts.push(`${e}e étage avec ascenseur — vue dégagée et confort`);
+      }
+    }
+
+    // Exposition
+    if (bien.exposition && /sud/i.test(bien.exposition)) {
+      forts.push(`Exposition ${bien.exposition.replace('_', '-')} — luminosité optimale`);
+    } else if (bien.exposition === 'nord') {
+      vigilance.push('Exposition nord — luminosité réduite');
+    }
+
+    // Extérieur
+    if (bien.exterieur === 'jardin') forts.push('Jardin — atout différenciant rare en zone urbaine');
+    else if (bien.exterieur === 'terrasse') forts.push('Terrasse — extérieur très recherché');
+    else if (bien.exterieur === 'balcon') forts.push('Balcon — extérieur appréciable');
+    else if (bien.exterieur === 'aucun' && bien.type === 'appartement') {
+      vigilance.push('Absence d\u2019extérieur — frein post-Covid');
+    }
+
+    // Parking
+    if (bien.parking === 'box') forts.push('Box / garage fermé — valorise le bien (+5%)');
+    else if (bien.parking === 'place') forts.push('Place de parking — confort apprécié en centre-ville');
+    else if (bien.parking === 'aucun') vigilance.push('Pas de stationnement — frein dans certains quartiers');
+
+    // État
+    if (bien.etat === 'neuf') forts.push('État neuf — aucun travaux à prévoir');
+    else if (bien.etat === 'refait') forts.push('Récemment rénové — prêt à emménager');
+    else if (bien.etat === 'a_renover') vigilance.push('À rénover — anticiper budget travaux');
+    else if (bien.etat === 'a_reconstruire') vigilance.push('À reconstruire — projet lourd, public restreint');
+
+    // Année
+    if (bien.annee) {
+      const a = Number(bien.annee);
+      if (a >= 2010) forts.push(`Construction ${a} — récent, normes thermiques actuelles`);
+      else if (a < 1948) vigilance.push(`Construction ${a} — ancien, vigilance sur structure et isolation`);
+    }
+
+    // Mode live : on retourne ce qu'on a trouvé (peut être vide).
+    // L'utilisateur ajoutera ses propres points si besoin.
+    return { forts, vigilance };
+  }, [activeBien, hasRealLocation]);
+
+  const [sliderValue, setSliderValue] = useState(priceRef.prixMedian);
   const [selectedStrategy, setSelectedStrategy] = useState(1);
-  const [pointsForts, setPointsForts] = useState([...avisValeur.pointsForts]);
-  const [pointsVigilance, setPointsVigilance] = useState([...avisValeur.pointsVigilance]);
-  const [customPrice, setCustomPrice] = useState('300000');
+  const [pointsForts, setPointsForts] = useState(autoPoints.forts);
+  const [pointsVigilance, setPointsVigilance] = useState(autoPoints.vigilance);
+  const [customPrice, setCustomPrice] = useState(String(priceRef.prixMedian));
 
-  // Visibilit\u00e9 des sections en RDV : true = masqu\u00e9 lors du RDV
-  const [hideConfiance, setHideConfiance] = useState(false);
-  const [hideStrategie, setHideStrategie] = useState(false);
+  // Avis du vendeur : zone de texte libre saisie manuellement par l'agent
+  // pendant le RDV pour capter la perception / le ressenti du propriétaire
+  // sur son bien (prix espéré, motivation, points qu'il souligne…).
+  // Hydratation depuis le reportStore pour persister entre les sessions.
+  const persistedAvisVendeur = useMemo(() => {
+    const state = getReportState();
+    return typeof state.avisVendeur === 'string' ? state.avisVendeur : '';
+  }, []);
+  const [avisVendeur, setAvisVendeur] = useState(persistedAvisVendeur);
 
-  const surface = 72.5;
-  const totalAcquereurs = 23;
+  // Toggle "Masquer la démo" en mode live (pour cacher éléments fictifs)
+  // Hydratation depuis le reportStore.displayConfig pour conserver la
+  // préférence agent au refresh.
+  const persistedDisplay = useMemo(() => getReportSection('displayConfig', {}), []);
+  const [hideDemo, setHideDemo] = useState(
+    typeof persistedDisplay.hideDemo === 'boolean' ? persistedDisplay.hideDemo : false
+  );
+
+  // Persiste les flags d'affichage dans le reportStore pour que la page
+  // CompteRendu puisse masquer/afficher les sections correspondantes.
+  useEffect(() => {
+    mergeReportSection('displayConfig', { hideDemo });
+  }, [hideDemo]);
+
+  // Persistance dans le reportStore pour que CompteRendu (/report) puisse
+  // afficher les valeurs saisies par l'utilisateur (points forts/vigilance
+  // édités, prix retenu, stratégie sélectionnée).
+  useEffect(() => {
+    setReportState({ pointsForts });
+  }, [pointsForts]);
+  useEffect(() => {
+    setReportState({ pointsVigilance });
+  }, [pointsVigilance]);
+  useEffect(() => {
+    const n = Number(customPrice);
+    if (Number.isFinite(n) && n > 0) setReportState({ customPrice: n });
+  }, [customPrice]);
+  useEffect(() => {
+    setReportState({ selectedStrategy });
+  }, [selectedStrategy]);
+  useEffect(() => {
+    setReportState({ avisVendeur });
+  }, [avisVendeur]);
 
   /* ---- Demand computation (matching HTML wireframe logic) ---- */
-  // Simulated acquéreur data matching the HTML wireframe
-  const acquereurs = [
+  // Mock acquéreur data (mode démo) — utilisé quand pas d'acquéreurs réels
+  const mockAcquereurs = [
     { budgetMax: 330000, type: true, surface: true, loc: true, dpe: true },
     { budgetMax: 310000, type: true, surface: true, loc: true, dpe: true },
     { budgetMax: 295000, type: true, surface: true, loc: true, dpe: true },
@@ -826,7 +1038,40 @@ export default function Step5AvisValeur() {
     { budgetMax: 275000, type: true, surface: true, loc: true, dpe: true },
   ];
 
-  let budgetMatch = 0, typeMatch = 0, surfMatch = 0, locMatch = 0, dpeMatch = 0, allMatch = 0;
+  // En mode live : on dérive les flags type/surface/loc/dpe à partir des critères
+  // de chaque acquéreur réel vis-à-vis du bien actif. La loc est neutre par défaut
+  // (pas de critère "communes" dans le schéma actuel).
+  const liveAcquereurs = useMemo(() => {
+    if (!hasRealLocation || realAcquereurs.length === 0) return [];
+    const bien = activeBien?.bien || {};
+    const bienType = bien.type || null;
+    const bienSurface = Number(bien.surface);
+    const bienDpeRank = bien.dpe ? (DPE_RANK_LOCAL[String(bien.dpe).toUpperCase()] || 0) : null;
+    return realAcquereurs.map((a) => {
+      const budgetMax = a.budgetMax != null ? Number(a.budgetMax) * 1000 : Infinity;
+      const typeOk = !a.type || a.type === 'indifferent' || !bienType
+        ? true
+        : a.type === bienType;
+      const surfaceOk = a.surfaceMin == null || !Number.isFinite(bienSurface)
+        ? true
+        : bienSurface >= a.surfaceMin;
+      const dpeOk = !a.dpeMin || bienDpeRank == null
+        ? true
+        : bienDpeRank >= (DPE_RANK_LOCAL[a.dpeMin] || 0);
+      return {
+        budgetMax,
+        type: typeOk,
+        surface: surfaceOk,
+        loc: true, // pas de critère localisation dans le schéma actuel
+        dpe: dpeOk,
+      };
+    });
+  }, [hasRealLocation, realAcquereurs, activeBien]);
+
+  const acquereurs = hasRealLocation && liveAcquereurs.length > 0 ? liveAcquereurs : mockAcquereurs;
+  const totalAcquereurs = acquereurs.length;
+
+  let budgetMatch = 0, typeMatch = 0, surfMatch = 0, locMatch = 0, dpeMatch = 0;
   acquereurs.forEach((a) => {
     const passBudget = a.budgetMax >= sliderValue;
     if (passBudget) budgetMatch++;
@@ -834,7 +1079,6 @@ export default function Step5AvisValeur() {
     if (a.surface) surfMatch++;
     if (a.loc) locMatch++;
     if (a.dpe) dpeMatch++;
-    if (passBudget && a.type && a.surface && a.loc && a.dpe) allMatch++;
   });
 
   /* ---- Offres concurrentes : biens immo \u00e0 vendre actuellement dans la fourchette de prix ----
@@ -866,6 +1110,31 @@ export default function Step5AvisValeur() {
 
   const demandColor = ratio >= 0.5 ? '#46B962' : ratio >= 0.25 ? '#f5a623' : '#e74c3c';
 
+  // Labels du panneau crit\u00e8res : d\u00e9riv\u00e9s du bien actif en mode live,
+  // statiques (wireframe) en d\u00e9mo. Pas de fake data en live.
+  const typeLabelCrit = hasRealLocation && activeBien?.bien?.pieces
+    ? `Cherchent un T${activeBien.bien.pieces}`
+    : 'Cherchent un T3';
+  const surfBienLive = Number(activeBien?.bien?.surface);
+  const surfLabelCrit = hasRealLocation && Number.isFinite(surfBienLive) && surfBienLive > 0
+    ? `Surface ${Math.round(surfBienLive * 0.85)}-${Math.round(surfBienLive * 1.15)}m\u00B2`
+    : 'Surface 60-85m\u00B2';
+  const surfDetailCrit = hasRealLocation && Number.isFinite(surfBienLive) && surfBienLive > 0
+    ? `fourchette ${surfBienLive}m\u00B2`
+    : 'fourchette 72.5m\u00B2';
+  const locLabelCrit = hasRealLocation && activeBien?.adresse?.city
+    ? `${activeBien.adresse.city} / proches`
+    : 'Lyon 3 / proches';
+  const locDetailCrit = hasRealLocation && activeBien?.adresse?.city
+    ? activeBien.adresse.city
+    : 'Lyon 3, 6, 7, 8';
+  const dpeLabelCrit = hasRealLocation && activeBien?.bien?.dpe
+    ? `Acceptent DPE ${String(activeBien.bien.dpe).toUpperCase()}`
+    : 'Acceptent DPE D';
+  const dpeDetailCrit = hasRealLocation && activeBien?.bien?.dpe
+    ? `DPE ${String(activeBien.bien.dpe).toUpperCase()} ou sans filtre`
+    : 'DPE D ou sans filtre';
+
   const criteriaData = [
     {
       id: 'budget', label: 'Budget compatible', value: budgetMatch,
@@ -876,7 +1145,7 @@ export default function Step5AvisValeur() {
       ),
     },
     {
-      id: 'type', label: 'Cherchent un T3', value: typeMatch,
+      id: 'type', label: typeLabelCrit, value: typeMatch,
       detail: 'T3 ou T2-T4 flexible',
       pct: Math.round((typeMatch / totalAcquereurs) * 100),
       icon: (
@@ -884,24 +1153,24 @@ export default function Step5AvisValeur() {
       ),
     },
     {
-      id: 'surface', label: 'Surface 60-85m\u00B2', value: surfMatch,
-      detail: 'fourchette 72.5m\u00B2',
+      id: 'surface', label: surfLabelCrit, value: surfMatch,
+      detail: surfDetailCrit,
       pct: Math.round((surfMatch / totalAcquereurs) * 100),
       icon: (
         <svg viewBox="0 0 16 16" fill="none"><path d="M2 14V4l5-2v12M9 6l5-2v12M2 14h12" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
       ),
     },
     {
-      id: 'loc', label: 'Lyon 3 / proches', value: locMatch,
-      detail: 'Lyon 3, 6, 7, 8',
+      id: 'loc', label: locLabelCrit, value: locMatch,
+      detail: locDetailCrit,
       pct: Math.round((locMatch / totalAcquereurs) * 100),
       icon: (
         <svg viewBox="0 0 16 16" fill="none"><path d="M8 1.5C5.5 1.5 3.5 3.5 3.5 6c0 3.5 4.5 8.5 4.5 8.5s4.5-5 4.5-8.5c0-2.5-2-4.5-4.5-4.5z" stroke="currentColor" strokeWidth="1.3"/><circle cx="8" cy="6" r="1.8" stroke="currentColor" strokeWidth="1.2"/></svg>
       ),
     },
     {
-      id: 'dpe', label: 'Acceptent DPE D', value: dpeMatch,
-      detail: 'DPE D ou sans filtre',
+      id: 'dpe', label: dpeLabelCrit, value: dpeMatch,
+      detail: dpeDetailCrit,
       pct: Math.round((dpeMatch / totalAcquereurs) * 100),
       icon: (
         <svg viewBox="0 0 16 16" fill="none"><path d="M9 1L4 9h4l-1 6 5-8H8l1-6z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -935,14 +1204,81 @@ export default function Step5AvisValeur() {
     verdictDesc = `\u00C0 ${formatPrice(sliderValue)}, aucun acqu\u00E9reur n'a le budget. Ce prix est d\u00E9connect\u00E9 du march\u00E9 acqu\u00E9reur actuel.`;
   }
 
-  /* ---- Strategy pricing ---- */
-  const strategies = [
-    { label: 'Agressif', prix: 310000, description: 'Haut de fourchette. Capitalise sur la tension forte.', duration: 'Dur\u00E9e estim\u00E9e: 35-50 jours' },
-    { label: 'March\u00E9', prix: 300000, description: '\u00C9quilibre valorisation et liquidit\u00E9.', duration: 'Dur\u00E9e estim\u00E9e: 40-55 jours', recommended: true },
-    { label: 'Prudent', prix: 285000, description: 'Bas de fourchette. Maximise la rapidit\u00E9.', duration: 'Dur\u00E9e estim\u00E9e: 25-35 jours' },
-  ];
+  /* ---- Strategy pricing ----
+   * En mode démo : valeurs fixes du wireframe.
+   * En mode live : dérivées de priceRef.
+   *   - Agressif = prixHaut (haut de fourchette)
+   *   - Marché   = prixMedian (recommandé)
+   *   - Prudent  = prixBas (bas de fourchette)
+   */
+  const strategies = useMemo(() => {
+    if (!hasRealLocation) {
+      return [
+        { label: 'Agressif', prix: 310000, description: 'Haut de fourchette. Capitalise sur la tension forte.', duration: 'Dur\u00E9e estim\u00E9e: 35-50 jours' },
+        { label: 'March\u00E9', prix: 300000, description: '\u00C9quilibre valorisation et liquidit\u00E9.', duration: 'Dur\u00E9e estim\u00E9e: 40-55 jours', recommended: true },
+        { label: 'Prudent', prix: 285000, description: 'Bas de fourchette. Maximise la rapidit\u00E9.', duration: 'Dur\u00E9e estim\u00E9e: 25-35 jours' },
+      ];
+    }
+    return [
+      { label: 'Agressif', prix: priceRef.prixHaut, description: 'Haut de fourchette. Pour test d\u2019app\u00e9tence avec marge de n\u00e9gociation.', duration: 'Dur\u00e9e estim\u00e9e : 35-50 jours' },
+      { label: 'March\u00e9', prix: priceRef.prixMedian, description: '\u00c9quilibre valorisation / liquidit\u00e9. Aligne le bien sur la m\u00e9diane march\u00e9.', duration: 'Dur\u00e9e estim\u00e9e : 40-55 jours', recommended: true },
+      { label: 'Prudent', prix: priceRef.prixBas, description: 'Bas de fourchette. Maximise la rapidit\u00e9 de transaction.', duration: 'Dur\u00e9e estim\u00e9e : 25-35 jours' },
+    ];
+  }, [hasRealLocation, priceRef]);
 
-  const estimation = 300000;
+  const estimation = hasRealLocation ? priceRef.prixMedian : 300000;
+
+  // Indice de confiance dynamique en mode live :
+  // moyenne pond\u00e9r\u00e9e entre la compl\u00e9tude du bien (10 champs cl\u00e9s)
+  // et la disponibilit\u00e9 des comparables DVF (5 min = optimal).
+  const confidenceScore = useMemo(() => {
+    if (!hasRealLocation) return avisValeur.confiance;
+    const bien = activeBien?.bien || {};
+    const champs = ['type', 'surface', 'pieces', 'etat', 'dpe', 'etage', 'ascenseur', 'exposition', 'parking', 'exterieur'];
+    const renseigne = champs.filter((k) => bien[k] != null && bien[k] !== '').length;
+    const completude = (renseigne / champs.length) * 100;
+    const nbComp = Array.isArray(activeBien?.dvfTopComparables) ? activeBien.dvfTopComparables.length : 0;
+    const volumeScore = Math.min(100, (nbComp / 5) * 100);
+    return Math.round((completude * 0.6) + (volumeScore * 0.4));
+  }, [hasRealLocation, activeBien]);
+
+  const confidenceCompletude = useMemo(() => {
+    if (!hasRealLocation) return 64;
+    const bien = activeBien?.bien || {};
+    const champs = ['type', 'surface', 'pieces', 'etat', 'dpe', 'etage', 'ascenseur', 'exposition', 'parking', 'exterieur'];
+    const renseigne = champs.filter((k) => bien[k] != null && bien[k] !== '').length;
+    return Math.round((renseigne / champs.length) * 100);
+  }, [hasRealLocation, activeBien]);
+
+  const confidenceVolume = useMemo(() => {
+    if (!hasRealLocation) return 'Volume zone';
+    const nb = Array.isArray(activeBien?.dvfTopComparables) ? activeBien.dvfTopComparables.length : 0;
+    return `${nb} comparable${nb > 1 ? 's' : ''}`;
+  }, [hasRealLocation, activeBien]);
+
+  // Date de cr\u00e9ation du bien (mode live) : utilis\u00e9e dans la banni\u00e8re
+  // d\u2019historique. En mode d\u00e9mo on garde la date factice du wireframe.
+  const createdAtLabel = useMemo(() => {
+    if (!hasRealLocation || !activeBien?.createdAt) return '25 mars 2026';
+    const d = new Date(activeBien.createdAt);
+    if (Number.isNaN(d.getTime())) return '25 mars 2026';
+    const months = ['janvier', 'f\u00e9vrier', 'mars', 'avril', 'mai', 'juin',
+      'juillet', 'ao\u00fbt', 'septembre', 'octobre', 'novembre', 'd\u00e9cembre'];
+    return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  }, [hasRealLocation, activeBien]);
+
+  // R\u00e9f\u00e9rence d\u2019estimation pour la sauvegarde. En mode d\u00e9mo on garde
+  // la r\u00e9f\u00e9rence factice du wireframe (LYN-2026-00847). En mode live on
+  // d\u00e9rive depuis l\u2019id du bien stock\u00e9 dans activeBien (sous forme
+  // IDR-YYYY-XXXXX). Stable entre re-renders.
+  const estimationReference = useMemo(() => {
+    if (!hasRealLocation) return 'LYN-2026-00847';
+    const id = activeBien?.id || activeBien?.createdAt || Date.now();
+    const year = new Date(activeBien?.createdAt || Date.now()).getFullYear();
+    const tail = String(id).replace(/[^0-9]/g, '').slice(-5).padStart(5, '0');
+    return `IDR-${year}-${tail}`;
+  }, [hasRealLocation, activeBien]);
+
   const customVal = parseInt((customPrice || '').replace(/\s/g, ''), 10);
   const deltaValid = !isNaN(customVal) && customVal > 0;
   const deltaPct = deltaValid ? (((customVal - estimation) / estimation) * 100).toFixed(1) : null;
@@ -970,69 +1306,52 @@ export default function Step5AvisValeur() {
       <div className="step5-section">
         {/* ============ HERO SECTION ============ */}
         <div className="hero-section">
+          {hasRealLocation && (
+            <button
+              type="button"
+              className={`hide-demo-toggle${hideDemo ? ' active' : ''}`}
+              onClick={() => setHideDemo((v) => !v)}
+              title={hideDemo ? 'R\u00e9afficher les sections d\u00e9mo (comparables, offres concurrentes\u2026)' : 'Masquer les sections d\u00e9mo (comparables fictifs, offres concurrentes simul\u00e9es\u2026)'}
+            >
+              <span aria-hidden="true">{hideDemo ? '\uD83D\uDC41\uFE0F' : '\uD83D\uDEAB'}</span>
+              {hideDemo ? ' R\u00e9afficher la d\u00e9mo' : ' Masquer la d\u00e9mo'}
+            </button>
+          )}
           <div className="hero-label">
-            ESTIMATION &mdash; Appartement T3 &middot; 72.5m&sup2; &middot; Lyon 3&egrave;me &middot; 4&egrave;me &eacute;tage
+            ESTIMATION &mdash; {heroDescription}
           </div>
           <div className="hero-prices">
             <div className="price-item">
               <div className="price-label">Fourchette basse</div>
-              <div className="price-low">{formatPrice(avisValeur.prixBas)}</div>
+              <div className="price-low">{formatPrice(priceRef.prixBas)}</div>
             </div>
             <div className="price-item">
-              <div className="price-main">{formatPrice(avisValeur.prixMedian)}</div>
+              <div className="price-main">{formatPrice(priceRef.prixMedian)}</div>
             </div>
             <div className="price-item">
               <div className="price-label">Fourchette haute</div>
-              <div className="price-high">{formatPrice(avisValeur.prixHaut)}</div>
+              <div className="price-high">{formatPrice(priceRef.prixHaut)}</div>
             </div>
           </div>
           <div className="price-meta">
-            <span className="price-meta-item"><strong>{avisValeur.prixM2.toLocaleString('fr-FR')} &euro;/m&sup2;</strong></span>
+            <span className="price-meta-item"><strong>{priceRef.prixM2.toLocaleString('fr-FR')} &euro;/m&sup2;</strong></span>
           </div>
-          {hideConfiance ? (
-            <div className="rdv-collapsed">
-              <button
-                type="button"
-                className="rdv-eye-btn is-hidden"
-                onClick={() => setHideConfiance(false)}
-                title="Afficher en RDV"
-                aria-label="Afficher en RDV"
-              >
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                  <line x1="1" y1="1" x2="23" y2="23"/>
-                </svg>
-              </button>
-              <span className="rdv-collapsed-label">Indice de confiance &mdash; masqu&eacute; en RDV</span>
-            </div>
-          ) : (
-            <div className="confidence-wrap">
-              <button
-                type="button"
-                className="rdv-eye-btn"
-                onClick={() => setHideConfiance(true)}
-                title="Masquer en RDV"
-                aria-label="Masquer en RDV"
-              >
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                  <circle cx="12" cy="12" r="3"/>
-                </svg>
-              </button>
-              <svg className="confidence-gauge" viewBox="0 0 120 120" style={{ transform: 'rotate(-90deg)' }}>
-                <circle cx="60" cy="60" r="50" fill="none" stroke="#eee" strokeWidth="10"/>
-                <circle cx="60" cy="60" r="50" fill="none" stroke="#46B962" strokeWidth="10"
-                  strokeDasharray="245" strokeDashoffset="54"
-                  strokeLinecap="round"/>
-                <circle cx="60" cy="60" r="38" fill="white"/>
-              </svg>
-              <div className="confidence-text">
-                <div className="confidence-number">{avisValeur.confiance}</div>
-                <div className="confidence-label">Indice de confiance</div>
-                <div className="confidence-details">Compl&eacute;tude 64% &times; Homog&eacute;n&eacute;it&eacute; 92% &times; Volume zone</div>
+          <div className="confidence-wrap">
+            <svg className="confidence-gauge" viewBox="0 0 120 120" style={{ transform: 'rotate(-90deg)' }}>
+              <circle cx="60" cy="60" r="50" fill="none" stroke="#eee" strokeWidth="10"/>
+              <circle cx="60" cy="60" r="50" fill="none" stroke="#46B962" strokeWidth="10"
+                strokeDasharray="245" strokeDashoffset="54"
+                strokeLinecap="round"/>
+              <circle cx="60" cy="60" r="38" fill="white"/>
+            </svg>
+            <div className="confidence-text">
+              <div className="confidence-number">{confidenceScore}</div>
+              <div className="confidence-label">Indice de confiance</div>
+              <div className="confidence-details">
+                Compl&eacute;tude {confidenceCompletude}% &times; {confidenceVolume}
               </div>
             </div>
-          )}
+          </div>
         </div>
 
         {/* ============ DEMAND vs PRICE SLIDER ============ */}
@@ -1049,11 +1368,15 @@ export default function Step5AvisValeur() {
               <div className="demand-big-number" style={{ color: demandColor }}>{budgetMatch}</div>
               <div className="demand-big-label">projets<br/>d&apos;achat</div>
             </div>
-            <div className="demand-vs">vs</div>
-            <div className="demand-big-wrap">
-              <div className="demand-big-number offers">{offresImmo}</div>
-              <div className="demand-big-label">offres<br/>concurrentes</div>
-            </div>
+            {!hideDemo && (
+              <>
+                <div className="demand-vs">vs</div>
+                <div className="demand-big-wrap">
+                  <div className="demand-big-number offers">{offresImmo}</div>
+                  <div className="demand-big-label">offres<br/>concurrentes</div>
+                </div>
+              </>
+            )}
             <div className="demand-gauge-wrap">
               <div className="demand-price-display">
                 {formatPrice(sliderValue)}
@@ -1063,16 +1386,16 @@ export default function Step5AvisValeur() {
                 <input
                   type="range"
                   className="demand-slider"
-                  min={250000}
-                  max={380000}
+                  min={sliderBounds.min}
+                  max={sliderBounds.max}
                   step={1000}
                   value={sliderValue}
                   onChange={(e) => setSliderValue(Number(e.target.value))}
                 />
                 <div className="demand-slider-labels">
-                  <span>250 000 &euro;</span>
-                  <span className="estimation-marker">&#9660; Estimation 300k</span>
-                  <span>380 000 &euro;</span>
+                  <span>{sliderBounds.min.toLocaleString('fr-FR')} &euro;</span>
+                  <span className="estimation-marker">&#9660; Estimation {Math.round(priceRef.prixMedian / 1000)}k</span>
+                  <span>{sliderBounds.max.toLocaleString('fr-FR')} &euro;</span>
                 </div>
               </div>
             </div>
@@ -1106,58 +1429,151 @@ export default function Step5AvisValeur() {
 
         {/* ============ THREE-COLUMN GRID ============ */}
         <div className="content-grid">
-          {/* --- Column 1: Decomposition + Comparables --- */}
+          {/* --- Column 1: Decomposition + Comparables (mock — masqu\u00e9 en mode "Masquer la d\u00e9mo") --- */}
+          {!hideDemo && (
           <div className="content-grid-col">
             <div className="card">
               <div className="card-title">Avis de valeur</div>
-              <div className="decomp-step">
-                <span className="decomp-label">1. Prix m&eacute;dian comparables</span>
-                <span className="decomp-value">4 172 &euro;/m&sup2;</span>
-              </div>
-              <div className="decomp-detail">&times; 72.5m&sup2; = 302 470 &euro;</div>
-              <div className="decomp-step">
-                <span className="decomp-label">2. Impact tension march&eacute;</span>
-                <span className="decomp-value pos">+0.7%</span>
-              </div>
-              <div className="decomp-detail">Ratio demande/offre 3.2x +0.5%</div>
-              <div className="decomp-detail">7 acqu&eacute;reurs forte compatibilit&eacute; +0.2%</div>
-              <div className="decomp-detail">&rarr; <strong style={{ color: '#46B962' }}>+2 117 &euro;</strong></div>
-              <div className="decomp-step">
-                <span className="decomp-label">3. Corrections sp&eacute;cifiques</span>
-                <span className="decomp-value neg">&minus;1.5%</span>
-              </div>
-              <div className="decomp-detail">DPE D (passoire thermique 2028) &minus;2.0%</div>
-              <div className="decomp-detail">Travaux copro vot&eacute;s (15k&euro;) &minus;0.5%</div>
-              <div className="decomp-detail">Balcon 5.2m&sup2; +1.0%</div>
-              <div className="decomp-detail">&rarr; <strong style={{ color: '#e74c3c' }}>&minus;4 537 &euro;</strong></div>
-              <div className="decomp-divider" />
-              <div className="decomp-step">
-                <span className="decomp-label decomp-final">AVIS DE VALEUR</span>
-                <span className="decomp-value decomp-final-value">300 000 &euro;</span>
-              </div>
-              <div className="decomp-range">Fourchette: 280 000 &euro; &mdash; 315 000 &euro;</div>
+              {hasRealLocation ? (
+                breakdownLive ? (
+                  <>
+                    <div className="decomp-step">
+                      <span className="decomp-label">1. Prix m&eacute;dian de base</span>
+                      <span className="decomp-value">{breakdownLive.prixM2Base.toLocaleString('fr-FR')} &euro;/m&sup2;</span>
+                    </div>
+                    <div className="decomp-detail">
+                      &times; {surface}m&sup2; = {Math.round(breakdownLive.prixM2Base * surface).toLocaleString('fr-FR')} &euro;
+                    </div>
+                    {breakdownLive.breakdown.length > 0 && (
+                      <>
+                        <div className="decomp-step">
+                          <span className="decomp-label">2. Ajustements du bien</span>
+                          <span className={`decomp-value ${breakdownLive.coef >= 1 ? 'pos' : 'neg'}`}>
+                            {breakdownLive.coef >= 1 ? '+' : ''}{((breakdownLive.coef - 1) * 100).toFixed(1)}%
+                          </span>
+                        </div>
+                        {breakdownLive.breakdown.map((b, idx) => {
+                          const pct = ((b.coef - 1) * 100).toFixed(1);
+                          const sign = b.coef >= 1 ? '+' : '';
+                          return (
+                            <div key={idx} className="decomp-detail">
+                              {b.label} {sign}{pct}%
+                            </div>
+                          );
+                        })}
+                        <div className="decomp-detail">
+                          &rarr;{' '}
+                          <strong style={{ color: breakdownLive.coef >= 1 ? '#46B962' : '#e74c3c' }}>
+                            {breakdownLive.coef >= 1 ? '+' : '\u2212'}
+                            {Math.abs(Math.round((breakdownLive.coef - 1) * breakdownLive.prixM2Base * surface)).toLocaleString('fr-FR')} &euro;
+                          </strong>
+                        </div>
+                      </>
+                    )}
+                    <div className="decomp-divider" />
+                    <div className="decomp-step">
+                      <span className="decomp-label decomp-final">AVIS DE VALEUR</span>
+                      <span className="decomp-value decomp-final-value">{formatPrice(priceRef.prixMedian)}</span>
+                    </div>
+                    <div className="decomp-range">
+                      Fourchette: {formatPrice(priceRef.prixBas)} &mdash; {formatPrice(priceRef.prixHaut)}
+                    </div>
+                  </>
+                ) : (
+                  <div className="card-empty-state" style={{ padding: '24px 8px', color: '#6b7280', fontSize: '0.92rem', lineHeight: 1.55 }}>
+                    Pas encore de d&eacute;composition d&eacute;taill&eacute;e pour ce bien.
+                    Le calcul s&rsquo;effectue automatiquement &agrave; la cr&eacute;ation
+                    depuis le formulaire <em>Nouveau bien</em> (m&eacute;diane DVF, ajustements
+                    par caract&eacute;ristique). Si elle est manquante, recr&eacute;ez le bien
+                    en compl&eacute;tant tous les champs.
+                  </div>
+                )
+              ) : (
+                <>
+                  <div className="decomp-step">
+                    <span className="decomp-label">1. Prix m&eacute;dian comparables</span>
+                    <span className="decomp-value">4 172 &euro;/m&sup2;</span>
+                  </div>
+                  <div className="decomp-detail">&times; 72.5m&sup2; = 302 470 &euro;</div>
+                  <div className="decomp-step">
+                    <span className="decomp-label">2. Impact tension march&eacute;</span>
+                    <span className="decomp-value pos">+0.7%</span>
+                  </div>
+                  <div className="decomp-detail">Ratio demande/offre 3.2x +0.5%</div>
+                  <div className="decomp-detail">7 acqu&eacute;reurs forte compatibilit&eacute; +0.2%</div>
+                  <div className="decomp-detail">&rarr; <strong style={{ color: '#46B962' }}>+2 117 &euro;</strong></div>
+                  <div className="decomp-step">
+                    <span className="decomp-label">3. Corrections sp&eacute;cifiques</span>
+                    <span className="decomp-value neg">&minus;1.5%</span>
+                  </div>
+                  <div className="decomp-detail">DPE D (passoire thermique 2028) &minus;2.0%</div>
+                  <div className="decomp-detail">Travaux copro vot&eacute;s (15k&euro;) &minus;0.5%</div>
+                  <div className="decomp-detail">Balcon 5.2m&sup2; +1.0%</div>
+                  <div className="decomp-detail">&rarr; <strong style={{ color: '#e74c3c' }}>&minus;4 537 &euro;</strong></div>
+                  <div className="decomp-divider" />
+                  <div className="decomp-step">
+                    <span className="decomp-label decomp-final">AVIS DE VALEUR</span>
+                    <span className="decomp-value decomp-final-value">300 000 &euro;</span>
+                  </div>
+                  <div className="decomp-range">Fourchette: 280 000 &euro; &mdash; 315 000 &euro;</div>
+                </>
+              )}
             </div>
 
             <div className="card">
               <div className="card-title">Comparables utilis&eacute;s</div>
-              <table className="comp-table">
-                <thead>
-                  <tr>
-                    <th>Adresse</th>
-                    <th>Prix/m&sup2;</th>
-                    <th>Poids</th>
-                    <th>Ajust&eacute;</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr><td>8 rue Villeroy</td><td>4 191&euro;</td><td>35%</td><td>4 103&euro;</td></tr>
-                  <tr><td>22 av. Lacassagne</td><td>4 133&euro;</td><td>40%</td><td>4 195&euro;</td></tr>
-                  <tr><td>15 rue Paul Bert</td><td>4 274&euro;</td><td>25%</td><td>4 112&euro;</td></tr>
-                  <tr className="total"><td colSpan="3">Moyenne pond&eacute;r&eacute;e</td><td>4 172&euro;</td></tr>
-                </tbody>
-              </table>
+              {hasRealLocation ? (
+                comparablesLive.length > 0 ? (
+                  <table className="comp-table">
+                    <thead>
+                      <tr>
+                        <th>Adresse</th>
+                        <th>Prix/m&sup2;</th>
+                        <th>Poids</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {comparablesLive.map((c, i) => (
+                        <tr key={i}>
+                          <td>{c.adresse}</td>
+                          <td>{c.prixM2.toLocaleString('fr-FR')}&euro;</td>
+                          <td>{Math.round(100 / comparablesLive.length)}%</td>
+                        </tr>
+                      ))}
+                      <tr className="total">
+                        <td colSpan="2">Moyenne</td>
+                        <td>{comparablesAvg.toLocaleString('fr-FR')}&euro;</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="card-empty-state" style={{ padding: '24px 8px', color: '#6b7280', fontSize: '0.92rem', lineHeight: 1.55 }}>
+                    Aucune transaction DVF comparable n&rsquo;a &eacute;t&eacute; trouv&eacute;e
+                    pour ce bien. V&eacute;rifiez la base DVF ou ajoutez des comparables
+                    manuellement &agrave; l&rsquo;&eacute;tape 3.
+                  </div>
+                )
+              ) : (
+                <table className="comp-table">
+                  <thead>
+                    <tr>
+                      <th>Adresse</th>
+                      <th>Prix/m&sup2;</th>
+                      <th>Poids</th>
+                      <th>Ajust&eacute;</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>8 rue Villeroy</td><td>4 191&euro;</td><td>35%</td><td>4 103&euro;</td></tr>
+                    <tr><td>22 av. Lacassagne</td><td>4 133&euro;</td><td>40%</td><td>4 195&euro;</td></tr>
+                    <tr><td>15 rue Paul Bert</td><td>4 274&euro;</td><td>25%</td><td>4 112&euro;</td></tr>
+                    <tr className="total"><td colSpan="3">Moyenne pond&eacute;r&eacute;e</td><td>4 172&euro;</td></tr>
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
+          )}
 
           {/* --- Column 2: Points forts + Points de vigilance --- */}
           <div className="content-grid-col">
@@ -1214,43 +1630,28 @@ export default function Step5AvisValeur() {
               </div>
               <button className="add-item-btn" onClick={addPointVigilance}>+ Ajouter un point de vigilance</button>
             </div>
+
+            <div className="card seller-opinion">
+              <div className="card-title">
+                Avis du vendeur <span className="card-title-hint">(perception du propri&eacute;taire)</span>
+              </div>
+              <textarea
+                className="seller-opinion-input"
+                value={avisVendeur}
+                onChange={(e) => setAvisVendeur(e.target.value)}
+                placeholder="Notez ici ce que le vendeur pense de son bien : ressenti, points qu'il souligne, prix qu'il espère, motivation de vente, contraintes…"
+                rows={6}
+              />
+              {avisVendeur.trim().length > 0 && (
+                <div className="seller-opinion-meta">{avisVendeur.trim().length} caract&egrave;res saisis</div>
+              )}
+            </div>
           </div>
 
           {/* --- Column 3: Strategy + Actions --- */}
           <div className="content-grid-col">
-            {hideStrategie ? (
-              <div className="rdv-collapsed card-collapsed">
-                <button
-                  type="button"
-                  className="rdv-eye-btn is-hidden"
-                  onClick={() => setHideStrategie(false)}
-                  title="Afficher en RDV"
-                  aria-label="Afficher en RDV"
-                >
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                    <line x1="1" y1="1" x2="23" y2="23"/>
-                  </svg>
-                </button>
-                <span className="rdv-collapsed-label">Strat&eacute;gie de prix &mdash; masqu&eacute;e en RDV</span>
-              </div>
-            ) : (
             <div className="card strategy">
-              <div className="card-title">
-                Strat&eacute;gie de prix
-                <button
-                  type="button"
-                  className="rdv-eye-btn inline"
-                  onClick={() => setHideStrategie(true)}
-                  title="Masquer en RDV"
-                  aria-label="Masquer en RDV"
-                >
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                    <circle cx="12" cy="12" r="3"/>
-                  </svg>
-                </button>
-              </div>
+              <div className="card-title">Strat&eacute;gie de prix</div>
               {strategies.map((s, i) => {
                 const isSelected = selectedStrategy === i;
                 return (
@@ -1269,7 +1670,7 @@ export default function Step5AvisValeur() {
                       <span className="strategy-name">{s.label} &mdash; {formatPrice(s.prix)}</span>
                     </div>
                     <div className="strategy-desc">{s.description}</div>
-                    {avisValeur.confiance >= 90 && (
+                    {confidenceScore >= 90 && (
                       <div className="strategy-duration">&#128197; {s.duration}</div>
                     )}
                     {s.recommended && <div className="badge-rec">&#10003; Recommand&eacute;</div>}
@@ -1292,29 +1693,46 @@ export default function Step5AvisValeur() {
                 )}
               </div>
             </div>
-            )}
 
             <div className="card">
               <div className="card-title">Actions</div>
               <div className="actions-card">
                 <button className="action-btn secondary" onClick={() => {
                   const estimations = JSON.parse(localStorage.getItem('ideeri_estimations') || '[]');
-                  const exists = estimations.find(e => e.reference === 'LYN-2026-00847');
+                  // Mode d\u00e9mo : payload statique du wireframe.
+                  // Mode live : payload d\u00e9riv\u00e9 du bien actif (zero fake data).
+                  const payload = hasRealLocation
+                    ? {
+                        id: Date.now(),
+                        reference: estimationReference,
+                        adresse: activeBien?.adresse?.label || '',
+                        description: heroDescription,
+                        agent: '',
+                        date: new Date().toLocaleDateString('fr-FR'),
+                        heure: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+                        statut: 'sauvegarde',
+                        prix: formatPrice(priceRef.prixMedian),
+                      }
+                    : {
+                        id: Date.now(),
+                        reference: 'LYN-2026-00847',
+                        adresse: '12 rue des Lilas, 69003 Lyon',
+                        description: 'Appartement T3, 72.5 m\u00b2',
+                        agent: 'Marie Dupont',
+                        date: new Date().toLocaleDateString('fr-FR'),
+                        heure: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+                        statut: 'sauvegarde',
+                        prix: '300 000 \u20ac',
+                      };
+                  const exists = estimations.find((e) => e.reference === payload.reference);
                   if (!exists) {
-                    estimations.unshift({
-                      id: Date.now(),
-                      reference: 'LYN-2026-00847',
-                      adresse: '12 rue des Lilas, 69003 Lyon',
-                      description: 'Appartement T3, 72.5 m\u00b2',
-                      agent: 'Marie Dupont',
-                      date: new Date().toLocaleDateString('fr-FR'),
-                      heure: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-                      statut: 'sauvegarde',
-                      prix: '300 000 \u20ac',
-                    });
+                    estimations.unshift(payload);
                   } else {
-                    exists.date = new Date().toLocaleDateString('fr-FR');
-                    exists.heure = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                    exists.date = payload.date;
+                    exists.heure = payload.heure;
+                    exists.adresse = payload.adresse;
+                    exists.description = payload.description;
+                    exists.prix = payload.prix;
                   }
                   localStorage.setItem('ideeri_estimations', JSON.stringify(estimations));
                   navigate('/');
@@ -1350,7 +1768,7 @@ export default function Step5AvisValeur() {
 
         {/* ============ HISTORY BANNER ============ */}
         <div className="history-banner">
-          &#128203; Ceci est la <strong>&nbsp;V1&nbsp;</strong> de l&apos;estimation &middot; Cr&eacute;&eacute;e le <strong>&nbsp;25 mars 2026&nbsp;</strong> &middot; Aucune version pr&eacute;c&eacute;dente
+          &#128203; Ceci est la <strong>&nbsp;V1&nbsp;</strong> de l&apos;estimation &middot; Cr&eacute;&eacute;e le <strong>&nbsp;{createdAtLabel}&nbsp;</strong> &middot; Aucune version pr&eacute;c&eacute;dente
         </div>
 
         {/* ============ FOOTER ============ */}

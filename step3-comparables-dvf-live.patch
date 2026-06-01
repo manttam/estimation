@@ -1,0 +1,446 @@
+diff --git a/app/src/pages/Step3Comparables.jsx b/app/src/pages/Step3Comparables.jsx
+index 5e95a12..d2df8bb 100644
+--- a/app/src/pages/Step3Comparables.jsx
++++ b/app/src/pages/Step3Comparables.jsx
+@@ -1,11 +1,84 @@
+-import { useState, useEffect, useRef } from 'react';
++import { useState, useEffect, useRef, useMemo } from 'react';
+ import { useNavigate } from 'react-router-dom';
+ import L from 'leaflet';
+ import 'leaflet/dist/leaflet.css';
+ import PropertyCard from '../components/PropertyCard';
+ import Stepper from '../components/Stepper';
+ import ComparableDrawer from '../components/ComparableDrawer';
+-import { comparables } from '../data/propertyData';
++import { getActiveBien } from '../utils/activeBien';
++
++/* ─────────────────────────────────────────────────────────────────────────────
++ * Helpers DVF live
++ * ────────────────────────────────────────────────────────────────────────────*/
++
++/* Distance haversine en mètres entre deux paires [lat, lon]. */
++function haversineMeters(a, b) {
++  if (!a || !b) return null;
++  const toRad = (d) => (d * Math.PI) / 180;
++  const R = 6371000;
++  const dLat = toRad(b[0] - a[0]);
++  const dLon = toRad(b[1] - a[1]);
++  const lat1 = toRad(a[0]);
++  const lat2 = toRad(b[0]);
++  const h = Math.sin(dLat / 2) ** 2 + Math.sin(dLon / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
++  return Math.round(2 * R * Math.asin(Math.sqrt(h)));
++}
++
++/* Format compact prix "295 000" ou "295k". */
++function fmtPrix(n) {
++  if (!Number.isFinite(n)) return '—';
++  if (n >= 1000) return `${Math.round(n / 1000)}k`;
++  return String(n);
++}
++
++/* Format date ISO "YYYY-MM-DD" → "Mar. 2025" (mois court FR). */
++function fmtMoisAnnee(iso) {
++  if (!iso) return '';
++  const d = new Date(iso);
++  if (Number.isNaN(d.getTime())) return '';
++  const mois = ['Janv.', 'Févr.', 'Mars', 'Avr.', 'Mai', 'Juin', 'Juil.', 'Août', 'Sept.', 'Oct.', 'Nov.', 'Déc.'];
++  return `${mois[d.getMonth()]} ${d.getFullYear()}`;
++}
++
++/* Construit un titre type "T3 70m² — 5 rue Duguesclin" à partir d'une transaction DVF. */
++function buildDvfTitle(tx) {
++  const typeLabel = tx.type === 'maison' ? 'Maison' : tx.type === 'appartement' ? 'T' : '';
++  const piecesLabel = tx.pieces && tx.type === 'appartement' ? `T${tx.pieces}` : tx.type === 'maison' ? 'Maison' : 'Bien';
++  const surfaceLabel = tx.surface ? `${Math.round(tx.surface)}m²` : '';
++  const adr = tx.adresse || '';
++  return `${piecesLabel} ${surfaceLabel} — ${adr}`.trim().replace(/\s+/g, ' ');
++}
++
++/* Transforme une transaction DVF brute (issue de /api/dvf) en "comparable card OTHERS". */
++function dvfTxToOther(tx, idx, targetCoords) {
++  const distance = (tx.lat && tx.lon && targetCoords)
++    ? haversineMeters(targetCoords, [tx.lat, tx.lon])
++    : null;
++  const distanceLabel = distance != null ? (distance >= 1000 ? `${(distance / 1000).toFixed(1)}km` : `${distance}m`) : '—';
++  const title = buildDvfTitle(tx);
++  const meta = `DVF · ${fmtPrix(tx.prix)}€ · ${tx.prixM2 ? tx.prixM2.toLocaleString('fr-FR') : '—'}€/m² · ${distanceLabel}${tx.date ? ' · ' + fmtMoisAnnee(tx.date) : ''}`;
++  // Heuristique scoring par défaut : la similarité dépend du type, distance, surface
++  // (on ne peut pas la calculer finement sans le bien cible complet — placeholder doux)
++  const sim = distance != null && distance < 500 ? 80 : distance < 1500 ? 65 : 50;
++  const simClass = sim >= 80 ? 'high' : sim >= 60 ? 'mid' : 'low';
++  // Données : DVF a ~30% (date, prix, surface, type) — pas de DPE, pas d'étage, pas de photos
++  const don = 30;
++  const donClass = 'low';
++  return {
++    id: `dvf-${idx}`,
++    title,
++    source: 'dvf',
++    meta,
++    simScore: `${sim}% sim.`,
++    simClass,
++    donScore: `${don}% données`,
++    donClass,
++    donCount: '5/19', // 5 champs DVF / 19 attendus
++    coords: tx.lat && tx.lon ? [tx.lat, tx.lon] : null,
++    // Méta brute conservée pour la sélection / drawer
++    _dvfRaw: tx,
++  };
++}
+ 
+ const SOURCE_COLORS = {
+   DVF: '#4a6cf7',
+@@ -1841,6 +1914,26 @@ const ALL_COMPS_COUNT = 47;
+ 
+ export default function Step3Comparables() {
+   const navigate = useNavigate();
++
++  /* Bien actif (Step1) — donne le citycode + coords pour brancher DVF live.
++   * Si pas de bien actif → fallback démo 12 rue des Lilas Lyon 3 (TARGET_COORDS). */
++  const activeBien = useMemo(() => getActiveBien(), []);
++  const targetCoords = useMemo(() => {
++    if (activeBien?.adresse?.coords && Array.isArray(activeBien.adresse.coords)) {
++      return activeBien.adresse.coords;
++    }
++    return TARGET_COORDS;
++  }, [activeBien]);
++  const targetLabel = activeBien?.adresse?.label || '12 rue des Lilas';
++  const targetCityLine = activeBien?.adresse
++    ? `${activeBien.adresse.postcode || ''} ${activeBien.adresse.city || ''}`.trim()
++    : '69003 Lyon 3ème';
++  const hasRealLocation = !!activeBien?.adresse?.citycode;
++
++  /* État DVF live : transactions, count total, état de chargement.
++   * { loading, transactions:[], count, error } */
++  const [dvfLive, setDvfLive] = useState({ loading: false, transactions: [], count: 0, error: null });
++
+   const [radius, setRadius] = useState(1000);
+   const [mapStyle, setMapStyle] = useState('plan');
+   // Délai max par source (en mois) — 3 ans (36 mois) pour "En cours" et "Portail", 8 ans (96 mois) pour DVF et Ideeri/Bien vendus
+@@ -1854,20 +1947,84 @@ export default function Step3Comparables() {
+   const tileLayerRef = useRef(null);
+   const drawLayerRef = useRef(null);
+   const radiusCircleRef = useRef(null);
++  // Layer dédiée aux markers comparables (selected + others). Permet de re-render
++  // dynamiquement les markers quand DVF live arrive sans tout recréer.
++  const compMarkersLayerRef = useRef(null);
+   const freehandPointsRef = useRef([]);
+   const freehandLineRef = useRef(null);
+   const isDrawingRef = useRef(false);
+   const addCompRef = useRef(null);
+ 
+   // Selected / Others comparable lists (dynamic)
+-  const [selected, setSelected] = useState(INITIAL_SELECTED);
+-  const [others, setOthers] = useState(INITIAL_OTHERS);
++  // ─── Mode démo (pas de bien actif) : garder les mocks Lyon 3 (4 selected + 4 others)
++  // ─── Mode live (bien actif avec citycode) : démarrer vide, peupler via DVF /api/dvf
++  const [selected, setSelected] = useState(() => (hasRealLocation ? [] : INITIAL_SELECTED));
++  const [others, setOthers] = useState(() => (hasRealLocation ? [] : INITIAL_OTHERS));
++
++  /* ─── Fetch DVF live (citycode présent) → peuple "others" avec transactions réelles ───
++   * Pattern identique à Step2 : appel /api/dvf?citycode=XXX&type=YYY (proxy Vercel),
++   * transformation transactions → shape comparable card OTHERS, override de l'état.
++   *
++   * Retombe gracieusement sur les mocks si :
++   *   - pas de citycode (mode démo, fallback Lyon 3)
++   *   - fetch échoue
++   *   - aucune transaction trouvée
++   */
++  useEffect(() => {
++    const citycode = activeBien?.adresse?.citycode;
++    if (!citycode) {
++      console.log('[DVF Step3] pas de citycode → mode démo (mocks Lyon 3)');
++      return;
++    }
++    let cancelled = false;
++    const type = activeBien?.bien?.type || activeBien?.type || '';
++    const url = `/api/dvf?citycode=${encodeURIComponent(citycode)}${type ? `&type=${encodeURIComponent(type)}` : ''}`;
++    console.log('[DVF Step3] fetch', url);
++    setDvfLive((s) => ({ ...s, loading: true, error: null }));
++    fetch(url)
++      .then((res) => res.json())
++      .then((data) => {
++        if (cancelled) return;
++        if (!data || !data.ok) {
++          console.warn('[DVF Step3] API NOK', data?.error || 'unknown');
++          setDvfLive({ loading: false, transactions: [], count: 0, error: data?.error || 'no data' });
++          return;
++        }
++        const txs = Array.isArray(data.transactions) ? data.transactions : [];
++        console.log('[DVF Step3] ✓', txs.length, 'transactions reçues sur', data.count || '—', 'total');
++        setDvfLive({
++          loading: false,
++          transactions: txs,
++          count: data.count || txs.length,
++          error: null,
++        });
++        // Transforme transactions → cards OTHERS et override l'état.
++        const liveOthers = txs
++          .map((tx, i) => dvfTxToOther(tx, i, targetCoords))
++          .filter((c) => c && c.coords); // exclut les tx sans géolocalisation
++        // Tri par distance croissante (les plus proches d'abord)
++        liveOthers.sort((a, b) => {
++          const da = haversineMeters(targetCoords, a.coords);
++          const db = haversineMeters(targetCoords, b.coords);
++          return (da ?? 1e9) - (db ?? 1e9);
++        });
++        setOthers(liveOthers);
++      })
++      .catch((err) => {
++        if (cancelled) return;
++        console.warn('[DVF Step3] fetch error', err.message);
++        setDvfLive({ loading: false, transactions: [], count: 0, error: err.message });
++      });
++    return () => { cancelled = true; };
++  }, [activeBien, targetCoords]);
+ 
+   // Drawer pour afficher le d\u00e9tail d'un comparable
+   const [drawerComp, setDrawerComp] = useState(null);
+ 
+-  // Pond\u00e9ration manuelle des comparables (somme = 100, normalis\u00e9e auto)
++  // Pond\u00e9ration manuelle des comparables (somme = 100, normalis\u00e9e auto).
++  // En mode live (selected vide au start), reste vide jusqu'à ce que l'user ajoute des comparables.
+   const [weights, setWeights] = useState(() => {
++    if (hasRealLocation) return {};
+     const eq = Math.round(100 / Math.max(INITIAL_SELECTED.length, 1));
+     const obj = {};
+     INITIAL_SELECTED.forEach((c, i) => {
+@@ -1949,16 +2106,23 @@ export default function Step3Comparables() {
+     const sourceLabel = comp.source === 'dvf' ? 'DVF' : comp.source === 'ideeri' ? 'Ideeri vendu' : comp.source === 'encours' ? 'En cours' : 'Portail';
+     const simVal = parseInt(comp.simScore) || 70;
+     const donVal = parseInt(comp.donScore) || 50;
++    // Adresse "humaine" : DVF live → adresse réelle ; sinon mock Lyon 3ème
++    const liveAddr = comp._dvfRaw?.commune
++      ? `${comp._dvfRaw.cp || ''} ${comp._dvfRaw.commune}`.trim()
++      : null;
+     // Build a full selected-format object
+     const promoted = {
+       id: comp.id,
+       title: comp.title,
+-      addr: 'Lyon 3\u00e8me',
++      addr: liveAddr || 'Lyon 3\u00e8me',
+       source: comp.source,
+       sourceLabel,
+       prix: parseInt(prixNum).toLocaleString('fr-FR').replace(/,/g, ' ').replace(/\./g, ' '),
+       prixM2: prixM2Str.replace('/m\u00b2', '').replace('\u20ac', '').trim(),
+       distance: distanceStr,
++      // Préserve les coords (DVF live a tx.lat/tx.lon ; mocks utilisent COMP_COORDS)
++      coords: comp.coords || COMP_COORDS[comp.id],
++      _dvfRaw: comp._dvfRaw,
+       venteLabel: comp.source === 'encours' ? '\u2014 En cours de vente' : parseInt(prixNum).toLocaleString('fr-FR').replace(/,/g, ' ').replace(/\./g, ' ') + ' \u20ac',
+       venteDetail: comp.source === 'dvf' ? 'Transaction r\u00e9elle DVF' : 'Prix affich\u00e9',
+       venteNa: comp.source === 'encours',
+@@ -2001,6 +2165,9 @@ export default function Step3Comparables() {
+       donClass: comp.donnees >= 80 ? 'high' : comp.donnees >= 40 ? 'mid' : 'low',
+       donCount: comp.donCount,
+       portalName: comp.portalName,
++      // Préserve coords + raw DVF lors du retour en "Autres"
++      coords: comp.coords || COMP_COORDS[comp.id],
++      _dvfRaw: comp._dvfRaw,
+     };
+     setSelected(prev => prev.filter(c => c.id !== compId));
+     setOthers(prev => [...prev, demoted]);
+@@ -2044,8 +2211,20 @@ export default function Step3Comparables() {
+   const addExtraFilter = (key) => setExtraFilters(prev => [...prev, key]);
+   const removeExtraFilter = (key) => setExtraFilters(prev => prev.filter(k => k !== key));
+ 
+-  // Simulated dynamic bien count based on filters
++  // Bien count : en mode live (DVF), on s'appuie sur le count réel de transactions.
++  // En mode démo (pas de bien actif), on simule via les filtres pour garder l'UX initiale.
+   const computeFilteredCount = () => {
++    // Mode live : count réel de transactions DVF sur la commune (capé pour cohérence UI)
++    if (hasRealLocation && dvfLive && dvfLive.count > 0) {
++      // Approximation simple : on prend le total transactions et on applique les
++      // filtres de sources (DVF / Ideeri / etc.). En l'absence de Ideeri/Encours/Portail
++      // live, on n'affiche que les DVF (les autres sources restent à 0 en live).
++      const sourcesOn = [sourceDvf, sourceIdeeri, sourceEncours, sourcePortail].filter(Boolean).length;
++      // Si la source DVF est désactivée, count = 0
++      if (!sourceDvf) return 0;
++      // Sinon le count = nombre de transactions DVF (les autres sources sont absentes en live)
++      return Math.max(others.length, 1);
++    }
+     let count = ALL_COMPS_COUNT;
+     // Radius effect
+     if (radius < 500) count = Math.round(count * 0.3);
+@@ -2102,13 +2281,13 @@ export default function Step3Comparables() {
+     if (mapInstanceRef.current) return;
+     if (!L || !mapRef.current) return;
+ 
+-    const map = L.map(mapRef.current, { zoomControl: false, attributionControl: false }).setView(TARGET_COORDS, 15);
++    const map = L.map(mapRef.current, { zoomControl: false, attributionControl: false }).setView(targetCoords, 15);
+     const tile = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+     tileLayerRef.current = tile;
+     L.control.zoom({ position: 'topleft' }).addTo(map);
+ 
+     // Radius circle (will be hidden when user draws a custom zone)
+-    const radiusCircle = L.circle(TARGET_COORDS, { radius: 1000, color: '#46B962', weight: 2, opacity: 0.6, fillColor: '#46B962', fillOpacity: 0.06, dashArray: '8, 6' }).addTo(map);
++    const radiusCircle = L.circle(targetCoords, { radius: 1000, color: '#46B962', weight: 2, opacity: 0.6, fillColor: '#46B962', fillOpacity: 0.06, dashArray: '8, 6' }).addTo(map);
+     radiusCircleRef.current = radiusCircle;
+ 
+     // Target marker — large, distinctive house icon with pulsing ring
+@@ -2124,71 +2303,20 @@ export default function Step3Comparables() {
+       iconSize: [40, 40],
+       iconAnchor: [20, 20],
+     });
+-    L.marker(TARGET_COORDS, { icon: targetIcon, zIndexOffset: 1000 }).addTo(map).bindPopup(
++    L.marker(targetCoords, { icon: targetIcon, zIndexOffset: 1000 }).addTo(map).bindPopup(
+       `<div style="text-align:center;padding:4px 0">
+-        <div style="font-weight:700;font-size:14px;color:#333;margin-bottom:4px">12 rue des Lilas</div>
+-        <div style="font-size:12px;color:#666;margin-bottom:6px">69003 Lyon 3ème</div>
++        <div style="font-weight:700;font-size:14px;color:#333;margin-bottom:4px">${(targetLabel || '').replace(/</g, '&lt;')}</div>
++        <div style="font-size:12px;color:#666;margin-bottom:6px">${(targetCityLine || '').replace(/</g, '&lt;')}</div>
+         <div style="display:inline-block;background:#46B962;color:white;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600">Bien cible</div>
+       </div>`
+     );
+ 
+-    // Add comparable markers — SELECTED (large, prominent)
+-    INITIAL_SELECTED.forEach((comp) => {
+-      const coords = COMP_COORDS[comp.id];
+-      if (!coords) return;
+-      const color = sourceMarkerColor[comp.source] || '#999';
+-      const icon = L.divIcon({
+-        className: 'comp-marker-icon',
+-        html: `<div style="width:22px;height:22px;background:${color};border:3px solid white;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.35);cursor:pointer;position:relative">
+-          <div style="position:absolute;inset:-4px;border:2px solid ${color};border-radius:50%;opacity:0.25"></div>
+-        </div>`,
+-        iconSize: [22, 22],
+-        iconAnchor: [11, 11],
+-      });
+-      const simClass = comp.similarite >= 80 ? '#46B962' : comp.similarite >= 60 ? '#d97706' : '#e74c3c';
+-      L.marker(coords, { icon, zIndexOffset: 500 }).addTo(map).bindPopup(
+-        `<div style="min-width:220px;padding:2px 0">
+-          <div style="font-weight:700;font-size:13px;margin-bottom:3px">${comp.title}</div>
+-          <div style="font-size:11px;color:#666;margin-bottom:6px">${comp.addr} · ${comp.distance}</div>
+-          <div style="display:flex;gap:12px;margin-bottom:6px">
+-            <div><div style="font-size:10px;color:#999">Prix</div><div style="font-weight:700;font-size:13px">${comp.prix} €</div></div>
+-            <div><div style="font-size:10px;color:#999">Prix/m²</div><div style="font-weight:600;font-size:13px">${comp.prixM2} €</div></div>
+-          </div>
+-          <div style="display:flex;gap:8px;margin-bottom:6px">
+-            <span style="background:${simClass}22;color:${simClass};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">${comp.similarite}% sim.</span>
+-            <span style="background:#4a6cf722;color:#4a6cf7;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">${comp.donnees}% données</span>
+-          </div>
+-          <div style="display:inline-block;background:#46B962;color:white;padding:3px 10px;border-radius:10px;font-size:10px;font-weight:600">✓ Sélectionné</div>
+-        </div>`
+-      );
+-    });
+-
+-    // Add comparable markers — OTHERS (medium, with rich popup + Ajouter button)
+-    INITIAL_OTHERS.forEach((comp) => {
+-      const coords = COMP_COORDS[comp.id];
+-      if (!coords) return;
+-      const color = sourceMarkerColor[comp.source] || '#999';
+-      const icon = L.divIcon({
+-        className: 'comp-marker-icon',
+-        html: `<div style="width:16px;height:16px;background:${color};border:2.5px solid white;border-radius:50%;box-shadow:0 1px 6px rgba(0,0,0,0.25);cursor:pointer;opacity:0.85"></div>`,
+-        iconSize: [16, 16],
+-        iconAnchor: [8, 8],
+-      });
+-      // Parse meta for popup details
+-      const metaParts = comp.meta.split(' · ');
+-      const simColor = comp.simClass === 'high' ? '#46B962' : comp.simClass === 'mid' ? '#d97706' : '#e74c3c';
+-      L.marker(coords, { icon }).addTo(map).bindPopup(
+-        `<div style="min-width:220px;padding:2px 0">
+-          <div style="font-weight:700;font-size:13px;margin-bottom:3px">${comp.title}</div>
+-          <div style="font-size:11px;color:#666;margin-bottom:6px">${metaParts.join(' · ')}</div>
+-          <div style="display:flex;gap:8px;margin-bottom:8px">
+-            <span style="background:${simColor}22;color:${simColor};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">${comp.simScore}</span>
+-            <span style="background:#88888822;color:#666;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">${comp.donScore}</span>
+-          </div>
+-          <button onclick="window.__addComp&amp;&amp;window.__addComp('${comp.id}');this.textContent='✓ Ajouté';this.style.background='#46B962';this.style.color='white';this.style.borderColor='#46B962';this.disabled=true" style="width:100%;padding:6px 0;background:white;border:1.5px solid #46B962;color:#46B962;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:Open Sans,sans-serif;transition:all 0.15s">+ Ajouter aux comparables</button>
+-        </div>`
+-      );
+-    });
++    // Layer dédiée aux markers comparables — vide à l'init, peuplée par
++    // un useEffect séparé qui réagit aux changements de selected/others
++    // (inclut les transactions DVF live arrivant après l'init).
++    const compMarkers = new L.FeatureGroup();
++    map.addLayer(compMarkers);
++    compMarkersLayerRef.current = compMarkers;
+ 
+     // Drawing layer for user-drawn zones
+     const drawnItems = new L.FeatureGroup();
+@@ -2255,6 +2383,85 @@ export default function Step3Comparables() {
+     tile.setUrl(urls[mapStyle] || urls.plan);
+   }, [mapStyle]);
+ 
++  /* ─── Render markers comparables (selected + others) ──────────────────────
++   * Effect dynamique — réagit aux changements de selected/others (par ex.
++   * arrivée des transactions DVF live après fetch). Vide la layer puis
++   * redessine tous les markers.
++   *
++   * Coordonnées : `comp.coords` en priorité (DVF live a lat/lon), sinon
++   * fallback `COMP_COORDS[comp.id]` (mocks Lyon 3). */
++  useEffect(() => {
++    const map = mapInstanceRef.current;
++    const layer = compMarkersLayerRef.current;
++    if (!map || !layer) return;
++    layer.clearLayers();
++
++    // SELECTED — markers prominents (22px, ring autour)
++    selected.forEach((comp) => {
++      const coords = comp.coords || COMP_COORDS[comp.id];
++      if (!coords) return;
++      const color = sourceMarkerColor[comp.source] || '#999';
++      const icon = L.divIcon({
++        className: 'comp-marker-icon',
++        html: `<div style="width:22px;height:22px;background:${color};border:3px solid white;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.35);cursor:pointer;position:relative">
++          <div style="position:absolute;inset:-4px;border:2px solid ${color};border-radius:50%;opacity:0.25"></div>
++        </div>`,
++        iconSize: [22, 22],
++        iconAnchor: [11, 11],
++      });
++      const sim = comp.similarite || 0;
++      const simColor = sim >= 80 ? '#46B962' : sim >= 60 ? '#d97706' : '#e74c3c';
++      // Le bloc popup gère deux shapes (mock riche INITIAL_SELECTED + DVF live minimal)
++      const titleSafe = (comp.title || '').replace(/</g, '&lt;');
++      const addrSafe = (comp.addr || comp._dvfRaw?.adresse || '').replace(/</g, '&lt;');
++      const distLabel = comp.distance || '';
++      const prixLabel = comp.prix || (comp._dvfRaw?.prix ? `${comp._dvfRaw.prix.toLocaleString('fr-FR')}` : '—');
++      const prixM2Label = comp.prixM2 || (comp._dvfRaw?.prixM2 ? `${comp._dvfRaw.prixM2.toLocaleString('fr-FR')}` : '—');
++      L.marker(coords, { icon, zIndexOffset: 500 }).addTo(layer).bindPopup(
++        `<div style="min-width:220px;padding:2px 0">
++          <div style="font-weight:700;font-size:13px;margin-bottom:3px">${titleSafe}</div>
++          <div style="font-size:11px;color:#666;margin-bottom:6px">${addrSafe}${distLabel ? ' · ' + distLabel : ''}</div>
++          <div style="display:flex;gap:12px;margin-bottom:6px">
++            <div><div style="font-size:10px;color:#999">Prix</div><div style="font-weight:700;font-size:13px">${prixLabel} €</div></div>
++            <div><div style="font-size:10px;color:#999">Prix/m²</div><div style="font-weight:600;font-size:13px">${prixM2Label} €</div></div>
++          </div>
++          ${sim ? `<div style="display:flex;gap:8px;margin-bottom:6px">
++            <span style="background:${simColor}22;color:${simColor};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">${sim}% sim.</span>
++            ${comp.donnees ? `<span style="background:#4a6cf722;color:#4a6cf7;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">${comp.donnees}% données</span>` : ''}
++          </div>` : ''}
++          <div style="display:inline-block;background:#46B962;color:white;padding:3px 10px;border-radius:10px;font-size:10px;font-weight:600">✓ Sélectionné</div>
++        </div>`
++      );
++    });
++
++    // OTHERS — markers medium (16px) avec popup + bouton "Ajouter"
++    others.forEach((comp) => {
++      const coords = comp.coords || COMP_COORDS[comp.id];
++      if (!coords) return;
++      const color = sourceMarkerColor[comp.source] || '#999';
++      const icon = L.divIcon({
++        className: 'comp-marker-icon',
++        html: `<div style="width:16px;height:16px;background:${color};border:2.5px solid white;border-radius:50%;box-shadow:0 1px 6px rgba(0,0,0,0.25);cursor:pointer;opacity:0.85"></div>`,
++        iconSize: [16, 16],
++        iconAnchor: [8, 8],
++      });
++      const metaParts = (comp.meta || '').split(' · ');
++      const simColor = comp.simClass === 'high' ? '#46B962' : comp.simClass === 'mid' ? '#d97706' : '#e74c3c';
++      const titleSafe = (comp.title || '').replace(/</g, '&lt;');
++      L.marker(coords, { icon }).addTo(layer).bindPopup(
++        `<div style="min-width:220px;padding:2px 0">
++          <div style="font-weight:700;font-size:13px;margin-bottom:3px">${titleSafe}</div>
++          <div style="font-size:11px;color:#666;margin-bottom:6px">${metaParts.join(' · ')}</div>
++          <div style="display:flex;gap:8px;margin-bottom:8px">
++            <span style="background:${simColor}22;color:${simColor};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">${comp.simScore || ''}</span>
++            <span style="background:#88888822;color:#666;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">${comp.donScore || ''}</span>
++          </div>
++          <button onclick="window.__addComp&amp;&amp;window.__addComp('${comp.id}');this.textContent='✓ Ajouté';this.style.background='#46B962';this.style.color='white';this.style.borderColor='#46B962';this.disabled=true" style="width:100%;padding:6px 0;background:white;border:1.5px solid #46B962;color:#46B962;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:Open Sans,sans-serif;transition:all 0.15s">+ Ajouter aux comparables</button>
++        </div>`
++      );
++    });
++  }, [selected, others]);
++
+   // Toggle freehand drawing mode
+   const toggleDrawMode = () => {
+     const next = !drawMode;

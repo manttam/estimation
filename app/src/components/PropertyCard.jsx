@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
-import { property } from '../data/propertyData';
+import { property as propertyDemo } from '../data/propertyData';
+import { getActiveBienAsProperty } from '../utils/activeBien';
 
 const tabs = [
   'Dashboard',
@@ -165,6 +166,8 @@ const styles = {
 
 export default function PropertyCard() {
   const navigate = useNavigate();
+  // Bien actif (saisi via /nouveau-bien) -> override le bien demo statique.
+  const property = getActiveBienAsProperty() || propertyDemo;
 
   return (
     <div style={styles.wrapper}>

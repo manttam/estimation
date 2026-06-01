@@ -142,6 +142,15 @@ export default function Layout() {
       <header style={styles.topbar}>
         <div style={styles.topbarLogo} />
         <div style={styles.topbarRight}>
+          <button
+            style={styles.logoutBtn}
+            onClick={() => navigate('/reglages')}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#ccc'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e5e5e5'; }}
+            title="Identités du rapport (mandant / agence / agent)"
+          >
+            ⚙ Réglages
+          </button>
           <div style={styles.avatar}>MM</div>
           <div>
             <div style={styles.userName}>Manon MATRAT</div>
