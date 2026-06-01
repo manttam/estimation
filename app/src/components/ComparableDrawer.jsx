@@ -73,6 +73,68 @@ const drawerCss = `
   .drawer-close:hover { background: #ececec; color: #1a1a1a; }
   .drawer-body { padding: 18px 22px 32px; }
   .drawer-section { margin-bottom: 22px; }
+  /* Poids dans l'estimation (uniquement si bien sélectionné) */
+  .drawer-weight-block {
+    background: #f7f9ff;
+    border: 1px solid #dde5ff;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 22px;
+  }
+  .drawer-weight-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 8px;
+    gap: 8px;
+  }
+  .drawer-weight-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #2a3f8a;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .drawer-weight-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: #2a3f8a;
+  }
+  .drawer-weight-slider {
+    width: 100%;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: 3px;
+    background: #d4dcf3;
+    outline: none;
+  }
+  .drawer-weight-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #4a6cf7;
+    cursor: pointer;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 4px rgba(74, 108, 247, 0.3);
+  }
+  .drawer-weight-slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #4a6cf7;
+    cursor: pointer;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 4px rgba(74, 108, 247, 0.3);
+  }
+  .drawer-weight-hint {
+    font-size: 11px;
+    color: #6b7aa8;
+    margin-top: 6px;
+    line-height: 1.4;
+  }
   .drawer-section-title {
     font-size: 11px;
     font-weight: 600;
@@ -572,6 +634,40 @@ const drawerCss = `
     color: #666;
     z-index: 500;
   }
+  /* Toggle Satellite / Cadastre — pills en haut-gauche de la carte */
+  .parcel-map-toggle {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 600;
+    display: flex;
+    gap: 2px;
+    background: rgba(255, 255, 255, 0.96);
+    border-radius: 8px;
+    padding: 3px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+  .parcel-toggle-btn {
+    background: transparent;
+    border: none;
+    padding: 6px 11px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #555;
+    cursor: pointer;
+    border-radius: 6px;
+    font-family: inherit;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .parcel-toggle-btn:hover { background: #f0f0f0; color: #1a1a1a; }
+  .parcel-toggle-btn.active {
+    background: #4a6cf7;
+    color: #fff;
+  }
+  .parcel-toggle-btn.active:hover { background: #3855d5; }
 `;
 
 function PhotoCarousel({ photos }) {
@@ -741,33 +837,49 @@ function CriteresPortail({ criteres }) {
 function ParcelMap({ coords, addr, parcelleRef }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  const satelliteLayerRef = useRef(null);
+  const cadastreLayerRef = useRef(null);
+  const osmLayerRef = useRef(null);
+  // Mode par défaut : Satellite (utile pour visualiser un bien DVF sans photos)
+  const [mode, setMode] = useState('satellite');
 
+  // Init carte + layers (une seule fois)
   useEffect(() => {
     if (!coords || !mapRef.current) return;
     if (mapInstanceRef.current) return;
+
     const map = L.map(mapRef.current, {
-      zoomControl: false,
+      zoomControl: true,
       attributionControl: false,
       dragging: true,
       scrollWheelZoom: false,
     }).setView(coords, 18);
     mapInstanceRef.current = map;
 
-    // Tile cadastre IGN (parcelles + b\u00e2ti) — service public, pas de cl\u00e9
-    L.tileLayer(
+    // Layer Satellite — IGN BD ORTHO (photos aériennes, service public, pas de clé)
+    satelliteLayerRef.current = L.tileLayer(
+      'https://data.geopf.fr/wmts?REQUEST=GetTile&SERVICE=WMTS&VERSION=1.0.0&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
+      { maxZoom: 19 }
+    );
+
+    // Layer Cadastre IGN (parcelles + bâti)
+    cadastreLayerRef.current = L.tileLayer(
       'https://data.geopf.fr/wmts?REQUEST=GetTile&SERVICE=WMTS&VERSION=1.0.0&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/png&LAYER=CADASTRALPARCELS.PARCELLAIRE_EXPRESS&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
       { maxZoom: 19, opacity: 0.85 }
-    ).addTo(map);
+    );
 
-    // Fond OSM en dessous pour le contexte
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
+    // Fond OSM (utilisé en arrière-plan du cadastre uniquement)
+    osmLayerRef.current = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
       maxZoom: 19,
-    }).addTo(map).bringToBack();
+    });
 
-    // Marker au centre de la parcelle
+    // Mode initial = satellite
+    satelliteLayerRef.current.addTo(map);
+
+    // Marker bien centré sur l'adresse (style cohérent quel que soit le fond)
     const icon = L.divIcon({
       className: 'parcel-marker',
-      html: '<div style="width:18px;height:18px;border-radius:50%;background:#4a6cf7;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.35)"></div>',
+      html: '<div style="width:18px;height:18px;border-radius:50%;background:#fff;border:3px solid #4a6cf7;box-shadow:0 2px 8px rgba(0,0,0,0.5)"></div>',
       iconSize: [18, 18],
       iconAnchor: [9, 9],
     });
@@ -781,17 +893,60 @@ function ParcelMap({ coords, addr, parcelleRef }) {
     };
   }, [coords]);
 
+  // Switch des layers quand l'utilisateur change de mode
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    const sat = satelliteLayerRef.current;
+    const cad = cadastreLayerRef.current;
+    const osm = osmLayerRef.current;
+
+    if (mode === 'satellite') {
+      if (cad && map.hasLayer(cad)) map.removeLayer(cad);
+      if (osm && map.hasLayer(osm)) map.removeLayer(osm);
+      if (sat && !map.hasLayer(sat)) sat.addTo(map);
+    } else {
+      // cadastre : OSM en fond + parcelles en overlay
+      if (sat && map.hasLayer(sat)) map.removeLayer(sat);
+      if (osm && !map.hasLayer(osm)) osm.addTo(map).bringToBack();
+      if (cad && !map.hasLayer(cad)) cad.addTo(map);
+    }
+  }, [mode]);
+
   if (!coords) return null;
   return (
     <div className="parcel-map-wrap">
       <div ref={mapRef} className="parcel-map" />
-      {parcelleRef && (
+
+      {/* Toggle Satellite / Cadastre */}
+      <div className="parcel-map-toggle" role="tablist" aria-label="Vue de la carte">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === 'satellite'}
+          className={`parcel-toggle-btn${mode === 'satellite' ? ' active' : ''}`}
+          onClick={() => setMode('satellite')}
+        >
+          🛰 Satellite
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === 'cadastre'}
+          className={`parcel-toggle-btn${mode === 'cadastre' ? ' active' : ''}`}
+          onClick={() => setMode('cadastre')}
+        >
+          📐 Cadastre
+        </button>
+      </div>
+
+      {parcelleRef && mode === 'cadastre' && (
         <div className="parcel-ref">
           📍 Parcelle {parcelleRef}
         </div>
       )}
       <div className="parcel-overlay-attribution">
-        Cadastre IGN / OSM
+        {mode === 'satellite' ? 'IGN BD ORTHO' : 'Cadastre IGN / OSM'}
       </div>
     </div>
   );
@@ -921,7 +1076,7 @@ function PriceEvolution({ historique, joursEnCommercialisation, source }) {
   );
 }
 
-export default function ComparableDrawer({ comp, onClose }) {
+export default function ComparableDrawer({ comp, onClose, isSelected = false, weight, onWeightChange }) {
   // Close on Escape key
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -932,6 +1087,7 @@ export default function ComparableDrawer({ comp, onClose }) {
   if (!comp) return null;
   const isDvf = comp.source === 'dvf';
   const isPortail = comp.source === 'portail';
+  const showWeight = isSelected && typeof weight === 'number' && typeof onWeightChange === 'function';
 
   return (
     <div className="comp-drawer-overlay" onClick={onClose}>
@@ -951,6 +1107,28 @@ export default function ComparableDrawer({ comp, onClose }) {
         </header>
 
         <div className="drawer-body">
+          {/* Poids dans l'estimation — affich\u00e9 uniquement si le bien est dans le panier */}
+          {showWeight && (
+            <div className="drawer-weight-block">
+              <div className="drawer-weight-header">
+                <span className="drawer-weight-label">Poids dans l&rsquo;estimation</span>
+                <span className="drawer-weight-value">{weight}%</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value={weight}
+                onChange={(e) => onWeightChange(comp.id, Number(e.target.value))}
+                className="drawer-weight-slider"
+              />
+              <div className="drawer-weight-hint">
+                Ajustez l&rsquo;influence de ce comparable dans le calcul du prix final.
+              </div>
+            </div>
+          )}
+
           {/* Photos */}
           {comp.photos && comp.photos.length > 0 ? (
             <div className="drawer-section">
@@ -958,7 +1136,7 @@ export default function ComparableDrawer({ comp, onClose }) {
             </div>
           ) : isDvf && comp.coords ? (
             <div className="drawer-section">
-              <h3 className="drawer-section-title">Vue cadastrale de la parcelle</h3>
+              <h3 className="drawer-section-title">Localisation du bien</h3>
               <ParcelMap coords={comp.coords} addr={comp.addr} parcelleRef={comp.parcelleRef} />
             </div>
           ) : isDvf ? (
