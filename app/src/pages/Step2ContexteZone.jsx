@@ -463,41 +463,58 @@ const cssStyles = `
     100% { transform: rotate(45deg) scale(1); opacity: 1; }
   }
 
-  /* Rayon — ligne compacte : label + chips presets */
+  /* Rayon — ligne compacte : label + curseur + valeur */
   .step2-page .mc-radius-row {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
   }
   .step2-page .mc-radius-row .mc-section-title {
     flex-shrink: 0;
   }
-  .step2-page .mc-radius-chips {
-    display: flex;
-    gap: 6px;
-    flex: 1;
-  }
-  .step2-page .mc-chip {
-    flex: 1;
-    padding: 5px 0;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: #fff;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    color: var(--muted);
-    font-family: var(--font);
-    transition: all 0.15s;
-  }
-  .step2-page .mc-chip:hover {
-    border-color: var(--green);
+  .step2-page .mc-radius-value {
+    flex-shrink: 0;
+    min-width: 52px;
+    text-align: right;
+    font-size: 13px;
+    font-weight: 700;
     color: var(--green);
   }
-  .step2-page .mc-chip.active {
-    background: var(--green);
-    color: #fff;
-    border-color: var(--green);
+  /* Curseur natif stylé : piste avec remplissage vert + thumb vert */
+  .step2-page .mc-range {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(
+      to right,
+      var(--green) 0%,
+      var(--green) calc(var(--rad-pct, 0) * 1%),
+      #ececec calc(var(--rad-pct, 0) * 1%),
+      #ececec 100%
+    );
+    cursor: pointer;
+    margin: 0;
+  }
+  .step2-page .mc-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.25), inset 0 0 0 3px var(--green);
+    cursor: pointer;
+  }
+  .step2-page .mc-range::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border: none;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.25), inset 0 0 0 3px var(--green);
+    cursor: pointer;
   }
 
   /* Toolbar couches & sources */
@@ -1291,13 +1308,6 @@ export default function Step2ContexteZone() {
     );
   }, [realPoi, risques, activeBien]);
 
-  // Radius presets → meters
-  const RADIUS_PRESETS = [
-    { label: '500m', value: 500 },
-    { label: '1km', value: 1000 },
-    { label: '2km', value: 2000 },
-  ];
-
   const setRadius = (meters) => {
     setRadiusMeters(meters);
     if (circleRef.current) {
@@ -1305,8 +1315,9 @@ export default function Step2ContexteZone() {
     }
     const map = mapInstanceRef.current;
     if (map) {
-      const zoom = meters <= 500 ? 16 : meters <= 1000 ? 15 : 14;
-      map.setView(targetCoords, zoom, { animate: true });
+      const zoom = meters <= 500 ? 16 : meters <= 1500 ? 15 : 14;
+      // Pas d'animation : le slider est continu, on évite les à-coups au drag
+      if (map.getZoom() !== zoom) map.setZoom(zoom, { animate: false });
     }
   };
 
@@ -1661,20 +1672,25 @@ export default function Step2ContexteZone() {
             <div ref={mapRef} className="map-container" id="leaflet-map-zone" />
           </div>
           <div className="map-controls">
-            {/* Rayon — presets compacts en ligne */}
+            {/* Rayon — curseur compact en ligne */}
             <div className="mc-section mc-radius-row">
               <span className="mc-section-title">Rayon</span>
-              <div className="mc-radius-chips">
-                {RADIUS_PRESETS.map((r) => (
-                  <button
-                    key={r.label}
-                    className={`mc-chip ${radiusMeters === r.value ? 'active' : ''}`}
-                    onClick={() => setRadius(r.value)}
-                  >
-                    {r.label}
-                  </button>
-                ))}
-              </div>
+              <input
+                type="range"
+                className="mc-range"
+                min={100}
+                max={3000}
+                step={50}
+                value={radiusMeters}
+                onChange={(e) => setRadius(parseInt(e.target.value, 10))}
+                style={{ '--rad-pct': Math.round(((radiusMeters - 100) / (3000 - 100)) * 100) }}
+                aria-label="Rayon d'analyse en mètres"
+              />
+              <span className="mc-radius-value">
+                {radiusMeters >= 1000
+                  ? `${(radiusMeters / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} km`
+                  : `${radiusMeters} m`}
+              </span>
             </div>
 
             {/* Couches & sources — cadastre, PLU, statut */}
