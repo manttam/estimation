@@ -760,17 +760,6 @@ const cssStyles = `
     font-weight: 600;
     margin-top: 6px;
   }
-  .custom-input {
-    width: 100%;
-    margin-top: 10px;
-    padding: 8px 12px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    font-size: 13px;
-    font-family: 'Courier New', monospace;
-    box-sizing: border-box;
-    outline: none;
-  }
   /* ---- Actions Card ---- */
   .actions-card {
     display: flex;
@@ -1022,7 +1011,6 @@ export default function Step5AvisValeur() {
   const [selectedStrategy, setSelectedStrategy] = useState(1);
   const [pointsForts, setPointsForts] = useState(autoPoints.forts);
   const [pointsVigilance, setPointsVigilance] = useState(autoPoints.vigilance);
-  const [customPrice, setCustomPrice] = useState(String(priceRef.prixMedian));
 
   // Avis du vendeur : zone de texte libre saisie manuellement par l'agent
   // pendant le RDV pour capter la perception / le ressenti du propriétaire
@@ -1095,10 +1083,12 @@ export default function Step5AvisValeur() {
   useEffect(() => {
     setReportState({ pointsVigilance });
   }, [pointsVigilance]);
+  // Le prix retenu (persiste pour CompteRendu / Step4) suit le curseur de prix.
   useEffect(() => {
-    const n = Number(customPrice);
-    if (Number.isFinite(n) && n > 0) setReportState({ customPrice: n });
-  }, [customPrice]);
+    if (Number.isFinite(sliderValue) && sliderValue > 0) {
+      setReportState({ customPrice: sliderValue });
+    }
+  }, [sliderValue]);
   useEffect(() => {
     setReportState({ selectedStrategy });
   }, [selectedStrategy]);
@@ -1318,26 +1308,29 @@ export default function Step5AvisValeur() {
   }
 
   /* ---- Strategy pricing ----
-   * En mode démo : valeurs fixes du wireframe.
-   * En mode live : dérivées de priceRef.
-   *   - Agressif = prixHaut (haut de fourchette)
-   *   - Marché   = prixMedian (recommandé)
-   *   - Prudent  = prixBas (bas de fourchette)
+   * Les prix des 3 strategies sont alignes sur le curseur : la valeur du
+   * curseur est le prix "Marche" (recommande), Agressif = +7 % au-dessus,
+   * Prudent = -7 % en dessous (arrondi au millier). Tout se recalcule en
+   * continu quand l'agent deplace le curseur de prix.
    */
   const strategies = useMemo(() => {
-    if (!hasRealLocation) {
-      return [
-        { label: 'Agressif', prix: 310000, description: 'Haut de fourchette. Capitalise sur la tension forte.', duration: 'Dur\u00E9e estim\u00E9e: 35-50 jours' },
-        { label: 'March\u00E9', prix: 300000, description: '\u00C9quilibre valorisation et liquidit\u00E9.', duration: 'Dur\u00E9e estim\u00E9e: 40-55 jours', recommended: true },
-        { label: 'Prudent', prix: 285000, description: 'Bas de fourchette. Maximise la rapidit\u00E9.', duration: 'Dur\u00E9e estim\u00E9e: 25-35 jours' },
-      ];
-    }
+    const base = sliderValue;
+    const round1k = (n) => Math.round(n / 1000) * 1000;
+    const descAggr = hasRealLocation
+      ? 'Au-dessus du prix retenu. Pour test d\u2019app\u00e9tence avec marge de n\u00e9gociation.'
+      : 'Au-dessus du prix retenu. Capitalise sur la tension forte.';
+    const descMarche = hasRealLocation
+      ? '\u00c9quilibre valorisation / liquidit\u00e9. Aligne le bien sur le prix retenu.'
+      : '\u00c9quilibre valorisation et liquidit\u00e9.';
+    const descPrudent = hasRealLocation
+      ? 'En dessous du prix retenu. Maximise la rapidit\u00e9 de transaction.'
+      : 'En dessous du prix retenu. Maximise la rapidit\u00e9.';
     return [
-      { label: 'Agressif', prix: priceRef.prixHaut, description: 'Haut de fourchette. Pour test d\u2019app\u00e9tence avec marge de n\u00e9gociation.', duration: 'Dur\u00e9e estim\u00e9e : 35-50 jours' },
-      { label: 'March\u00e9', prix: priceRef.prixMedian, description: '\u00c9quilibre valorisation / liquidit\u00e9. Aligne le bien sur la m\u00e9diane march\u00e9.', duration: 'Dur\u00e9e estim\u00e9e : 40-55 jours', recommended: true },
-      { label: 'Prudent', prix: priceRef.prixBas, description: 'Bas de fourchette. Maximise la rapidit\u00e9 de transaction.', duration: 'Dur\u00e9e estim\u00e9e : 25-35 jours' },
+      { label: 'Agressif', prix: round1k(base * 1.07), description: descAggr, duration: 'Dur\u00e9e estim\u00e9e : 35-50 jours' },
+      { label: 'March\u00e9', prix: round1k(base), description: descMarche, duration: 'Dur\u00e9e estim\u00e9e : 40-55 jours', recommended: true },
+      { label: 'Prudent', prix: round1k(base * 0.93), description: descPrudent, duration: 'Dur\u00e9e estim\u00e9e : 25-35 jours' },
     ];
-  }, [hasRealLocation, priceRef]);
+  }, [hasRealLocation, sliderValue]);
 
   // Indice de confiance dynamique en mode live :
   // moyenne pond\u00e9r\u00e9e entre la compl\u00e9tude du bien (10 champs cl\u00e9s)
@@ -1551,7 +1544,9 @@ export default function Step5AvisValeur() {
                   className={`strategy-option${isSelected ? ' selected' : ''}`}
                   onClick={() => {
                     setSelectedStrategy(i);
-                    setCustomPrice(String(s.prix));
+                    // Aligner le curseur sur le prix affiche de la strategie choisie.
+                    const clamped = Math.min(sliderBounds.max, Math.max(sliderBounds.min, s.prix));
+                    setSliderValue(clamped);
                   }}
                 >
                   <div className="strategy-header-row">
@@ -1568,13 +1563,6 @@ export default function Step5AvisValeur() {
                 </div>
               );
             })}
-            <input
-              type="text"
-              className="custom-input"
-              placeholder="Prix de mise en vente libre (\u20ac)"
-              value={customPrice}
-              onChange={(e) => setCustomPrice(e.target.value)}
-            />
           </div>
         </div>
         {/* /top-row */}
