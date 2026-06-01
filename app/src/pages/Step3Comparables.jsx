@@ -173,6 +173,24 @@ function haversineMeters(a, b) {
   return Math.round(2 * R * Math.asin(Math.sqrt(h)));
 }
 
+/* Libellé de commune/quartier d'un comparable, quelle que soit la source.
+ * - DVF live : nom de commune (_dvfRaw.commune), avec arrondissement si CP le précise
+ * - Manuel : champ commune saisi
+ * - Démo : champ addr (ex. "Lyon 3ème")
+ * Retourne null si rien d'exploitable (le comparable ne sera alors pas
+ * filtrable par commune). */
+function getCompCommune(c) {
+  if (!c) return null;
+  const raw =
+    c.fields?.commune ||
+    c._dvfRaw?.commune ||
+    c.commune ||
+    c.addr ||
+    null;
+  if (!raw) return null;
+  return String(raw).trim();
+}
+
 /* Format compact prix "295 000" ou "295k". */
 function fmtPrix(n) {
   if (!Number.isFinite(n)) return '—';
@@ -391,6 +409,92 @@ const cssStyles = `
     color: var(--green);
     min-width: 60px;
     text-align: right;
+  }
+
+  /* ZONES COUVERTES — mini-tags communes/quartiers dans le rayon */
+  .zone-tags-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+  .zone-tags-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    padding-top: 4px;
+  }
+  .zone-tags-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+  }
+  .zone-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: #f0f8f5;
+    border: 1px solid #d4ead8;
+    color: #2a6b41;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 4px 3px 9px;
+    border-radius: 12px;
+    line-height: 1.4;
+    white-space: nowrap;
+  }
+  .zone-tag-count {
+    background: #fff;
+    color: var(--green);
+    font-weight: 700;
+    font-size: 10px;
+    border-radius: 8px;
+    padding: 0 5px;
+    min-width: 16px;
+    text-align: center;
+  }
+  .zone-tag-remove,
+  .zone-tag-restore {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: #6b8a76;
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    font-family: inherit;
+    padding: 0;
+    transition: background 0.12s, color 0.12s;
+  }
+  .zone-tag-remove:hover {
+    background: var(--red, #e74c3c);
+    color: #fff;
+  }
+  .zone-tag.is-excluded {
+    background: #f5f5f5;
+    border-color: #e2e2e2;
+    color: #aaa;
+    text-decoration: line-through;
+    text-decoration-thickness: 1px;
+  }
+  .zone-tag.is-excluded .zone-tag-restore {
+    color: #999;
+    text-decoration: none;
+  }
+  .zone-tag-restore:hover {
+    background: var(--green);
+    color: #fff;
   }
 
   /* FILTER GRID */
@@ -2311,8 +2415,9 @@ const cssStyles = `
   .filter-bar {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 10px 14px;
     flex-wrap: wrap;
+    margin-bottom: 12px;
   }
   .filter-bar h3 {
     font-size: 14px;
@@ -3582,6 +3687,9 @@ export default function Step3Comparables() {
   }, [activeBien]);
 
   const [radius, setRadius] = useState(1000);
+  // Communes/quartiers exclus du périmètre par l'utilisateur (croix sur le tag).
+  // Clé = libellé normalisé de la commune (cf. getCompCommune).
+  const [excludedCommunes, setExcludedCommunes] = useState([]);
   const [mapStyle, setMapStyle] = useState('plan');
   // Délai max par source (en mois) — 3 ans (36 mois) pour "En cours" et "Portail", 8 ans (96 mois) pour DVF et Ideeri/Bien vendus
   const [delayDvf, setDelayDvf] = useState(36);
@@ -4161,6 +4269,11 @@ export default function Step3Comparables() {
     // Filtre prix
     const compPrix = c.fields?.prix ?? c._dvfRaw?.prix;
     if (typeof compPrix === 'number' && (compPrix < prixMin || compPrix > prixMax)) return false;
+    // Filtre commune/quartier exclu (croix sur le tag de zone)
+    if (excludedCommunes.length > 0) {
+      const compCommune = getCompCommune(c);
+      if (compCommune && excludedCommunes.includes(compCommune)) return false;
+    }
     // Filtre rayon (distance haversine depuis le target)
     if (c.coords && targetCoords) {
       const dist = haversineMeters(targetCoords, c.coords);
@@ -4226,6 +4339,28 @@ export default function Step3Comparables() {
     return Math.max(count, 1);
   };
   const filteredCount = computeFilteredCount();
+
+  /* Communes / quartiers réellement couverts par le rayon courant.
+   * Dérivé des comparables `others` dont la distance au target <= radius,
+   * sans appliquer les autres filtres (on veut voir toute la zone, même si
+   * une source est décochée). Chaque entrée : { name, count }.
+   * Trié par fréquence décroissante. */
+  const communesInRadius = useMemo(() => {
+    const counts = new Map();
+    for (const c of others) {
+      if (c.manual) continue; // les ajouts manuels ne définissent pas la zone
+      if (c.coords && targetCoords) {
+        const dist = haversineMeters(targetCoords, c.coords);
+        if (dist != null && dist > radius) continue;
+      }
+      const name = getCompCommune(c);
+      if (!name) continue;
+      counts.set(name, (counts.get(name) || 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'fr'));
+  }, [others, radius, targetCoords]);
 
   /* Compte des filtres qui s'\u00e9cartent de la configuration par d\u00e9faut, pour
    * afficher un badge sur le bouton "Configurer les filtres". Une source est
@@ -4572,6 +4707,46 @@ export default function Step3Comparables() {
           </div>
           <div className="radius-value">{formatRadius(radius)}</div>
         </div>
+
+        {/* Zones couvertes par le rayon — mini-tags communes/quartiers.
+         * Dérivés des comparables réellement dans le rayon. Croix = exclure
+         * la commune des résultats ; tag grisé + ↺ = réintégrer. */}
+        {(communesInRadius.length > 0 || excludedCommunes.length > 0) && (
+          <div className="zone-tags-row">
+            <span className="zone-tags-label">Zones couvertes</span>
+            <div className="zone-tags-list">
+              {communesInRadius.map((z) => (
+                <span key={z.name} className="zone-tag">
+                  {z.name}
+                  <span className="zone-tag-count">{z.count}</span>
+                  <button
+                    type="button"
+                    className="zone-tag-remove"
+                    onClick={() => setExcludedCommunes((prev) => prev.includes(z.name) ? prev : [...prev, z.name])}
+                    title={`Exclure ${z.name} du périmètre`}
+                    aria-label={`Exclure ${z.name} du périmètre`}
+                  >
+                    &times;
+                  </button>
+                </span>
+              ))}
+              {excludedCommunes.map((name) => (
+                <span key={`x-${name}`} className="zone-tag is-excluded">
+                  {name}
+                  <button
+                    type="button"
+                    className="zone-tag-restore"
+                    onClick={() => setExcludedCommunes((prev) => prev.filter((n) => n !== name))}
+                    title={`Réintégrer ${name} au périmètre`}
+                    aria-label={`Réintégrer ${name} au périmètre`}
+                  >
+                    &#8635;
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Légende des 7 sources colorées */}
         <div className="filter-bar-second">

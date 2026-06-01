@@ -735,17 +735,6 @@ const cssStyles = `
     font-weight: 600;
   }
 
-  /* OVERRIDE NOTE */
-  .override-note {
-    font-size: 10px;
-    color: var(--muted);
-    text-align: center;
-    padding: 6px;
-    background: #f7f7f8;
-    border-radius: 6px;
-    margin-bottom: 12px;
-  }
-
   /* FOOTER */
   .footer-buttons {
     display: flex;
@@ -1846,11 +1835,6 @@ export default function Step2ContexteZone() {
               </div>
           </div>
         </div>
-      </div>
-
-      {/* Override Note */}
-      <div className="override-note">
-        Donn&eacute;es enrichies automatiquement. Cliquez sur une valeur pour la corriger &mdash; les surcharges sont trac&eacute;es.
       </div>
 
       {/* Footer */}
