@@ -1,7 +1,5 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
 import {
   property,
   contexteZone,
@@ -16,7 +14,7 @@ import ReliabilityBadge from '../components/ReliabilityBadge';
 import { getActiveBien } from '../utils/activeBien';
 import { getAcquereurs } from '../utils/acquereursStore';
 import { getPhotosForCarousel, revokePhotoUrls } from '../utils/photosStore';
-import { getReportState, setReportState } from '../utils/reportStore';
+import { getReportState } from '../utils/reportStore';
 
 /* Charge les comparables manuels saisis dans Step3 (clé `ideeri_manual_comps`). */
 function loadManualComparables() {
@@ -30,21 +28,6 @@ function loadManualComparables() {
     return [];
   }
 }
-
-/**
- * Acquéreurs fictifs de démonstration (RGPD : données entièrement inventées,
- * aucune personne réelle). Utilisés en mode live lorsqu'aucun acquéreur n'a
- * été saisi, pour que la section « Profils d'acquéreurs » ne soit pas vide
- * lors d'une démonstration. Même forme que getAcquereurs() :
- * { id, prenom, nom, budgetMax (k€), surfaceMin, type, dpeMin }.
- */
-const DEMO_ACQUEREURS = [
-  { id: 'demo-1', prenom: 'Claire', nom: 'Martin', budgetMax: 320, surfaceMin: 60, type: 'appartement', dpeMin: 'D' },
-  { id: 'demo-2', prenom: 'Thomas', nom: 'Bernard', budgetMax: 295, surfaceMin: 55, type: 'appartement', dpeMin: 'E' },
-  { id: 'demo-3', prenom: 'Sophie', nom: 'Petit', budgetMax: 350, surfaceMin: 70, type: 'appartement', dpeMin: 'C' },
-  { id: 'demo-4', prenom: 'Julien', nom: 'Durand', budgetMax: 270, surfaceMin: 50, type: 'indifferent', dpeMin: 'F' },
-  { id: 'demo-5', prenom: 'Camille', nom: 'Leroy', budgetMax: 310, surfaceMin: 65, type: 'appartement', dpeMin: 'D' },
-];
 
 /**
  * Icônes Lucide inlinées (ISC license).
@@ -76,125 +59,6 @@ const LUCIDE_ICONS = {
     </svg>
   ),
 };
-
-/**
- * Collapsible — accordéon générique « 3 lignes visibles + Voir plus ».
- *
- * `items` : tableau de noeuds React (lignes prêtes à rendre).
- * Tant que la liste dépasse `visibleCount` (3 par défaut), on n'affiche
- * que les premières puis un bouton « Voir plus / Voir moins ».
- * En mode impression (?print=1), tout est déplié et le bouton masqué.
- */
-function Collapsible({ items, visibleCount = 3, printMode = false }) {
-  const [open, setOpen] = useState(false);
-  const list = Array.isArray(items) ? items : [];
-  const hasMore = list.length > visibleCount;
-  const showAll = printMode || open || !hasMore;
-  const shown = showAll ? list : list.slice(0, visibleCount);
-  return (
-    <>
-      {shown}
-      {hasMore && !printMode && (
-        <button
-          type="button"
-          className="cr-voirplus"
-          onClick={() => setOpen((v) => !v)}
-        >
-          {open ? 'Voir moins' : `Voir plus (${list.length - visibleCount})`}
-        </button>
-      )}
-    </>
-  );
-}
-
-/**
- * MarketMiniMap — carte Leaflet statique (POI) pour le compte rendu.
- *
- * Réplique l'init Step2 (Leaflet, tuiles CARTO Positron) en lecture seule :
- * marqueur du bien, cercle de rayon, pastilles POI.
- * `coords` : [lat, lon] du bien. `poi` : objet { categorie: [{name, coords}] }.
- * Ne rend rien si coords manquantes.
- */
-function MarketMiniMap({ coords, poi, rayon = 1000 }) {
-  const ref = useRef(null);
-  const mapRef = useRef(null);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (!ref.current || !Array.isArray(coords) || coords.length !== 2) return;
-    if (mapRef.current) return; // déjà initialisée
-
-    const POI_STYLES = {
-      transports: { emoji: '🚇', color: '#2563EB' },
-      commerces: { emoji: '🛒', color: '#D97706' },
-      education: { emoji: '🎓', color: '#7C3AED' },
-      sante: { emoji: '🏥', color: '#DC2626' },
-      environnement: { emoji: '🌳', color: '#46B962' },
-    };
-
-    const map = L.map(ref.current, {
-      zoomControl: false,
-      scrollWheelZoom: false,
-      dragging: true,
-      attributionControl: true,
-    }).setView(coords, 15);
-    mapRef.current = map;
-
-    L.tileLayer(
-      'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-      { maxZoom: 19, attribution: '© OpenStreetMap, © CARTO' }
-    ).addTo(map);
-
-    // Marqueur du bien (pastille verte « maison »)
-    const houseIcon = L.divIcon({
-      className: 'cr-map-target',
-      html: '<div style="width:26px;height:26px;border-radius:50% 50% 50% 0;background:#46B962;transform:rotate(-45deg);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>',
-      iconSize: [26, 26],
-      iconAnchor: [13, 26],
-    });
-    L.marker(coords, { icon: houseIcon }).addTo(map);
-
-    // Cercle de rayon
-    L.circle(coords, {
-      radius: rayon,
-      color: '#46B962',
-      weight: 1,
-      fillColor: '#46B962',
-      fillOpacity: 0.06,
-    }).addTo(map);
-
-    // POI
-    if (poi && typeof poi === 'object') {
-      Object.entries(poi).forEach(([cat, arr]) => {
-        if (!Array.isArray(arr)) return;
-        const style = POI_STYLES[cat] || { emoji: '📍', color: '#666' };
-        arr.slice(0, 12).forEach((p) => {
-          const c = p.coords;
-          if (!Array.isArray(c) || c.length !== 2) return;
-          const icon = L.divIcon({
-            className: 'cr-map-poi',
-            html: `<div style="width:18px;height:18px;border-radius:50%;background:${style.color};display:flex;align-items:center;justify-content:center;font-size:10px;border:1.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3)">${style.emoji}</div>`,
-            iconSize: [18, 18],
-            iconAnchor: [9, 9],
-          });
-          L.marker(c, { icon }).addTo(map).bindPopup(p.name || '');
-        });
-      });
-    }
-
-    // Recalage taille (le conteneur peut être monté caché)
-    setTimeout(() => map.invalidateSize(), 200);
-
-    return () => {
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
-    };
-  }, [coords, poi, rayon]);
-
-  return <div ref={ref} className="cr-market-map" />;
-}
 
 /**
  * CompteRendu — V2
@@ -625,8 +489,6 @@ export default function CompteRendu() {
       pointsVigilance: vigilanceEdites,
       acquereurs: realAcquereurs.map((a) => ({ budget: (a.budgetMax || 0) * 1000 })),
       afficherCommodites: false,
-      // Avis du vendeur saisi en Step5 (ressenti du propriétaire au RDV).
-      avisVendeur: typeof reportState.avisVendeur === 'string' ? reportState.avisVendeur : '',
     };
   }, [isLive, activeBien, realAcquereurs, reportState]);
 
@@ -719,15 +581,6 @@ export default function CompteRendu() {
 
   const [shareStatus, setShareStatus] = useState('idle'); // idle|loading|copied|error
 
-  // Avis de l'agent sur l'état du marché local (ex. « point positif :
-  // beaucoup de commerces à proximité »). Éditable dans le rapport, persisté
-  // dans le reportStore. Masqué en lecture seule (impression / vue partagée).
-  const [avisMarche, setAvisMarche] = useState(() => {
-    const v = reportState.avisMarche;
-    return typeof v === 'string' ? v : '';
-  });
-  const persistAvisMarche = () => setReportState({ avisMarche });
-
   const selectedComps = effComparables.filter((c) => c.selected);
 
   // Personas d'acquéreurs : en web on sélectionne, en PDF tout est déplié.
@@ -744,19 +597,11 @@ export default function CompteRendu() {
         ? reportState.customPrice
         : (activeBien.result?.prix || 0))
     : 0;
-
-  // En mode live, si aucun acquéreur réel n'a été saisi, on simule un fichier
-  // d'acquéreurs fictifs (DEMO_ACQUEREURS) pour que la section ne soit pas vide.
-  const usingDemoAcquereurs = isLive && realAcquereurs.length === 0;
-  const effAcquereurs = isLive
-    ? (usingDemoAcquereurs ? DEMO_ACQUEREURS : realAcquereurs)
-    : [];
-
   // Partitionnement : compatibles (budgetMax * 1000 >= prixReference) vs
   // hors budget. Si l'acquéreur n'a pas de budgetMax → considéré inconnu
   // donc on l'affiche (pas d'exclusion arbitraire).
   const acquereursCompatibles = isLive
-    ? effAcquereurs.filter((a) => {
+    ? realAcquereurs.filter((a) => {
         const bm = Number(a.budgetMax);
         if (!Number.isFinite(bm) || bm <= 0) return true;
         if (!prixReference) return true;
@@ -764,7 +609,7 @@ export default function CompteRendu() {
       })
     : [];
   const acquereursHorsBudget = isLive
-    ? effAcquereurs.filter((a) => {
+    ? realAcquereurs.filter((a) => {
         const bm = Number(a.budgetMax);
         if (!Number.isFinite(bm) || bm <= 0) return false;
         if (!prixReference) return false;
@@ -1018,24 +863,41 @@ export default function CompteRendu() {
               return ia - ib;
             });
 
-            return catKeys.map((catKey) => {
-              // Chaque ligne « libellé · valeur » est préparée puis passée au
-              // Collapsible : 3 visibles + « Voir plus » pour gagner de la place.
-              const rows = groups[catKey].map(({ fieldSlug, value }) => (
-                <div key={fieldSlug} className="fiche-row">
-                  <span className="fiche-row-label">{humanize(fieldSlug)}</span>
-                  <strong className="fiche-row-value">{formatValue(value)}</strong>
+            return catKeys.map((catKey) => (
+              <div key={catKey} className="fiche-cat" style={{ marginBottom: 28 }}>
+                <h3 style={{
+                  fontSize: 16,
+                  fontWeight: 600,
+                  color: 'var(--primary, #1a3a52)',
+                  marginBottom: 12,
+                  paddingBottom: 6,
+                  borderBottom: '1px solid #e5e7eb',
+                }}>
+                  {humanize(catKey)}
+                </h3>
+                <div className="fiche-grid" style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, 1fr)',
+                  columnGap: 32,
+                  rowGap: 8,
+                }}>
+                  {groups[catKey].map(({ fieldSlug, value }) => (
+                    <div key={fieldSlug} className="fiche-row" style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      padding: '4px 0',
+                      borderBottom: '1px dotted #eee',
+                      fontSize: 14,
+                    }}>
+                      <span style={{ color: '#666' }}>{humanize(fieldSlug)}</span>
+                      <strong style={{ color: '#111', marginLeft: 16, textAlign: 'right' }}>
+                        {formatValue(value)}
+                      </strong>
+                    </div>
+                  ))}
                 </div>
-              ));
-              return (
-                <div key={catKey} className="fiche-cat cr-collapse-cat">
-                  <h3 className="cr-collapse-title">{humanize(catKey)}</h3>
-                  <div className="fiche-list">
-                    <Collapsible items={rows} visibleCount={3} printMode={isPrintMode} />
-                  </div>
-                </div>
-              );
-            });
+              </div>
+            ));
           })()}
         </section>
       )}
@@ -1044,18 +906,10 @@ export default function CompteRendu() {
           SECTION 5 — Votre marché local (V2, factuel uniquement)
           ============================================================= */}
       <section className="market page-break">
-        <h2 className="section-title">Le marché local de votre bien</h2>
+        <h2 className="section-title">Votre marché local</h2>
         <p className="market-zone">
           {effContexteZone.zoneLabel} · rayon {effContexteZone.rayonMetres} m autour du bien
         </p>
-
-        {isLive && Array.isArray(activeBien?.adresse?.coords) && activeBien.adresse.coords.length === 2 && (
-          <MarketMiniMap
-            coords={activeBien.adresse.coords}
-            poi={effContexteZone.poi}
-            rayon={Number(effContexteZone.rayonMetres) || 1000}
-          />
-        )}
 
         <div className="market-kpis">
           <div className="kpi">
@@ -1087,28 +941,31 @@ export default function CompteRendu() {
           <strong> {effContexteZone.market.fourchette} €/m²</strong>.
         </p>
 
-        {/* Avis de l'agent sur l'état du marché : éditable (sauf impression /
-            vue partagée) puis affiché tel quel dans le rapport remis. */}
-        {(!isPrintMode && !isSharedView) ? (
-          <div className="market-avis-edit">
-            <label htmlFor="cr-avis-marche">Votre avis sur l'état du marché</label>
-            <textarea
-              id="cr-avis-marche"
-              className="market-avis-input"
-              rows={2}
-              placeholder="Ex. : point positif — beaucoup de commerces à proximité, marché dynamique sur la typologie."
-              value={avisMarche}
-              onChange={(e) => setAvisMarche(e.target.value)}
-              onBlur={persistAvisMarche}
-            />
+        {effAvisValeur.afficherCommodites && effContexteZone.commodites?.length > 0 && (
+          <div className="market-commodites">
+            <h3>Commodités à proximité</h3>
+            {Object.entries(
+              effContexteZone.commodites.reduce((acc, c) => {
+                (acc[c.categorie] ||= []).push(c);
+                return acc;
+              }, {})
+            ).map(([cat, items]) => (
+              <div className="commod-cat" key={cat}>
+                <h4>{cat}</h4>
+                <ul>
+                  {items
+                    .slice()
+                    .sort((a, b) => a.distance - b.distance)
+                    .map((c, i) => (
+                      <li key={i}>
+                        <strong>{c.nom}</strong>
+                        <span> · {c.distance} m · {c.tempsAPied} min à pied</span>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            ))}
           </div>
-        ) : (
-          avisMarche.trim().length > 0 && (
-            <div className="market-avis-view">
-              <h3>Notre regard sur le marché local</h3>
-              <p>{avisMarche}</p>
-            </div>
-          )
         )}
       </section>
 
@@ -1140,23 +997,34 @@ export default function CompteRendu() {
 
             return POI_ORDER
               .filter((cat) => Array.isArray(effContexteZone.poi[cat]) && effContexteZone.poi[cat].length > 0)
-              .map((cat) => {
-                // 3 POI visibles + « Voir plus » pour gagner de la place.
-                const rows = effContexteZone.poi[cat].map((p, i) => (
-                  <li key={i} className="poi-row">
-                    <span className="poi-row-name">{p.name}</span>
-                    <strong className="poi-row-dist">{fmtDist(p.distance)}</strong>
-                  </li>
-                ));
-                return (
-                  <div key={cat} className="poi-cat cr-collapse-cat">
-                    <h3 className="cr-collapse-title">{POI_LABELS[cat]}</h3>
-                    <ul className="poi-list">
-                      <Collapsible items={rows} visibleCount={3} printMode={isPrintMode} />
-                    </ul>
-                  </div>
-                );
-              });
+              .map((cat) => (
+                <div key={cat} className="poi-cat" style={{ marginBottom: 24 }}>
+                  <h3 style={{
+                    fontSize: 15,
+                    fontWeight: 600,
+                    color: 'var(--primary, #1a3a52)',
+                    marginBottom: 10,
+                    paddingBottom: 6,
+                    borderBottom: '1px solid #e5e7eb',
+                  }}>
+                    {POI_LABELS[cat]}
+                  </h3>
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                    {effContexteZone.poi[cat].slice(0, 6).map((p, i) => (
+                      <li key={i} style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        padding: '5px 0',
+                        borderBottom: '1px dotted #eee',
+                        fontSize: 13,
+                      }}>
+                        <span style={{ color: '#222' }}>{p.name}</span>
+                        <strong style={{ color: '#46B962', marginLeft: 12 }}>{fmtDist(p.distance)}</strong>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ));
           })()}
         </section>
       )}
@@ -1265,7 +1133,9 @@ export default function CompteRendu() {
         <h2 className="section-title">Profils d'acquéreurs en recherche</h2>
         <p className="section-intro">
           {isLive ? (
-            totalProjets > 0 ? (
+            realAcquereurs.length === 0 ? (
+              <>Aucun acquéreur n'a été enregistré pour ce bien. Ajoutez-en depuis l'étape 4.</>
+            ) : totalProjets > 0 ? (
               <>
                 <strong>{totalProjets} projet{totalProjets > 1 ? 's' : ''} d'achat actif{totalProjets > 1 ? 's' : ''}</strong> dans votre fichier acquéreurs
                 {prixReference > 0 ? (
@@ -1288,13 +1158,6 @@ export default function CompteRendu() {
             <><strong>{totalProjets} projets d'achat actifs</strong> dans votre périmètre matchent les critères de votre bien. Ils se répartissent en 5 profils-types.</>
           )}
         </p>
-
-        {usingDemoAcquereurs && (
-          <p className="acquereurs-demo-note">
-            Données d'acquéreurs simulées (aucun acquéreur réel saisi pour ce bien) —
-            ajoutez votre fichier réel depuis l'étape 4 pour remplacer ces exemples.
-          </p>
-        )}
 
         {isLive && acquereursCompatibles.length > 0 && (
           <div className="live-acquereurs-list">
@@ -1633,13 +1496,6 @@ export default function CompteRendu() {
             </ul>
           </div>
         </div>
-
-        {effAvisValeur.avisVendeur && effAvisValeur.avisVendeur.trim().length > 0 && (
-          <div className="arg-seller">
-            <h3>L'avis du vendeur</h3>
-            <p>{effAvisValeur.avisVendeur}</p>
-          </div>
-        )}
       </section>
 
       {/* =============================================================
@@ -1885,113 +1741,6 @@ const reportCss = `
     border-bottom: 1px solid var(--border);
     padding-bottom: 8px;
     margin: 0 0 24px;
-  }
-
-  /* ====== Composants transverses (collapsible, carte, avis) ====== */
-  .cr-voirplus {
-    margin-top: 8px;
-    background: none;
-    border: none;
-    padding: 2px 0;
-    color: var(--primary);
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    text-decoration: underline;
-  }
-  .cr-voirplus:hover { opacity: .75; }
-  .cr-collapse-cat { margin-bottom: 24px; }
-  .cr-collapse-title {
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--primary, #1a3a52);
-    margin: 0 0 10px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid #e5e7eb;
-  }
-  .fiche-list, .poi-list { list-style: none; padding: 0; margin: 0; }
-  .fiche-row, .poi-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 5px 0;
-    border-bottom: 1px dotted #eee;
-    font-size: 13px;
-  }
-  .fiche-row-label, .poi-row-name { color: #555; }
-  .fiche-row-value { color: #111; margin-left: 16px; text-align: right; }
-  .poi-row-dist { color: #46B962; margin-left: 12px; }
-
-  .cr-market-map {
-    width: 100%;
-    height: 320px;
-    border-radius: 8px;
-    overflow: hidden;
-    margin: 0 0 24px;
-    border: 1px solid var(--border);
-    z-index: 0;
-  }
-
-  .market-avis-edit { margin-top: 20px; }
-  .market-avis-edit label {
-    display: block;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--primary);
-    margin-bottom: 6px;
-  }
-  .market-avis-input {
-    width: 100%;
-    box-sizing: border-box;
-    font-family: inherit;
-    font-size: 14px;
-    line-height: 1.5;
-    color: var(--secondary);
-    padding: 10px 12px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    resize: vertical;
-  }
-  .market-avis-input:focus { outline: none; border-color: var(--primary); }
-  .market-avis-view {
-    margin-top: 20px;
-    padding: 14px 16px;
-    background: #f0f7f2;
-    border-left: 3px solid #46B962;
-    border-radius: 4px;
-  }
-  .market-avis-view h3 {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--primary);
-    margin: 0 0 6px;
-  }
-  .market-avis-view p { margin: 0; font-size: 14px; color: var(--secondary); }
-
-  .arg-seller {
-    margin-top: 24px;
-    padding: 14px 16px;
-    background: #f7f7f9;
-    border-left: 3px solid var(--primary);
-    border-radius: 4px;
-  }
-  .arg-seller h3 {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--primary);
-    margin: 0 0 6px;
-    text-transform: uppercase;
-    letter-spacing: .5px;
-  }
-  .arg-seller p { margin: 0; font-size: 14px; color: var(--secondary); }
-
-  .acquereurs-demo-note {
-    font-size: 12px;
-    color: #8a6d3b;
-    background: #fcf8e3;
-    border: 1px solid #faebcc;
-    border-radius: 4px;
-    padding: 8px 12px;
-    margin: 0 0 16px;
   }
 
   /* ====== 1. Cover ====== */
