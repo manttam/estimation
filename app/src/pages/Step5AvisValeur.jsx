@@ -410,13 +410,15 @@ const cssStyles = `
   .demand-verdict-desc { font-size: 11px; color: #666; margin-top: 2px; }
 
   /* ---- Content Grid (colonnes redimensionnables) ----
-   * 2 colonnes + 1 poignée en mode démo : Décompo+Comparables (col1) |
-   * Forts/Vigilance/Avis/Actions (col2). En "Masquer la démo", col1
-   * disparaît → 1 seule colonne pleine largeur. Largeur via --col-1. */
+   * 3 colonnes + 2 poignées : Avis de valeur+Comparables (col1) |
+   * Forts/Vigilance/Avis vendeur (col2) | Actions (col3).
+   * Largeurs via --col-1 et --col-2 ; la colonne 3 prend le reste. */
   .content-grid {
     display: grid;
     grid-template-columns:
-      minmax(0, var(--col-1, 50%))
+      minmax(0, var(--col-1, 40%))
+      8px
+      minmax(0, var(--col-2, 38%))
       8px
       minmax(0, 1fr);
     gap: 0;
@@ -1029,15 +1031,17 @@ export default function Step5AvisValeur() {
   /* Largeurs (en %) redimensionnables au drag des poignées (inspiré de
    * Step3). Persistées dans reportStore.displayConfig.step5Cols.
    *  - topL : largeur de "Impact du prix" dans la rangée haute (le reste = Stratégie)
-   *  - c1 : largeur de la colonne 1 du content-grid (Décompo+Comparables)
-   *         le reste (= 100 - c1) revient à la colonne 2 (Forts/Vigilance/Actions) */
+   *  - c1 : largeur de la colonne 1 du content-grid (Avis de valeur + Comparables)
+   *  - c2 : largeur de la colonne 2 (Forts/Vigilance + Avis du vendeur)
+   *         le reste (= 100 - c1 - c2) revient à la colonne 3 (Actions) */
   const persistedCols = useMemo(
     () => getReportSection('displayConfig', {}).step5Cols || null,
     []
   );
   const [topL, setTopL] = useState(() => persistedCols?.topL ?? 64);
-  const [c1, setC1] = useState(() => persistedCols?.c1 ?? 50);
-  // Poignée active : 'top' (rangée haute), 'grid' (content-grid), ou null
+  const [c1, setC1] = useState(() => persistedCols?.c1 ?? 40);
+  const [c2, setC2] = useState(() => persistedCols?.c2 ?? 38);
+  // Poignée active : 'top' (rangée haute), 'grid1'/'grid2' (content-grid), ou null
   const [activeHandle, setActiveHandle] = useState(null);
   const topRowRef = useRef(null);
   const gridRef = useRef(null);
@@ -1046,15 +1050,15 @@ export default function Step5AvisValeur() {
 
   /* Drag générique : ref = conteneur, setter = state %, key = id de poignée.
    * On mappe la position X de la souris en % de la largeur du conteneur,
-   * bornée à [25, 75] pour garder les deux blocs lisibles. */
-  const startResize = (e, ref, setter, key) => {
+   * bornée à [lo, hi] pour garder les blocs lisibles. */
+  const startResize = (e, ref, setter, key, lo = 25, hi = 75) => {
     e.preventDefault();
     setActiveHandle(key);
     const rect = ref.current?.getBoundingClientRect();
     if (!rect || !rect.width) return;
     const handleMove = (mv) => {
       const pct = ((mv.clientX - rect.left) / rect.width) * 100;
-      setter(clampPct(pct, 25, 75));
+      setter(clampPct(pct, lo, hi));
     };
     const handleUp = () => {
       setActiveHandle(null);
@@ -1065,14 +1069,28 @@ export default function Step5AvisValeur() {
     window.addEventListener('mouseup', handleUp);
   };
 
-  /* Reset (double-clic) : rangée haute → 64/36, content-grid → 50/50 */
+  /* Poignée 1 (gauche|centre) : la position X donne directement c1, borné. */
+  const startResizeC1 = (e) =>
+    startResize(e, gridRef, (v) => setC1(clampPct(v, 20, 60)), 'grid1', 20, 60);
+  /* Poignée 2 (centre|droite) : la position X donne le cumul c1+c2, on en
+   * déduit c2 = pos - c1, en gardant la colonne droite >= 18 %. */
+  const startResizeC2 = (e) => {
+    const apply = (pos) => {
+      const right = 100 - pos;
+      const clampedRight = clampPct(right, 18, 60);
+      setC2(clampPct(100 - clampedRight - c1, 18, 60));
+    };
+    startResize(e, gridRef, apply, 'grid2', 0, 100);
+  };
+
+  /* Reset (double-clic) : rangée haute → 64/36, content-grid → 40/38/22 */
   const resetTop = () => setTopL(64);
-  const resetGrid = () => setC1(50);
+  const resetGrid = () => { setC1(40); setC2(38); };
 
   // Persiste les largeurs dans reportStore.displayConfig
   useEffect(() => {
-    mergeReportSection('displayConfig', { step5Cols: { topL, c1 } });
-  }, [topL, c1]);
+    mergeReportSection('displayConfig', { step5Cols: { topL, c1, c2 } });
+  }, [topL, c1, c2]);
 
   // Persistance dans le reportStore pour que CompteRendu (/report) puisse
   // afficher les valeurs saisies par l'utilisateur (points forts/vigilance
@@ -1570,8 +1588,8 @@ export default function Step5AvisValeur() {
         {/* ============ CONTENT GRID (redimensionnable) ============ */}
         <div
           ref={gridRef}
-          className={`content-grid${hideDemo ? ' single-col' : ''}${activeHandle === 'grid' ? ' is-resizing' : ''}`}
-          style={{ '--col-1': `${c1}%` }}
+          className={`content-grid${hideDemo ? ' single-col' : ''}${(activeHandle === 'grid1' || activeHandle === 'grid2') ? ' is-resizing' : ''}`}
+          style={{ '--col-1': `${c1}%`, '--col-2': `${c2}%` }}
         >
           {/* --- Column 1: Decomposition + Comparables (mock — masqu\u00e9 en mode "Masquer la d\u00e9mo") --- */}
           {!hideDemo && (
@@ -1719,17 +1737,17 @@ export default function Step5AvisValeur() {
           </div>
           )}
 
-          {/* Poign\u00e9e : entre col1 et col2 (uniquement si la d\u00e9mo est visible) */}
+          {/* Poign\u00e9e 1 : entre col1 (Avis de valeur) et col2 (Forts/Vigilance) */}
           {!hideDemo && (
             <div
-              className={`col-resize-handle${activeHandle === 'grid' ? ' is-dragging' : ''}`}
-              onMouseDown={(e) => startResize(e, gridRef, setC1, 'grid')}
+              className={`col-resize-handle${activeHandle === 'grid1' ? ' is-dragging' : ''}`}
+              onMouseDown={startResizeC1}
               onDoubleClick={resetGrid}
               title="Glisser pour redimensionner \u00b7 double-clic pour r\u00e9initialiser"
             />
           )}
 
-          {/* --- Column 2: Points forts + Points de vigilance --- */}
+          {/* --- Column 2: Points forts + Points de vigilance + Avis du vendeur --- */}
           <div className="content-grid-col">
             <div className="card strengths">
               <div className="card-title">Points forts <span className="card-title-hint">(cliquer pour modifier)</span></div>
@@ -1800,7 +1818,20 @@ export default function Step5AvisValeur() {
                 <div className="seller-opinion-meta">{avisVendeur.trim().length} caract&egrave;res saisis</div>
               )}
             </div>
+          </div>
 
+          {/* Poign\u00e9e 2 : entre col2 (Forts/Vigilance) et col3 (Actions) */}
+          {!hideDemo && (
+            <div
+              className={`col-resize-handle${activeHandle === 'grid2' ? ' is-dragging' : ''}`}
+              onMouseDown={startResizeC2}
+              onDoubleClick={resetGrid}
+              title="Glisser pour redimensionner \u00b7 double-clic pour r\u00e9initialiser"
+            />
+          )}
+
+          {/* --- Column 3: Actions --- */}
+          <div className="content-grid-col">
             <div className="card">
               <div className="card-title">Actions</div>
               <div className="actions-card">
