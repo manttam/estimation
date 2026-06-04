@@ -24,14 +24,10 @@ const TYPE_LABELS = {
  * de la stratégie de prix (court terme → plutôt prudent, long terme →
  * possible d'être agressif). */
 const OBJECTIF_OPTIONS = [
-  { value: 'court', short: 'Court terme', label: 'Court terme (< 3 mois)' },
-  { value: 'moyen', short: 'Moyen terme', label: 'Moyen terme (3 à 6 mois)' },
-  { value: 'long', short: 'Long terme', label: 'Long terme (> 6 mois)' },
+  { value: 'court', short: 'Court', label: 'Court terme (< 3 mois)' },
+  { value: 'moyen', short: 'Moyen', label: 'Moyen terme (3 à 6 mois)' },
+  { value: 'long', short: 'Long', label: 'Long terme (> 6 mois)' },
 ];
-const OBJECTIF_LABELS = OBJECTIF_OPTIONS.reduce((acc, o) => {
-  acc[o.value] = o.label;
-  return acc;
-}, {});
 
 function describeBien(active) {
   if (!active || !active.bien) return null;
@@ -86,9 +82,12 @@ const cssStyles = `
   }
   .recap-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 12px;
     margin-bottom: 20px;
+  }
+  @media (max-width: 1100px) {
+    .recap-grid { grid-template-columns: repeat(3, 1fr); }
   }
   @media (max-width: 880px) {
     .recap-grid { grid-template-columns: repeat(2, 1fr); }
@@ -138,12 +137,12 @@ const cssStyles = `
     padding: 2px 7px;
     border-radius: 4px;
   }
-  /* Objectif de vente : sélecteur de délai (court / moyen / long terme) */
+  /* Objectif de vente : sélecteur de délai (court / moyen / long terme).
+   * Compact : tient sur une seule ligne dans la grille du récap. */
   .objectif-choices {
     display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-    margin-top: 8px;
+    gap: 4px;
+    margin-top: 4px;
   }
   .objectif-chip {
     flex: 1 1 0;
@@ -151,9 +150,9 @@ const cssStyles = `
     border: 1px solid #d8e0da;
     background: #fff;
     color: #555;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
-    padding: 5px 6px;
+    padding: 6px 4px;
     border-radius: 6px;
     cursor: pointer;
     white-space: nowrap;
@@ -1274,14 +1273,13 @@ export default function Step5AvisValeur() {
             {/* Objectif de vente — délai souhaité par le vendeur */}
             <div className="recap-card">
               <div className="recap-step-label">&#9316; Objectif de vente</div>
-              <div className="recap-card-main">{OBJECTIF_LABELS[objectifVente] || '\u2014'}</div>
-              <div className="recap-card-line">D&eacute;lai souhait&eacute; par le vendeur</div>
               <div className="objectif-choices">
                 {OBJECTIF_OPTIONS.map((opt) => (
                   <button
                     key={opt.value}
                     type="button"
                     className={`objectif-chip${objectifVente === opt.value ? ' selected' : ''}`}
+                    title={opt.label}
                     onClick={() => setObjectifVente(opt.value)}
                   >
                     {opt.short}
