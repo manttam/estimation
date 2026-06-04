@@ -29,6 +29,49 @@ const OBJECTIF_OPTIONS = [
   { value: 'long', short: 'Long', label: 'Long terme (> 6 mois)' },
 ];
 
+/* Types de mandat proposés au switch (le client veut basculer rapidement
+ * entre simple / semi-exclusif / exclusif pour comparer les services). */
+const MANDAT_TYPES = [
+  { value: 'simple', label: 'Simple' },
+  { value: 'semi-exclusif', label: 'Semi-exclusif' },
+  { value: 'exclusif', label: 'Exclusif' },
+];
+
+/* Catalogue des services de l'agence. Chaque service indique pour quels
+ * mandats il est proposé (« proposé » = inclus dans l'offre, coché par
+ * défaut). Ces réglages seront à terme paramétrables dans l'écran
+ * « Stratégie commerciale » ; on stocke la grille par défaut ici et on
+ * fusionne avec reportStore.strategieCommerciale.servicesParMandat si présent.
+ *  - simple        : prestations de base
+ *  - semi-exclusif : base + visibilité renforcée
+ *  - exclusif      : offre complète (tout)
+ */
+const SERVICES_AGENCE_OPTIONS = [
+  { id: 'relance-fichier', label: 'Relance fichier', icon: '📇', mandats: ['simple', 'semi-exclusif', 'exclusif'] },
+  { id: 'reseaux-sociaux', label: 'Post réseaux sociaux', icon: '📱', mandats: ['semi-exclusif', 'exclusif'] },
+  { id: 'photo-drone-video', label: 'Photo / drone / vidéo', icon: '📸', mandats: ['semi-exclusif', 'exclusif'] },
+  { id: 'panneaux', label: 'Pose de panneaux', icon: '🪧', mandats: ['simple', 'semi-exclusif', 'exclusif'] },
+  { id: 'site-internet', label: 'Site internet', icon: '🌐', mandats: ['simple', 'semi-exclusif', 'exclusif'] },
+  { id: 'annonceurs', label: 'Annonceurs', icon: '📰', mandats: ['simple', 'semi-exclusif', 'exclusif'] },
+  { id: 'visite-marketing', label: 'Visite marketing équipe', icon: '👥', mandats: ['exclusif'] },
+  { id: 'mailing', label: 'Mailing', icon: '✉️', mandats: ['semi-exclusif', 'exclusif'] },
+  { id: 'flyer', label: 'Flyer', icon: '📄', mandats: ['semi-exclusif', 'exclusif'] },
+  { id: 'home-staging', label: 'Home staging', icon: '🛋️', mandats: ['exclusif'] },
+  { id: 'diagnostic', label: 'Diagnostic', icon: '📋', mandats: ['simple', 'semi-exclusif', 'exclusif'] },
+  { id: 'devis', label: 'Devis', icon: '🧾', mandats: ['exclusif'] },
+];
+
+/* Services proposés pour un type de mandat donné. Fusionne le catalogue
+ * par défaut avec un éventuel override paramétré en stratégie commerciale. */
+function getServicesForMandat(mandatType, overrides) {
+  const map = overrides && typeof overrides === 'object' ? overrides : {};
+  return SERVICES_AGENCE_OPTIONS.filter((s) => {
+    const custom = map[s.id];
+    if (Array.isArray(custom)) return custom.includes(mandatType);
+    return s.mandats.includes(mandatType);
+  });
+}
+
 function describeBien(active) {
   if (!active || !active.bien) return null;
   const b = active.bien;
@@ -495,6 +538,215 @@ const cssStyles = `
     user-select: none;
   }
 
+  /* ---- Services de l'agence : 3 drawers redimensionnables ---- */
+  .agence-section {
+    background: #fff;
+    border-radius: var(--radius-card);
+    border: 1px solid var(--border);
+    padding: 20px 24px;
+    margin-bottom: 20px;
+  }
+  .agence-section-head {
+    margin-bottom: 16px;
+  }
+  .agence-section-title {
+    font-size: var(--fs-lg, 16px);
+    font-weight: 700;
+    color: var(--text);
+  }
+  .agence-section-sub {
+    font-size: var(--fs-sm, 12px);
+    color: var(--text-muted, #888);
+    margin-top: 2px;
+  }
+  .agence-row {
+    display: grid;
+    grid-template-columns:
+      minmax(0, var(--ag-mandat, 24%))
+      8px
+      minmax(0, var(--ag-services, 42%))
+      8px
+      minmax(0, var(--ag-calendar, 34%));
+    align-items: stretch;
+  }
+  .agence-row.is-resizing {
+    cursor: col-resize;
+    user-select: none;
+  }
+  .agence-drawer {
+    background: #fafafa;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    min-height: 220px;
+    overflow: hidden;
+  }
+  .agence-drawer-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 14px;
+    font-size: var(--fs-sm, 12px);
+    font-weight: 700;
+    color: var(--text);
+    background: #f0f3f1;
+    border-bottom: 1px solid var(--border);
+  }
+  .agence-drawer-badge {
+    margin-left: auto;
+    background: var(--green, #46b962);
+    color: #fff;
+    font-size: var(--fs-xs, 11px);
+    font-weight: 700;
+    border-radius: 9px;
+    padding: 1px 8px;
+    min-width: 20px;
+    text-align: center;
+  }
+  .agence-drawer-body {
+    padding: 12px 14px;
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  /* Switch mandat (simple / semi-exclusif / exclusif) */
+  .mandat-switch {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .mandat-switch-btn {
+    border: 1px solid #d8e0da;
+    background: #fff;
+    color: #555;
+    font-size: var(--fs-sm, 12px);
+    font-weight: 600;
+    padding: 9px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s ease;
+  }
+  .mandat-switch-btn:hover {
+    border-color: var(--green, #46b962);
+    color: var(--green-dark, #3da856);
+  }
+  .mandat-switch-btn.active {
+    background: var(--green, #46b962);
+    border-color: var(--green, #46b962);
+    color: #fff;
+  }
+  .mandat-hint {
+    font-size: var(--fs-xs, 11px);
+    color: var(--text-muted, #888);
+    margin-top: 12px;
+    line-height: 1.5;
+  }
+  .mandat-count {
+    font-size: var(--fs-xs, 11px);
+    color: #555;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border);
+  }
+
+  /* Liste de services cochables */
+  .service-list {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .service-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 8px 10px;
+    border: 1px solid #e3e7e4;
+    border-radius: 8px;
+    background: #fff;
+    cursor: pointer;
+    font-size: var(--fs-sm, 12px);
+    color: var(--text);
+    transition: all 0.12s ease;
+  }
+  .service-item:hover {
+    border-color: var(--green, #46b962);
+  }
+  .service-item.checked {
+    background: var(--green-soft, #e8f6ec);
+    border-color: var(--green, #46b962);
+  }
+  .service-item input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    accent-color: var(--green, #46b962);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .service-icon {
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .service-label {
+    flex: 1;
+    font-weight: 600;
+  }
+
+  /* Calendrier du projet : services retenus à planifier */
+  .calendar-empty {
+    font-size: var(--fs-sm, 12px);
+    color: var(--text-muted, #888);
+    text-align: center;
+    padding: 24px 8px;
+    line-height: 1.5;
+  }
+  .calendar-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .calendar-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid #e3e7e4;
+    border-radius: 8px;
+    background: #fff;
+  }
+  .calendar-item-label {
+    flex: 1;
+    font-size: var(--fs-sm, 12px);
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .calendar-date {
+    border: 1px solid #d8e0da;
+    border-radius: 6px;
+    padding: 4px 6px;
+    font-size: var(--fs-xs, 11px);
+    color: var(--text);
+    font-family: var(--font);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .calendar-date:focus {
+    outline: none;
+    border-color: var(--green, #46b962);
+  }
+
+  @media (max-width: 980px) {
+    .agence-row {
+      grid-template-columns: 1fr;
+    }
+    .agence-row .col-resize-handle { display: none; }
+    .agence-drawer { margin-bottom: 10px; min-height: 0; }
+  }
+
   /* ---- Card ---- */
   .step5-page .card {
     background: #fff;
@@ -845,6 +1097,88 @@ export default function Step5AvisValeur() {
     () => getReportSection('objectifVente', 'moyen')
   );
 
+  /* ---- Services de l'agence (3 drawers redimensionnables) ----
+   * Persistés dans reportStore.agenceServices :
+   *  - mandatType : simple / semi-exclusif / exclusif (pilote les services proposés)
+   *  - checked    : { [serviceId]: true } services retenus → planning
+   *  - planned    : { [serviceId]: 'YYYY-MM-DD' } date planifiée dans le calendrier
+   * Le mandat sélectionné reprend par défaut celui saisi dans l'écran Mandat. */
+  const persistedAgence = useMemo(
+    () => getReportSection('agenceServices', {}),
+    []
+  );
+  const mandatGlobal = useMemo(() => getReportSection('mandat', {}), []);
+  const strategieOverrides = useMemo(
+    () => getReportSection('strategieCommerciale', {}).servicesParMandat || null,
+    []
+  );
+  const [mandatType, setMandatType] = useState(() => {
+    const fromAgence = persistedAgence.mandatType;
+    const fromMandat = mandatGlobal.typeMandat || mandatGlobal.type;
+    const initial = fromAgence || fromMandat || 'simple';
+    return MANDAT_TYPES.some((m) => m.value === initial) ? initial : 'simple';
+  });
+  const [servicesChecked, setServicesChecked] = useState(
+    () => persistedAgence.checked || {}
+  );
+  const [servicesPlanned, setServicesPlanned] = useState(
+    () => persistedAgence.planned || {}
+  );
+
+  // Services proposés pour le mandat courant (catalogue + overrides stratégie).
+  const servicesProposes = useMemo(
+    () => getServicesForMandat(mandatType, strategieOverrides),
+    [mandatType, strategieOverrides]
+  );
+
+  // Services cochés → à planifier dans le calendrier du projet.
+  const servicesAPlanifier = useMemo(
+    () => SERVICES_AGENCE_OPTIONS.filter((s) => servicesChecked[s.id]),
+    [servicesChecked]
+  );
+
+  const toggleService = (id) => {
+    setServicesChecked((prev) => {
+      const next = { ...prev };
+      if (next[id]) delete next[id];
+      else next[id] = true;
+      return next;
+    });
+  };
+
+  const setServiceDate = (id, date) => {
+    setServicesPlanned((prev) => {
+      const next = { ...prev };
+      if (date) next[id] = date;
+      else delete next[id];
+      return next;
+    });
+  };
+
+  // Persistance de la section services.
+  useEffect(() => {
+    mergeReportSection('agenceServices', {
+      mandatType,
+      checked: servicesChecked,
+      planned: servicesPlanned,
+    });
+  }, [mandatType, servicesChecked, servicesPlanned]);
+
+  /* Largeurs des 3 drawers (en %), 2 poignées comme Step3. La somme = 100.
+   * Persistées dans reportStore.displayConfig.step5AgenceCols. */
+  const persistedAgenceCols = useMemo(
+    () => getReportSection('displayConfig', {}).step5AgenceCols || null,
+    []
+  );
+  const AGENCE_COL_BOUNDS = { mandat: [16, 40], services: [28, 60], calendar: [22, 55] };
+  const [agenceCols, setAgenceCols] = useState(() =>
+    persistedAgenceCols && Number.isFinite(persistedAgenceCols.mandat)
+      ? persistedAgenceCols
+      : { mandat: 24, services: 42, calendar: 34 }
+  );
+  const [agenceHandle, setAgenceHandle] = useState(null);
+  const agenceRowRef = useRef(null);
+
   // Les sections de démonstration (comparables fictifs, biens similaires
   // simulés…) sont toujours affichées : le bouton de masquage a été retiré.
   const hideDemo = false;
@@ -887,10 +1221,55 @@ export default function Step5AvisValeur() {
   /* Reset (double-clic) : rangée haute → 64/36 */
   const resetTop = () => setTopL(64);
 
+  /* Drag des 3 drawers de la section Services (2 poignées, total 100%).
+   * idx 1 = entre Mandat et Services, idx 2 = entre Services et Calendrier.
+   * On garde la somme constante en répartissant le delta sur la colonne voisine. */
+  const startAgenceResize = (e, idx) => {
+    e.preventDefault();
+    setAgenceHandle(idx);
+    const rect = agenceRowRef.current?.getBoundingClientRect();
+    if (!rect || !rect.width) return;
+    const start = { ...agenceCols };
+    const handleMove = (mv) => {
+      const pct = ((mv.clientX - rect.left) / rect.width) * 100;
+      if (idx === 1) {
+        // poignée 1 : ajuste mandat | services (calendar fixe)
+        const [lo, hi] = AGENCE_COL_BOUNDS.mandat;
+        const mandat = clampPct(pct, lo, hi);
+        const services = Math.max(
+          AGENCE_COL_BOUNDS.services[0],
+          100 - mandat - start.calendar
+        );
+        setAgenceCols({ mandat, services, calendar: 100 - mandat - services });
+      } else {
+        // poignée 2 : ajuste services | calendar (mandat fixe)
+        const boundary = clampPct(
+          pct,
+          start.mandat + AGENCE_COL_BOUNDS.services[0],
+          start.mandat + AGENCE_COL_BOUNDS.services[1]
+        );
+        const services = boundary - start.mandat;
+        const calendar = Math.max(AGENCE_COL_BOUNDS.calendar[0], 100 - start.mandat - services);
+        setAgenceCols({ mandat: start.mandat, services: 100 - start.mandat - calendar, calendar });
+      }
+    };
+    const handleUp = () => {
+      setAgenceHandle(null);
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+    };
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+  };
+  const resetAgenceCols = () => setAgenceCols({ mandat: 24, services: 42, calendar: 34 });
+
   // Persiste la largeur dans reportStore.displayConfig
   useEffect(() => {
     mergeReportSection('displayConfig', { step5Cols: { topL } });
   }, [topL]);
+  useEffect(() => {
+    mergeReportSection('displayConfig', { step5AgenceCols: agenceCols });
+  }, [agenceCols]);
 
   // Persistance dans le reportStore pour que CompteRendu (/report) puisse
   // afficher les valeurs saisies par l'utilisateur (prix retenu, stratégie
@@ -1533,6 +1912,136 @@ export default function Step5AvisValeur() {
                   G&eacute;n&eacute;rer le document avis de valeur
                   <span className="btn-sub">Document PDF officiel &agrave; remettre au propri&eacute;taire</span>
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ============ SERVICES DE L'AGENCE (3 drawers redimensionnables) ============ */}
+        {/* Mandat → services proposés → calendrier. Poignées drag pour ajuster
+            les largeurs (comme Step3). Les services cochés alimentent le calendrier. */}
+        <div className="agence-section">
+          <div className="agence-section-head">
+            <div className="agence-section-title">&#128188; Services de l&apos;agence</div>
+            <div className="agence-section-sub">
+              Choisissez le mandat, cochez les prestations proposées, planifiez-les.
+            </div>
+          </div>
+
+          <div
+            ref={agenceRowRef}
+            className={`agence-row${agenceHandle ? ' is-resizing' : ''}`}
+            style={{
+              '--ag-mandat': `${agenceCols.mandat}%`,
+              '--ag-services': `${agenceCols.services}%`,
+              '--ag-calendar': `${agenceCols.calendar}%`,
+            }}
+          >
+            {/* Drawer 1 — Mandat de commercialisation */}
+            <div className="agence-drawer">
+              <div className="agence-drawer-head">Mandat de commercialisation</div>
+              <div className="agence-drawer-body">
+                <div className="mandat-switch">
+                  {MANDAT_TYPES.map((m) => (
+                    <button
+                      key={m.value}
+                      type="button"
+                      className={`mandat-switch-btn${mandatType === m.value ? ' active' : ''}`}
+                      onClick={() => setMandatType(m.value)}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="mandat-hint">
+                  {mandatType === 'exclusif'
+                    ? 'Offre complète : visibilité maximale et services premium.'
+                    : mandatType === 'semi-exclusif'
+                    ? 'Visibilité renforcée : photo/vidéo, réseaux sociaux, mailing.'
+                    : 'Prestations de base : panneaux, site internet, annonceurs.'}
+                </div>
+                <div className="mandat-count">
+                  <strong>{servicesProposes.length}</strong> service{servicesProposes.length > 1 ? 's' : ''} proposé{servicesProposes.length > 1 ? 's' : ''}
+                  {' · '}
+                  <strong>{servicesAPlanifier.length}</strong> retenu{servicesAPlanifier.length > 1 ? 's' : ''}
+                </div>
+              </div>
+            </div>
+
+            {/* Poignée 1 */}
+            <button
+              type="button"
+              className={`col-resize-handle${agenceHandle === 1 ? ' is-dragging' : ''}`}
+              onMouseDown={(e) => startAgenceResize(e, 1)}
+              onDoubleClick={resetAgenceCols}
+              aria-label="Redimensionner mandat / services"
+            />
+
+            {/* Drawer 2 — Services proposés (cochables) */}
+            <div className="agence-drawer">
+              <div className="agence-drawer-head">
+                Services proposés
+                <span className="agence-drawer-badge">{servicesProposes.length}</span>
+              </div>
+              <div className="agence-drawer-body">
+                <div className="service-list">
+                  {servicesProposes.map((s) => {
+                    const checked = !!servicesChecked[s.id];
+                    return (
+                      <label
+                        key={s.id}
+                        className={`service-item${checked ? ' checked' : ''}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleService(s.id)}
+                        />
+                        <span className="service-icon">{s.icon}</span>
+                        <span className="service-label">{s.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Poignée 2 */}
+            <button
+              type="button"
+              className={`col-resize-handle${agenceHandle === 2 ? ' is-dragging' : ''}`}
+              onMouseDown={(e) => startAgenceResize(e, 2)}
+              onDoubleClick={resetAgenceCols}
+              aria-label="Redimensionner services / calendrier"
+            />
+
+            {/* Drawer 3 — Calendrier du projet (services à planifier) */}
+            <div className="agence-drawer">
+              <div className="agence-drawer-head">
+                Calendrier du projet
+                <span className="agence-drawer-badge">{servicesAPlanifier.length}</span>
+              </div>
+              <div className="agence-drawer-body">
+                {servicesAPlanifier.length === 0 ? (
+                  <div className="calendar-empty">
+                    Cochez des services à gauche pour les planifier ici.
+                  </div>
+                ) : (
+                  <div className="calendar-list">
+                    {servicesAPlanifier.map((s) => (
+                      <div key={s.id} className="calendar-item">
+                        <span className="service-icon">{s.icon}</span>
+                        <span className="calendar-item-label">{s.label}</span>
+                        <input
+                          type="date"
+                          className="calendar-date"
+                          value={servicesPlanned[s.id] || ''}
+                          onChange={(e) => setServiceDate(s.id, e.target.value)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
