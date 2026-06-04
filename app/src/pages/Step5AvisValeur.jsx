@@ -1076,6 +1076,100 @@ const cssStyles = `
     opacity: 1;
   }
 
+  /* ---- Boutons flottants (FAB) ---- */
+  .fab-stack {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 900;
+  }
+  .fab-btn {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s ease;
+  }
+  .fab-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.24);
+  }
+  .fab-btn:active { transform: translateY(0); }
+  .fab-docs {
+    background: var(--green);
+    color: #fff;
+  }
+  .fab-docs:hover { background: #17a05d; }
+  .fab-save {
+    background: #fff;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .fab-save:hover {
+    border-color: var(--green);
+    color: var(--green);
+  }
+
+  /* ---- Modale documents ---- */
+  .docs-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 16px;
+  }
+  .docs-modal {
+    background: #fff;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+  }
+  .docs-modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .docs-modal-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .docs-modal-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 22px;
+    line-height: 1;
+    color: #888;
+    padding: 0 4px;
+  }
+  .docs-modal-close:hover { color: var(--text); }
+  .docs-modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px;
+  }
+  .docs-modal-body .action-btn {
+    padding: 12px 14px;
+    font-size: 12px;
+  }
+
   /* ---- History Banner ---- */
   .history-banner {
     background: #fafafa;
@@ -1344,6 +1438,9 @@ export default function Step5AvisValeur() {
   });
   const [calFocusId, setCalFocusId] = useState(null);
 
+  /* Modale des documents à générer (déclenchée par le bouton flottant doc). */
+  const [docsModalOpen, setDocsModalOpen] = useState(false);
+
   /* Date effective d'un service : date saisie, sinon date par défaut échelonnée
    * (J+7, J+14, …) selon l'ordre dans le catalogue, pour qu'il soit visible
    * sur le calendrier même sans planification explicite. */
@@ -1391,6 +1488,73 @@ export default function Step5AvisValeur() {
     setCalMonth(({ year, month }) =>
       month === 11 ? { year: year + 1, month: 0 } : { year, month: month + 1 }
     );
+
+  /* Sauvegarde de l'étude de marché (anciennement bouton "Sauvegarder").
+     Déclenchée par le bouton flottant disquette. */
+  const handleSaveStudy = () => {
+    const estimations = JSON.parse(localStorage.getItem('ideeri_estimations') || '[]');
+    // Snapshot des comparables sélectionnés (Step3) pour permettre
+    // la comparaison V1 vs V2 à la prochaine étude du même bien.
+    const rs = getReportState();
+    const comparablesSnapshot = Array.isArray(rs.comparablesSelectionnes)
+      ? rs.comparablesSelectionnes.map((c) => ({
+          id: c.id,
+          title: c.title,
+          addr: c.addr,
+          coords: c.coords,
+          source: c.source,
+          prix: c.prix,
+          prixM2: c.prixM2,
+          surface: c.fields?.surface ?? c._dvfRaw?.surface,
+          pieces: c.fields?.pieces ?? c._dvfRaw?.pieces,
+          weight: rs.comparablesConfig?.weights?.[c.id],
+        }))
+      : [];
+    const nowIso = new Date().toISOString();
+    // Mode démo : payload statique du wireframe.
+    // Mode live : payload dérivé du bien actif (zero fake data).
+    const payload = hasRealLocation
+      ? {
+          id: Date.now(),
+          reference: estimationReference,
+          adresse: activeBien?.adresse?.label || '',
+          description: heroDescription,
+          agent: '',
+          date: new Date().toLocaleDateString('fr-FR'),
+          heure: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+          snapshotDate: nowIso,
+          statut: 'sauvegarde',
+          prix: formatPrice(priceRef.prixMedian),
+          comparables: comparablesSnapshot,
+        }
+      : {
+          id: Date.now(),
+          reference: 'LYN-2026-00847',
+          adresse: '12 rue des Lilas, 69003 Lyon',
+          description: 'Appartement T3, 72.5 m\u00b2',
+          agent: 'Marie Dupont',
+          date: new Date().toLocaleDateString('fr-FR'),
+          heure: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+          snapshotDate: nowIso,
+          statut: 'sauvegarde',
+          prix: '300 000 \u20ac',
+          comparables: comparablesSnapshot,
+        };
+    const exists = estimations.find((e) => e.reference === payload.reference);
+    if (!exists) {
+      estimations.unshift(payload);
+    } else {
+      exists.date = payload.date;
+      exists.heure = payload.heure;
+      exists.snapshotDate = nowIso;
+      exists.adresse = payload.adresse;
+      exists.description = payload.description;
+      exists.prix = payload.prix;
+      exists.comparables = comparablesSnapshot;
+    }
+    localStorage.setItem('ideeri_estimations', JSON.stringify(estimations));
+    navigate('/');
+  };
 
   // Persistance de la section services.
   useEffect(() => {
@@ -2052,86 +2216,55 @@ export default function Step5AvisValeur() {
         </div>
         {/* /top-row */}
 
-        {/* ============ ACTIONS ============ */}
-        <div className="content-grid single-col">
-          {/* --- Actions --- */}
-          <div className="content-grid-col">
-            <div className="card">
-              <div className="card-title">Actions</div>
-              <div className="actions-card">
-                <button className="action-btn secondary" onClick={() => {
-                  const estimations = JSON.parse(localStorage.getItem('ideeri_estimations') || '[]');
-                  // Snapshot des comparables s\u00e9lectionn\u00e9s (Step3) pour permettre
-                  // la comparaison V1 vs V2 \u00e0 la prochaine \u00e9tude du m\u00eame bien.
-                  // On ne garde que les champs n\u00e9cessaires (id, adresse, coords,
-                  // source, prix, m2, surface, weight) pour limiter le poids.
-                  const rs = getReportState();
-                  const comparablesSnapshot = Array.isArray(rs.comparablesSelectionnes)
-                    ? rs.comparablesSelectionnes.map((c) => ({
-                        id: c.id,
-                        title: c.title,
-                        addr: c.addr,
-                        coords: c.coords,
-                        source: c.source,
-                        prix: c.prix,
-                        prixM2: c.prixM2,
-                        surface: c.fields?.surface ?? c._dvfRaw?.surface,
-                        pieces: c.fields?.pieces ?? c._dvfRaw?.pieces,
-                        weight: rs.comparablesConfig?.weights?.[c.id],
-                      }))
-                    : [];
-                  const nowIso = new Date().toISOString();
-                  // Mode d\u00e9mo : payload statique du wireframe.
-                  // Mode live : payload d\u00e9riv\u00e9 du bien actif (zero fake data).
-                  const payload = hasRealLocation
-                    ? {
-                        id: Date.now(),
-                        reference: estimationReference,
-                        adresse: activeBien?.adresse?.label || '',
-                        description: heroDescription,
-                        agent: '',
-                        date: new Date().toLocaleDateString('fr-FR'),
-                        heure: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-                        snapshotDate: nowIso,
-                        statut: 'sauvegarde',
-                        prix: formatPrice(priceRef.prixMedian),
-                        comparables: comparablesSnapshot,
-                      }
-                    : {
-                        id: Date.now(),
-                        reference: 'LYN-2026-00847',
-                        adresse: '12 rue des Lilas, 69003 Lyon',
-                        description: 'Appartement T3, 72.5 m\u00b2',
-                        agent: 'Marie Dupont',
-                        date: new Date().toLocaleDateString('fr-FR'),
-                        heure: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-                        snapshotDate: nowIso,
-                        statut: 'sauvegarde',
-                        prix: '300 000 \u20ac',
-                        comparables: comparablesSnapshot,
-                      };
-                  const exists = estimations.find((e) => e.reference === payload.reference);
-                  if (!exists) {
-                    estimations.unshift(payload);
-                  } else {
-                    exists.date = payload.date;
-                    exists.heure = payload.heure;
-                    exists.snapshotDate = nowIso;
-                    exists.adresse = payload.adresse;
-                    exists.description = payload.description;
-                    exists.prix = payload.prix;
-                    exists.comparables = comparablesSnapshot;
-                  }
-                  localStorage.setItem('ideeri_estimations', JSON.stringify(estimations));
-                  navigate('/');
-                }}>
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ verticalAlign: '-2px', marginRight: '6px' }}>
-                    <path d="M13 11v3H3v-3M5 7l3 3 3-3M8 2v8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                  Sauvegarder l&apos;&eacute;tude de march&eacute;
-                  <span className="btn-sub">Enregistre toutes les donn&eacute;es collect&eacute;es et analyses</span>
+        {/* ============ ACTIONS FLOTTANTES ============ */}
+        {/* Deux boutons ronds en position fixe (bas droite) :
+            - disquette : sauvegarde l'étude de marché
+            - document : ouvre une modale avec les 2 documents à générer */}
+        <div className="fab-stack">
+          <button
+            type="button"
+            className="fab-btn fab-save"
+            onClick={handleSaveStudy}
+            title="Sauvegarder l'étude de marché"
+            aria-label="Sauvegarder l'étude de marché"
+          >
+            <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
+              <path d="M2.5 2.5h8.5L13.5 5v8.5a1 1 0 01-1 1h-9a1 1 0 01-1-1v-10a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
+              <path d="M5 2.5v3h5v-3M5 14.5v-4h6v4" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
+            </svg>
+          </button>
+          <button
+            type="button"
+            className="fab-btn fab-docs"
+            onClick={() => setDocsModalOpen(true)}
+            title="Générer un document"
+            aria-label="Générer un document"
+          >
+            <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
+              <path d="M9 1.5H4.5A1.5 1.5 0 003 3v10a1.5 1.5 0 001.5 1.5h7A1.5 1.5 0 0013 13V5.5L9 1.5z" stroke="currentColor" strokeWidth="1.3" fill="none" strokeLinejoin="round"/>
+              <path d="M9 1.5v4h4" stroke="currentColor" strokeWidth="1.3" fill="none" strokeLinejoin="round"/>
+              <line x1="5.5" y1="8.5" x2="10.5" y2="8.5" stroke="currentColor" strokeWidth="1.2"/>
+              <line x1="5.5" y1="11" x2="9" y2="11" stroke="currentColor" strokeWidth="1.2"/>
+            </svg>
+          </button>
+        </div>
+
+        {docsModalOpen && (
+          <div className="docs-modal-overlay" onClick={() => setDocsModalOpen(false)}>
+            <div className="docs-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="docs-modal-head">
+                <span className="docs-modal-title">Générer un document</span>
+                <button
+                  type="button"
+                  className="docs-modal-close"
+                  onClick={() => setDocsModalOpen(false)}
+                  aria-label="Fermer"
+                >
+                  &times;
                 </button>
-                <button className="action-btn primary" onClick={() => navigate('/report')}>
+              </div>
+              <div className="docs-modal-body">
+                <button className="action-btn primary" onClick={() => { setDocsModalOpen(false); navigate('/report'); }}>
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ verticalAlign: '-2px', marginRight: '6px' }}>
                     <rect x="2" y="1" width="12" height="14" rx="1.5" stroke="currentColor" strokeWidth="1.3" fill="none"/>
                     <line x1="5" y1="5" x2="11" y2="5" stroke="currentColor" strokeWidth="1.2"/>
@@ -2141,7 +2274,7 @@ export default function Step5AvisValeur() {
                   G&eacute;n&eacute;rer un compte rendu d&apos;estimation
                   <span className="btn-sub">R&eacute;sum&eacute; de l&apos;&eacute;tude de march&eacute; et avis de valeur</span>
                 </button>
-                <button className="action-btn primary" onClick={() => navigate('/avis-valeur')}>
+                <button className="action-btn primary" onClick={() => { setDocsModalOpen(false); navigate('/avis-valeur'); }}>
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ verticalAlign: '-2px', marginRight: '6px' }}>
                     <path d="M9 1H3.5A1.5 1.5 0 002 2.5v11A1.5 1.5 0 003.5 15h9a1.5 1.5 0 001.5-1.5V6L9 1z" stroke="currentColor" strokeWidth="1.3" fill="none"/>
                     <path d="M9 1v5h5" stroke="currentColor" strokeWidth="1.3" fill="none"/>
@@ -2152,7 +2285,7 @@ export default function Step5AvisValeur() {
               </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* ============ SERVICES DE L'AGENCE (3 drawers redimensionnables) ============ */}
         {/* Mandat → services proposés → calendrier. Poignées drag pour ajuster
