@@ -467,79 +467,6 @@ const cssStyles = `
     color: #333;
   }
 
-  /* ---- Decomposition ---- */
-  .decomp-step {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 0;
-    border-bottom: 1px solid #f5f5f5;
-    font-size: 12px;
-  }
-  .decomp-step:last-of-type { border-bottom: none; }
-  .decomp-label {
-    color: var(--text);
-    font-weight: 500;
-  }
-  .decomp-value {
-    font-weight: 600;
-    font-family: 'Courier New', monospace;
-  }
-  .decomp-value.pos { color: var(--green); }
-  .decomp-value.neg { color: var(--red); }
-  .decomp-detail {
-    font-size: 10px;
-    color: #666;
-    padding: 2px 0 2px 14px;
-    border-left: 2px solid #f0f0f0;
-  }
-  .decomp-divider {
-    border-top: 2px solid var(--text);
-    margin: 12px 0;
-    padding-top: 12px;
-  }
-  .decomp-final {
-    font-size: 13px;
-    font-weight: 700;
-  }
-  .decomp-final-value {
-    font-size: 16px;
-    color: var(--green);
-    font-weight: 700;
-  }
-  .decomp-range {
-    font-size: 10px;
-    color: #666;
-    margin-top: 4px;
-  }
-
-  /* ---- Comparables Table ---- */
-  .comp-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 11px;
-    margin-top: 12px;
-  }
-  .comp-table th {
-    background: #f9f9f9;
-    padding: 6px;
-    text-align: left;
-    font-weight: 600;
-    color: #bbb;
-    border-bottom: 1px solid var(--border);
-    font-size: 10px;
-    text-transform: uppercase;
-  }
-  .comp-table td {
-    padding: 6px;
-    border-bottom: 1px solid #f5f5f5;
-  }
-  .comp-table .total td {
-    font-weight: 600;
-    background: #f9f9f9;
-    border-top: 1px solid var(--border);
-  }
-
   /* ---- Strategy Options ---- */
   .strategy-option {
     padding: 12px;
@@ -834,35 +761,6 @@ export default function Step5AvisValeur() {
     };
   }, [activeBien, priceRef]);
 
-  // Décomposition de l'estimation en mode live : prix m² de base + ajustements
-  // breakdown = array de { label, coef } (coef = 1.0 -> neutre, 1.05 -> +5%, 0.95 -> -5%)
-  const breakdownLive = useMemo(() => {
-    if (!hasRealLocation || !activeBien?.result?.breakdown) return null;
-    return {
-      prixM2Base: Number(activeBien.result.prixM2Base) || 0,
-      coef: Number(activeBien.result.coef) || 1,
-      breakdown: Array.isArray(activeBien.result.breakdown) ? activeBien.result.breakdown : [],
-    };
-  }, [activeBien, hasRealLocation]);
-
-  // Comparables DVF : top 10 transactions du quartier persistées dans activeBien
-  const comparablesLive = useMemo(() => {
-    if (!hasRealLocation || !Array.isArray(activeBien?.dvfTopComparables)) return [];
-    return activeBien.dvfTopComparables.slice(0, 5).map((c, i) => {
-      const adresse = c.adresse || c.nom_voie || c.address || `Transaction #${i + 1}`;
-      const prixM2 = Number(c.prix_m2 || c.prixM2 || (c.valeur_fonciere && c.surface_reelle_bati
-        ? c.valeur_fonciere / c.surface_reelle_bati : 0));
-      return { adresse, prixM2: Math.round(prixM2) };
-    }).filter((c) => c.prixM2 > 0);
-  }, [activeBien, hasRealLocation]);
-
-  // Moyenne pondérée des comparables (pondération uniforme pour l'instant)
-  const comparablesAvg = useMemo(() => {
-    if (comparablesLive.length === 0) return 0;
-    const sum = comparablesLive.reduce((acc, c) => acc + c.prixM2, 0);
-    return Math.round(sum / comparablesLive.length);
-  }, [comparablesLive]);
-
   // Bornes du slider de prix : -17% / +27% autour du prix médian, arrondies au millier
   const sliderBounds = useMemo(() => {
     const median = priceRef.prixMedian;
@@ -880,19 +778,15 @@ export default function Step5AvisValeur() {
 
   /* Largeurs (en %) redimensionnables au drag des poignées (inspiré de
    * Step3). Persistées dans reportStore.displayConfig.step5Cols.
-   *  - topL : largeur de "Impact du prix" dans la rangée haute (le reste = Stratégie)
-   *  - c1 : largeur de la colonne 1 du content-grid (Avis de valeur + Comparables)
-   *         le reste (= 100 - c1) revient à la colonne 2 (Actions) */
+   *  - topL : largeur de "Impact du prix" dans la rangée haute (le reste = Stratégie) */
   const persistedCols = useMemo(
     () => getReportSection('displayConfig', {}).step5Cols || null,
     []
   );
   const [topL, setTopL] = useState(() => persistedCols?.topL ?? 64);
-  const [c1, setC1] = useState(() => persistedCols?.c1 ?? 60);
-  // Poignée active : 'top' (rangée haute), 'grid1' (content-grid), ou null
+  // Poignée active : 'top' (rangée haute) ou null
   const [activeHandle, setActiveHandle] = useState(null);
   const topRowRef = useRef(null);
-  const gridRef = useRef(null);
 
   const clampPct = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
@@ -917,18 +811,13 @@ export default function Step5AvisValeur() {
     window.addEventListener('mouseup', handleUp);
   };
 
-  /* Poignée (gauche|droite) : la position X donne directement c1, borné. */
-  const startResizeC1 = (e) =>
-    startResize(e, gridRef, (v) => setC1(clampPct(v, 35, 75)), 'grid1', 35, 75);
-
-  /* Reset (double-clic) : rangée haute → 64/36, content-grid → 60/40 */
+  /* Reset (double-clic) : rangée haute → 64/36 */
   const resetTop = () => setTopL(64);
-  const resetGrid = () => setC1(60);
 
-  // Persiste les largeurs dans reportStore.displayConfig
+  // Persiste la largeur dans reportStore.displayConfig
   useEffect(() => {
-    mergeReportSection('displayConfig', { step5Cols: { topL, c1 } });
-  }, [topL, c1]);
+    mergeReportSection('displayConfig', { step5Cols: { topL } });
+  }, [topL]);
 
   // Persistance dans le reportStore pour que CompteRendu (/report) puisse
   // afficher les valeurs saisies par l'utilisateur (prix retenu, stratégie
@@ -1438,169 +1327,9 @@ export default function Step5AvisValeur() {
         </div>
         {/* /top-row */}
 
-        {/* ============ CONTENT GRID (redimensionnable) ============ */}
-        <div
-          ref={gridRef}
-          className={`content-grid${hideDemo ? ' single-col' : ''}${activeHandle === 'grid1' ? ' is-resizing' : ''}`}
-          style={{ '--col-1': `${c1}%` }}
-        >
-          {/* --- Column 1: Decomposition + Comparables (mock — masqu\u00e9 en mode "Masquer la d\u00e9mo") --- */}
-          {!hideDemo && (
-          <div className="content-grid-col">
-            <div className="card">
-              <div className="card-title">Avis de valeur</div>
-              {hasRealLocation ? (
-                breakdownLive ? (
-                  <>
-                    <div className="decomp-step">
-                      <span className="decomp-label">1. Prix m&eacute;dian de base</span>
-                      <span className="decomp-value">{breakdownLive.prixM2Base.toLocaleString('fr-FR')} &euro;/m&sup2;</span>
-                    </div>
-                    <div className="decomp-detail">
-                      &times; {surface}m&sup2; = {Math.round(breakdownLive.prixM2Base * surface).toLocaleString('fr-FR')} &euro;
-                    </div>
-                    {breakdownLive.breakdown.length > 0 && (
-                      <>
-                        <div className="decomp-step">
-                          <span className="decomp-label">2. Ajustements du bien</span>
-                          <span className={`decomp-value ${breakdownLive.coef >= 1 ? 'pos' : 'neg'}`}>
-                            {breakdownLive.coef >= 1 ? '+' : ''}{((breakdownLive.coef - 1) * 100).toFixed(1)}%
-                          </span>
-                        </div>
-                        {breakdownLive.breakdown.map((b, idx) => {
-                          const pct = ((b.coef - 1) * 100).toFixed(1);
-                          const sign = b.coef >= 1 ? '+' : '';
-                          return (
-                            <div key={idx} className="decomp-detail">
-                              {b.label} {sign}{pct}%
-                            </div>
-                          );
-                        })}
-                        <div className="decomp-detail">
-                          &rarr;{' '}
-                          <strong style={{ color: breakdownLive.coef >= 1 ? '#46B962' : '#e74c3c' }}>
-                            {breakdownLive.coef >= 1 ? '+' : '\u2212'}
-                            {Math.abs(Math.round((breakdownLive.coef - 1) * breakdownLive.prixM2Base * surface)).toLocaleString('fr-FR')} &euro;
-                          </strong>
-                        </div>
-                      </>
-                    )}
-                    <div className="decomp-divider" />
-                    <div className="decomp-step">
-                      <span className="decomp-label decomp-final">AVIS DE VALEUR</span>
-                      <span className="decomp-value decomp-final-value">{formatPrice(priceRef.prixMedian)}</span>
-                    </div>
-                    <div className="decomp-range">
-                      Fourchette: {formatPrice(priceRef.prixBas)} &mdash; {formatPrice(priceRef.prixHaut)}
-                    </div>
-                  </>
-                ) : (
-                  <div className="card-empty-state" style={{ padding: '24px 8px', color: '#6b7280', fontSize: '0.92rem', lineHeight: 1.55 }}>
-                    Pas encore de d&eacute;composition d&eacute;taill&eacute;e pour ce bien.
-                    Le calcul s&rsquo;effectue automatiquement &agrave; la cr&eacute;ation
-                    depuis le formulaire <em>Nouveau bien</em> (m&eacute;diane DVF, ajustements
-                    par caract&eacute;ristique). Si elle est manquante, recr&eacute;ez le bien
-                    en compl&eacute;tant tous les champs.
-                  </div>
-                )
-              ) : (
-                <>
-                  <div className="decomp-step">
-                    <span className="decomp-label">1. Prix m&eacute;dian comparables</span>
-                    <span className="decomp-value">4 172 &euro;/m&sup2;</span>
-                  </div>
-                  <div className="decomp-detail">&times; 72.5m&sup2; = 302 470 &euro;</div>
-                  <div className="decomp-step">
-                    <span className="decomp-label">2. Impact tension march&eacute;</span>
-                    <span className="decomp-value pos">+0.7%</span>
-                  </div>
-                  <div className="decomp-detail">Ratio demande/offre 3.2x +0.5%</div>
-                  <div className="decomp-detail">7 acqu&eacute;reurs forte compatibilit&eacute; +0.2%</div>
-                  <div className="decomp-detail">&rarr; <strong style={{ color: '#46B962' }}>+2 117 &euro;</strong></div>
-                  <div className="decomp-step">
-                    <span className="decomp-label">3. Corrections sp&eacute;cifiques</span>
-                    <span className="decomp-value neg">&minus;1.5%</span>
-                  </div>
-                  <div className="decomp-detail">DPE D (passoire thermique 2028) &minus;2.0%</div>
-                  <div className="decomp-detail">Travaux copro vot&eacute;s (15k&euro;) &minus;0.5%</div>
-                  <div className="decomp-detail">Balcon 5.2m&sup2; +1.0%</div>
-                  <div className="decomp-detail">&rarr; <strong style={{ color: '#e74c3c' }}>&minus;4 537 &euro;</strong></div>
-                  <div className="decomp-divider" />
-                  <div className="decomp-step">
-                    <span className="decomp-label decomp-final">AVIS DE VALEUR</span>
-                    <span className="decomp-value decomp-final-value">300 000 &euro;</span>
-                  </div>
-                  <div className="decomp-range">Fourchette: 280 000 &euro; &mdash; 315 000 &euro;</div>
-                </>
-              )}
-            </div>
-
-            <div className="card">
-              <div className="card-title">Comparables utilis&eacute;s</div>
-              {hasRealLocation ? (
-                comparablesLive.length > 0 ? (
-                  <table className="comp-table">
-                    <thead>
-                      <tr>
-                        <th>Adresse</th>
-                        <th>Prix/m&sup2;</th>
-                        <th>Poids</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {comparablesLive.map((c, i) => (
-                        <tr key={i}>
-                          <td>{c.adresse}</td>
-                          <td>{c.prixM2.toLocaleString('fr-FR')}&euro;</td>
-                          <td>{Math.round(100 / comparablesLive.length)}%</td>
-                        </tr>
-                      ))}
-                      <tr className="total">
-                        <td colSpan="2">Moyenne</td>
-                        <td>{comparablesAvg.toLocaleString('fr-FR')}&euro;</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                ) : (
-                  <div className="card-empty-state" style={{ padding: '24px 8px', color: '#6b7280', fontSize: '0.92rem', lineHeight: 1.55 }}>
-                    Aucune transaction DVF comparable n&rsquo;a &eacute;t&eacute; trouv&eacute;e
-                    pour ce bien. V&eacute;rifiez la base DVF ou ajoutez des comparables
-                    manuellement &agrave; l&rsquo;&eacute;tape 3.
-                  </div>
-                )
-              ) : (
-                <table className="comp-table">
-                  <thead>
-                    <tr>
-                      <th>Adresse</th>
-                      <th>Prix/m&sup2;</th>
-                      <th>Poids</th>
-                      <th>Ajust&eacute;</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr><td>8 rue Villeroy</td><td>4 191&euro;</td><td>35%</td><td>4 103&euro;</td></tr>
-                    <tr><td>22 av. Lacassagne</td><td>4 133&euro;</td><td>40%</td><td>4 195&euro;</td></tr>
-                    <tr><td>15 rue Paul Bert</td><td>4 274&euro;</td><td>25%</td><td>4 112&euro;</td></tr>
-                    <tr className="total"><td colSpan="3">Moyenne pond&eacute;r&eacute;e</td><td>4 172&euro;</td></tr>
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-          )}
-
-          {/* Poign\u00e9e : entre col1 (Avis de valeur) et col2 (Actions) */}
-          {!hideDemo && (
-            <div
-              className={`col-resize-handle${activeHandle === 'grid1' ? ' is-dragging' : ''}`}
-              onMouseDown={startResizeC1}
-              onDoubleClick={resetGrid}
-              title="Glisser pour redimensionner \u00b7 double-clic pour r\u00e9initialiser"
-            />
-          )}
-
-          {/* --- Column 2: Actions --- */}
+        {/* ============ ACTIONS ============ */}
+        <div className="content-grid single-col">
+          {/* --- Actions --- */}
           <div className="content-grid-col">
             <div className="card">
               <div className="card-title">Actions</div>
