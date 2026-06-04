@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import L from 'leaflet';
+import { getCompPhotos } from '../utils/compPhotos';
 
 const drawerCss = `
   /* Drawer non-bloquant : restreint à la zone du panel à droite, sans
@@ -1109,6 +1110,9 @@ export default function ComparableDrawer({ comp, onClose, isSelected = false, we
   const isDvf = comp.source === 'dvf';
   const isPortail = comp.source === 'portail';
   const showWeight = isSelected && typeof weight === 'number' && typeof onWeightChange === 'function';
+  // Photos réelles, sinon fallback stock déterministe (même source que les
+  // cartes du pool Step3). DVF reste sans photo (anonymisé) → [].
+  const photos = getCompPhotos(comp);
 
   /* ─── Mode INLINE — rendu dans la colonne 3 du workspace Step3 ─── */
   if (inline) {
@@ -1186,9 +1190,9 @@ export default function ComparableDrawer({ comp, onClose, isSelected = false, we
           )}
 
           {/* Photos / vue cadastrale / no-photo */}
-          {comp.photos && comp.photos.length > 0 ? (
+          {photos.length > 0 ? (
             <div className="drawer-section">
-              <PhotoCarousel photos={comp.photos} />
+              <PhotoCarousel photos={photos} />
             </div>
           ) : isDvf && comp.coords ? (
             <div className="drawer-section">
@@ -1320,9 +1324,9 @@ export default function ComparableDrawer({ comp, onClose, isSelected = false, we
           )}
 
           {/* Photos */}
-          {comp.photos && comp.photos.length > 0 ? (
+          {photos.length > 0 ? (
             <div className="drawer-section">
-              <PhotoCarousel photos={comp.photos} />
+              <PhotoCarousel photos={photos} />
             </div>
           ) : isDvf && comp.coords ? (
             <div className="drawer-section">
