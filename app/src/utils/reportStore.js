@@ -52,6 +52,14 @@
  *     pdfSel?: { act1: boolean, act2: boolean, act3: boolean },
  *   },
  *
+ *   // Step5 — planificateur de rendez-vous client (remonte dans Ideeri)
+ *   rdvPlanner: {
+ *     jalons?: Array<{
+ *       id: string, label: string, date: string (ISO yyyy-mm-dd),
+ *       heure: string (HH:MM), duree: number (min), color: string,
+ *     }>,
+ *   },
+ *
  *   // Step5 — avis de valeur
  *   pointsForts: string[],
  *   pointsVigilance: string[],

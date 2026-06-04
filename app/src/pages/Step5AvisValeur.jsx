@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PropertyCard from '../components/PropertyCard';
 import Stepper from '../components/Stepper';
+import RdvPlanner from '../components/RdvPlanner';
 import { avisValeur } from '../data/propertyData';
 import { getActiveBien } from '../utils/activeBien';
 import { getAcquereurs } from '../utils/acquereursStore';
@@ -1713,6 +1714,9 @@ export default function Step5AvisValeur() {
             Passer au mandat &rarr;
           </button>
         </div>
+
+        {/* ============ PLANIFICATEUR DE RENDEZ-VOUS (apr\u00e8s le mandat) ============ */}
+        <RdvPlanner />
       </div>
     </div>
   );
