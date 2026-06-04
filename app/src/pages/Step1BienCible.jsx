@@ -6,12 +6,12 @@ import 'leaflet/dist/leaflet.css';
 import PropertyCard from '../components/PropertyCard';
 import Stepper from '../components/Stepper';
 import PhotoUploader from '../components/PhotoUploader';
-import { bienCibleCategories as bienCibleCategoriesBase } from '../data/propertyData';
+import { bienCibleCategories as bienCibleCategoriesBase, avisValeur } from '../data/propertyData';
 import { PROPERTY_PHOTOS } from '../data/propertyPhotos';
 import { getActiveBien, buildBienCibleCategories } from '../utils/activeBien';
 import { getAllPhotos, deletePhoto } from '../utils/photosStore';
 import CadastrePLUCards from '../components/CadastrePLUCards';
-import { mergeReportSection, getReportSection, slugifyKey } from '../utils/reportStore';
+import { mergeReportSection, getReportSection, getReportState, setReportState, slugifyKey } from '../utils/reportStore';
 
 // Fix default Leaflet marker icon issue in React
 delete L.Icon.Default.prototype._getIconUrl;
@@ -869,6 +869,124 @@ const cssStyles = `
     color: #bbb;
   }
 
+  /* ---- Points forts / vigilance + avis vendeur (déplacés depuis Step5) ---- */
+  .appraisal-card {
+    background: white;
+    border: 1px solid #eee;
+    border-radius: var(--radius-card);
+    padding: 16px;
+  }
+  .appraisal-card.strengths { border-left: 3px solid var(--green); }
+  .appraisal-card.weaknesses { border-left: 3px solid #e0a93a; }
+  .appraisal-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 12px;
+  }
+  .appraisal-hint {
+    font-size: 10px;
+    color: #bbb;
+    font-weight: 400;
+  }
+  .appraisal-item {
+    display: flex;
+    gap: 8px;
+    padding: 6px 0;
+    font-size: 12px;
+    color: var(--text);
+    align-items: flex-start;
+    position: relative;
+  }
+  .appraisal-icon {
+    font-size: 14px;
+    flex-shrink: 0;
+    opacity: 0.85;
+  }
+  .appraisal-text {
+    flex: 1;
+    font-size: 12px;
+    color: #333;
+    outline: none;
+  }
+  .appraisal-text[contenteditable="true"]:focus {
+    border-bottom: 1px dashed var(--green);
+    padding-bottom: 1px;
+  }
+  .appraisal-del {
+    display: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    border: 1px solid #eee;
+    background: white;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #bbb;
+    flex-shrink: 0;
+    transition: all 0.15s;
+  }
+  .appraisal-item:hover .appraisal-del { display: flex; }
+  .appraisal-del:hover {
+    border-color: var(--red);
+    color: var(--red);
+    background: #fef2f2;
+  }
+  .appraisal-add {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    margin-top: 8px;
+    border-radius: 6px;
+    border: 1px dashed #ddd;
+    background: transparent;
+    cursor: pointer;
+    font-size: 11px;
+    color: #666;
+    transition: all 0.2s;
+    width: 100%;
+    font-family: inherit;
+  }
+  .appraisal-add:hover {
+    border-color: var(--green);
+    color: var(--green);
+    background: rgba(70, 185, 98, 0.04);
+  }
+  .seller-opinion-input {
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 90px;
+    padding: 10px 12px;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    background: #fafbfd;
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #333;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .seller-opinion-input:focus {
+    border-color: var(--green);
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(70, 185, 98, 0.1);
+  }
+  .seller-opinion-input::placeholder {
+    color: #b5b5b5;
+    font-style: italic;
+  }
+  .seller-opinion-meta {
+    margin-top: 6px;
+    font-size: 10px;
+    color: #999;
+    text-align: right;
+  }
+
   /* BUTTONS AREA */
   .buttons-area {
     background: white;
@@ -1130,6 +1248,89 @@ export default function Step1BienCible() {
     const key = fieldKey(cat, field);
     setBienDetails((prev) => ({ ...prev, [key]: value }));
   };
+
+  // ---- Points forts / vigilance + avis du vendeur ----------------------
+  // Ces saisies, faites ici à l'étape 1 (fiche du bien cible), remontent
+  // dans le rapport commercial (/report) et étaient auparavant à l'étape 5.
+  // Persistées à la racine du reportStore (pointsForts/pointsVigilance/
+  // avisVendeur) pour respecter le contrat de lecture de CompteRendu.
+  const hasRealLocation = !!(activeBien && activeBien.adresse && activeBien.adresse.label);
+
+  // Génération auto des points forts/vigilance à partir des caractéristiques
+  // du bien (mode live). Mêmes heuristiques que l'ancienne étape 5 : DPE,
+  // étage/ascenseur, exposition, extérieur, parking, état, année. En mode
+  // démo : listes statiques d'avisValeur. Sert uniquement de valeur initiale
+  // si rien n'est encore persisté ; l'agent édite ensuite librement.
+  const buildAutoPoints = () => {
+    if (!hasRealLocation) {
+      return { forts: avisValeur.pointsForts, vigilance: avisValeur.pointsVigilance };
+    }
+    if (!activeBien?.bien) return { forts: [], vigilance: [] };
+    const bien = activeBien.bien;
+    const forts = [];
+    const vigilance = [];
+
+    const dpe = bien.dpe ? String(bien.dpe).toUpperCase() : null;
+    if (dpe && ['A', 'B', 'C'].includes(dpe)) forts.push(`DPE ${dpe} — bien performant énergétiquement`);
+    else if (dpe && ['F', 'G'].includes(dpe)) vigilance.push(`DPE ${dpe} — passoire thermique (interdiction de location 2025/2028)`);
+    else if (dpe === 'E') vigilance.push('DPE E — interdiction de location prévue en 2034');
+
+    if (bien.type === 'appartement' && bien.etage != null && bien.etage !== '') {
+      const e = Number(bien.etage);
+      if (e === 0) vigilance.push('Rez-de-chaussée — vis-à-vis et sécurité à anticiper');
+      else if (e >= 6 && !bien.ascenseur) vigilance.push(`${e}e étage sans ascenseur — frein commercial fort`);
+      else if (e >= 3 && bien.ascenseur) forts.push(`${e}e étage avec ascenseur — vue dégagée et confort`);
+    }
+
+    if (bien.exposition && /sud/i.test(bien.exposition)) forts.push(`Exposition ${bien.exposition.replace('_', '-')} — luminosité optimale`);
+    else if (bien.exposition === 'nord') vigilance.push('Exposition nord — luminosité réduite');
+
+    if (bien.exterieur === 'jardin') forts.push('Jardin — atout différenciant rare en zone urbaine');
+    else if (bien.exterieur === 'terrasse') forts.push('Terrasse — extérieur très recherché');
+    else if (bien.exterieur === 'balcon') forts.push('Balcon — extérieur appréciable');
+    else if (bien.exterieur === 'aucun' && bien.type === 'appartement') vigilance.push('Absence d\u2019extérieur — frein post-Covid');
+
+    if (bien.parking === 'box') forts.push('Box / garage fermé — valorise le bien (+5%)');
+    else if (bien.parking === 'place') forts.push('Place de parking — confort apprécié en centre-ville');
+    else if (bien.parking === 'aucun') vigilance.push('Pas de stationnement — frein dans certains quartiers');
+
+    if (bien.etat === 'neuf') forts.push('État neuf — aucun travaux à prévoir');
+    else if (bien.etat === 'refait') forts.push('Récemment rénové — prêt à emménager');
+    else if (bien.etat === 'a_renover') vigilance.push('À rénover — anticiper budget travaux');
+    else if (bien.etat === 'a_reconstruire') vigilance.push('À reconstruire — projet lourd, public restreint');
+
+    if (bien.annee) {
+      const a = Number(bien.annee);
+      if (a >= 2010) forts.push(`Construction ${a} — récent, normes thermiques actuelles`);
+      else if (a < 1948) vigilance.push(`Construction ${a} — ancien, vigilance sur structure et isolation`);
+    }
+    return { forts, vigilance };
+  };
+
+  // Hydratation : priorité aux saisies déjà persistées, sinon auto-génération.
+  const [pointsForts, setPointsForts] = useState(() => {
+    const st = getReportState();
+    if (Array.isArray(st.pointsForts)) return st.pointsForts;
+    return buildAutoPoints().forts;
+  });
+  const [pointsVigilance, setPointsVigilance] = useState(() => {
+    const st = getReportState();
+    if (Array.isArray(st.pointsVigilance)) return st.pointsVigilance;
+    return buildAutoPoints().vigilance;
+  });
+  const [avisVendeur, setAvisVendeur] = useState(() => {
+    const st = getReportState();
+    return typeof st.avisVendeur === 'string' ? st.avisVendeur : '';
+  });
+
+  useEffect(() => { setReportState({ pointsForts }); }, [pointsForts]);
+  useEffect(() => { setReportState({ pointsVigilance }); }, [pointsVigilance]);
+  useEffect(() => { setReportState({ avisVendeur }); }, [avisVendeur]);
+
+  const addPointFort = () => setPointsForts((prev) => [...prev, 'Nouveau point\u2026']);
+  const addPointVigilance = () => setPointsVigilance((prev) => [...prev, 'Nouveau point\u2026']);
+  const removePointFort = (idx) => setPointsForts((prev) => prev.filter((_, i) => i !== idx));
+  const removePointVigilance = (idx) => setPointsVigilance((prev) => prev.filter((_, i) => i !== idx));
 
   // Photos : filtre par type + index lightbox -----------------------------
   // Par defaut on verrouille sur Salon/Sejour pour n'afficher qu'une seule
@@ -1498,6 +1699,73 @@ export default function Step1BienCible() {
                 className="notes-textarea"
                 placeholder="Observations de visite..."
               />
+            </div>
+
+            {/* Points forts */}
+            <div className="appraisal-card strengths">
+              <div className="appraisal-title">Points forts <span className="appraisal-hint">(cliquer pour modifier)</span></div>
+              <div>
+                {pointsForts.map((p, i) => (
+                  <div key={i} className="appraisal-item">
+                    <span className="appraisal-icon">&#10004;</span>
+                    <span
+                      className="appraisal-text"
+                      contentEditable
+                      suppressContentEditableWarning
+                      onBlur={(e) => {
+                        const updated = [...pointsForts];
+                        updated[i] = e.currentTarget.textContent;
+                        setPointsForts(updated);
+                      }}
+                    >
+                      {p}
+                    </span>
+                    <button className="appraisal-del" onClick={() => removePointFort(i)} title="Supprimer">&times;</button>
+                  </div>
+                ))}
+              </div>
+              <button className="appraisal-add" onClick={addPointFort}>+ Ajouter un point fort</button>
+            </div>
+
+            {/* Points de vigilance */}
+            <div className="appraisal-card weaknesses">
+              <div className="appraisal-title">Points de vigilance <span className="appraisal-hint">(cliquer pour modifier)</span></div>
+              <div>
+                {pointsVigilance.map((p, i) => (
+                  <div key={i} className="appraisal-item">
+                    <span className="appraisal-icon">&#9888;</span>
+                    <span
+                      className="appraisal-text"
+                      contentEditable
+                      suppressContentEditableWarning
+                      onBlur={(e) => {
+                        const updated = [...pointsVigilance];
+                        updated[i] = e.currentTarget.textContent;
+                        setPointsVigilance(updated);
+                      }}
+                    >
+                      {p}
+                    </span>
+                    <button className="appraisal-del" onClick={() => removePointVigilance(i)} title="Supprimer">&times;</button>
+                  </div>
+                ))}
+              </div>
+              <button className="appraisal-add" onClick={addPointVigilance}>+ Ajouter un point de vigilance</button>
+            </div>
+
+            {/* Avis du vendeur */}
+            <div className="appraisal-card">
+              <div className="appraisal-title">Avis du vendeur <span className="appraisal-hint">(perception du propri&eacute;taire)</span></div>
+              <textarea
+                className="seller-opinion-input"
+                value={avisVendeur}
+                onChange={(e) => setAvisVendeur(e.target.value)}
+                placeholder="Notez ici ce que le vendeur pense de son bien : ressenti, points qu'il souligne, prix qu'il espère, motivation de vente, contraintes…"
+                rows={6}
+              />
+              {avisVendeur.trim().length > 0 && (
+                <div className="seller-opinion-meta">{avisVendeur.trim().length} caract&egrave;res saisis</div>
+              )}
             </div>
           </div>
         </div>

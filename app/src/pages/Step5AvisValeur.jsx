@@ -48,36 +48,96 @@ const cssStyles = `
     width: 100%;
   }
 
-  /* ---- Hero Section ---- */
-  .hero-section {
+  /* ---- Récapitulatif des étapes ---- */
+  .recap-section {
     background: #fff;
     border: 1px solid var(--border);
     border-radius: 10px;
-    padding: 32px 24px;
+    padding: 20px 24px 24px;
     margin-bottom: 14px;
-    text-align: center;
-    position: relative;
   }
-  .hero-label {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    color: #bbb;
-    letter-spacing: 0.5px;
+  .recap-head {
+    margin-bottom: 16px;
+  }
+  .recap-head-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .recap-head-sub {
+    font-size: 12px;
+    color: #888;
+    margin-top: 2px;
+  }
+  .recap-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
     margin-bottom: 20px;
   }
-  .hero-prices {
+  @media (max-width: 880px) {
+    .recap-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  .recap-card {
+    background: #fafafa;
+    border: 1px solid #f0f0f0;
+    border-radius: 8px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+  .recap-step-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: #999;
+  }
+  .recap-card-main {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.2;
+  }
+  .recap-card-line {
+    font-size: 11px;
+    color: #666;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .recap-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 2px;
+  }
+  .recap-tag {
+    display: inline-block;
+    background: #eef6f0;
+    color: var(--green-dark, #3da856);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 4px;
+  }
+
+  /* ---- Fourchette de prix (sous le récap) ---- */
+  .recap-prices {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 40px;
-    margin-bottom: 20px;
+    gap: 48px;
+    padding-top: 18px;
+    border-top: 1px solid #f0f0f0;
   }
   .price-item {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
   }
   .price-label {
     font-size: 10px;
@@ -87,61 +147,20 @@ const cssStyles = `
     letter-spacing: 0.5px;
   }
   .price-low {
-    font-size: 20px;
+    font-size: 22px;
     font-weight: 600;
     color: #bbb;
   }
   .price-main {
-    font-size: 44px;
+    font-size: 40px;
     font-weight: 700;
     color: var(--green);
     line-height: 1;
   }
   .price-high {
-    font-size: 20px;
+    font-size: 22px;
     font-weight: 600;
     color: #bbb;
-  }
-  .price-meta {
-    font-size: 12px;
-    color: #666;
-    margin-bottom: 20px;
-  }
-  .price-meta-item {
-    display: inline-block;
-    margin: 0 16px;
-  }
-  .confidence-wrap {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 24px;
-    margin-top: 8px;
-  }
-  .confidence-gauge {
-    width: 80px;
-    height: 80px;
-    flex-shrink: 0;
-  }
-  .confidence-text {
-    text-align: left;
-  }
-  .confidence-number {
-    font-size: 28px;
-    font-weight: 700;
-    color: var(--green);
-  }
-  .confidence-label {
-    font-size: 10px;
-    color: #888;
-    font-weight: 600;
-    text-transform: uppercase;
-  }
-  .confidence-details {
-    font-size: 10px;
-    color: #888;
-    margin-top: 4px;
-    line-height: 1.4;
   }
 
   /* ---- Demand Section ---- */
@@ -235,9 +254,9 @@ const cssStyles = `
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    max-width: 200px;
-    padding: 5px 10px;
-    border-radius: 999px;
+    max-width: 240px;
+    padding: 6px 12px;
+    border-radius: 14px;
     background: #f4f4f4;
     font-size: 10px;
     line-height: 1.3;
@@ -410,15 +429,12 @@ const cssStyles = `
   .demand-verdict-desc { font-size: 11px; color: #666; margin-top: 2px; }
 
   /* ---- Content Grid (colonnes redimensionnables) ----
-   * 3 colonnes + 2 poignées : Avis de valeur+Comparables (col1) |
-   * Forts/Vigilance/Avis vendeur (col2) | Actions (col3).
-   * Largeurs via --col-1 et --col-2 ; la colonne 3 prend le reste. */
+   * 2 colonnes + 1 poignée : Avis de valeur+Comparables (col1) |
+   * Actions (col2). Largeur via --col-1 ; la colonne 2 prend le reste. */
   .content-grid {
     display: grid;
     grid-template-columns:
-      minmax(0, var(--col-1, 40%))
-      8px
-      minmax(0, var(--col-2, 38%))
+      minmax(0, var(--col-1, 60%))
       8px
       minmax(0, 1fr);
     gap: 0;
@@ -482,51 +498,11 @@ const cssStyles = `
     border: 1px solid var(--border);
     position: relative;
   }
-  /* ---- Avis du vendeur (saisie libre) ---- */
-  .seller-opinion-input {
-    width: 100%;
-    box-sizing: border-box;
-    min-height: 90px;
-    padding: 10px 12px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: #fafbfd;
-    font-family: var(--font);
-    font-size: 12px;
-    line-height: 1.5;
-    color: #333;
-    resize: vertical;
-    transition: border-color 0.15s, background 0.15s;
-  }
-  .seller-opinion-input:hover {
-    border-color: #cfd6e4;
-  }
-  .seller-opinion-input:focus {
-    outline: none;
-    border-color: #6c8cd5;
-    background: #fff;
-    box-shadow: 0 0 0 3px rgba(108,140,213,0.12);
-  }
-  .seller-opinion-input::placeholder {
-    color: #b5b5b5;
-    font-style: italic;
-  }
-  .seller-opinion-meta {
-    margin-top: 6px;
-    font-size: 10px;
-    color: #999;
-    text-align: right;
-  }
   .card-title {
     font-size: 13px;
     font-weight: 500;
     margin-bottom: 12px;
     color: #333;
-  }
-  .card-title-hint {
-    font-size: 10px;
-    color: #bbb;
-    font-weight: 400;
   }
 
   /* ---- Decomposition ---- */
@@ -602,89 +578,6 @@ const cssStyles = `
     border-top: 1px solid var(--border);
   }
 
-  /* ---- List Items (Strengths / Weaknesses) ---- */
-  .list-item {
-    display: flex;
-    gap: 8px;
-    padding: 6px 0;
-    font-size: 12px;
-    color: var(--text);
-    align-items: flex-start;
-    position: relative;
-  }
-  .list-icon {
-    font-size: 14px;
-    flex-shrink: 0;
-    opacity: 0.85;
-  }
-  .item-text {
-    flex: 1;
-    font-size: 12px;
-    color: #333;
-  }
-  .item-text[contenteditable="true"] {
-    outline: none;
-    border-bottom: 1px dashed var(--green);
-    padding-bottom: 1px;
-  }
-  .item-actions {
-    display: none;
-    gap: 4px;
-    align-items: center;
-    position: absolute;
-    right: 0;
-    top: 50%;
-    transform: translateY(-50%);
-  }
-  .list-item:hover .item-actions {
-    display: flex;
-  }
-  .item-btn {
-    width: 20px;
-    height: 20px;
-    border-radius: 4px;
-    border: 1px solid var(--border);
-    background: white;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 10px;
-    color: #bbb;
-    transition: all 0.15s;
-  }
-  .item-btn:hover {
-    border-color: var(--green);
-    color: var(--green);
-    background: #f0fdf4;
-  }
-  .item-btn.delete:hover {
-    border-color: var(--red);
-    color: var(--red);
-    background: #fef2f2;
-  }
-  .add-item-btn {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 10px;
-    margin-top: 8px;
-    border-radius: 6px;
-    border: 1px dashed #ddd;
-    background: transparent;
-    cursor: pointer;
-    font-size: 11px;
-    color: #666;
-    transition: all 0.2s;
-    width: 100%;
-    font-family: var(--font);
-  }
-  .add-item-btn:hover {
-    border-color: var(--green);
-    color: var(--green);
-    background: rgba(29,186,110,0.03);
-  }
-
   /* ---- Strategy Options ---- */
   .strategy-option {
     padding: 12px;
@@ -751,6 +644,15 @@ const cssStyles = `
     margin-top: 6px;
     padding-top: 6px;
     border-top: 1px solid #f5f5f5;
+  }
+  .strategy-overcote {
+    font-size: 10px;
+    font-weight: 600;
+    color: #b3160a;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid #fbe3e0;
+    line-height: 1.3;
   }
   .badge-rec {
     display: inline-block;
@@ -861,6 +763,16 @@ function formatPrice(n) {
 
 const DPE_RANK_LOCAL = { A: 7, B: 6, C: 5, D: 4, E: 3, F: 2, G: 1 };
 
+/* Interpole linéairement entre deux couleurs hex (#rrggbb) avec t ∈ [0,1].
+ * t=0 → a, t=1 → b. Utilisé pour le dégradé vert→orange→rouge du prix. */
+function mixColor(a, b, t) {
+  const clamp = Math.max(0, Math.min(1, t));
+  const pa = [parseInt(a.slice(1, 3), 16), parseInt(a.slice(3, 5), 16), parseInt(a.slice(5, 7), 16)];
+  const pb = [parseInt(b.slice(1, 3), 16), parseInt(b.slice(3, 5), 16), parseInt(b.slice(5, 7), 16)];
+  const ch = (i) => Math.round(pa[i] + (pb[i] - pa[i]) * clamp).toString(16).padStart(2, '0');
+  return `#${ch(0)}${ch(1)}${ch(2)}`;
+}
+
 /* ==================== Component ==================== */
 export default function Step5AvisValeur() {
   const navigate = useNavigate();
@@ -896,6 +808,69 @@ export default function Step5AvisValeur() {
   const heroDescription = useMemo(() => {
     return describeBien(activeBien) || 'Appartement T3 · 72.5m² · Lyon 3ème · 4ème étage';
   }, [activeBien]);
+
+  /* ---- Récapitulatif des étapes précédentes ----
+   * Synthèse de ce qui a été défini en Step1→Step4 avant d'arriver à la
+   * fourchette de prix. Lit le bien actif + les sections du reportStore
+   * (bienDetails Step1, contexteMarche Step2, comparablesSelectionnes Step3).
+   * Tolérant : chaque ligne tombe sur un fallback "—" si la donnée manque. */
+  const recapData = useMemo(() => {
+    const b = activeBien?.bien || {};
+    const adr = activeBien?.adresse || {};
+    const bd = getReportSection('bienDetails', {});
+    const ctx = getReportSection('contexteMarche', {});
+    const selComps = getReportSection('comparablesSelectionnes', []);
+
+    // Lookup tolérant dans bienDetails (clés slugifiées "${cat}__${field}").
+    const find = (...slugs) => {
+      const keys = Object.keys(bd);
+      for (const slug of slugs) {
+        const hit = keys.find((k) => k.endsWith(`__${slug}`) || k === slug);
+        if (hit && bd[hit] !== undefined && bd[hit] !== '' && bd[hit] !== null) return bd[hit];
+      }
+      return undefined;
+    };
+
+    const typeLabel = TYPE_LABELS[b.type] || (b.type ? b.type.charAt(0).toUpperCase() + b.type.slice(1) : null);
+    const piecesLabel = b.pieces ? `T${b.pieces}` : null;
+    const surfaceVal = b.surface || find('surface_carrez_m', 'surface_totale_m', 'surface');
+    const surfaceLabel = surfaceVal ? `${surfaceVal} m²` : null;
+    const etageLabel = (b.etage !== undefined && b.etage !== null && b.etage !== '')
+      ? (Number(b.etage) === 0 ? 'RDC' : `${b.etage}e étage`)
+      : null;
+    const dpe = b.dpe || find('dpe_etiquette_energie', 'classe_dpe', 'dpe');
+    const etat = b.etat || find('etat_general', 'etat_general_du_bien');
+
+    // Step1 — bien : ligne synthétique des caractéristiques clés
+    const bienParts = [typeLabel, piecesLabel, surfaceLabel, etageLabel].filter(Boolean);
+
+    // Step2 — zone / marché local
+    const villeLabel = adr.city || ctx.zoneLabel || null;
+    const prixM2Zone = ctx.prixM2Median
+      || (activeBien?.dvfStats?.median ? Math.round(activeBien.dvfStats.median).toLocaleString('fr-FR') : null);
+    const evolution = ctx.evolution || activeBien?.dvfStats?.evolution || null;
+    const delaiMoyen = ctx.delaiMoyen || activeBien?.dvfStats?.delaiMoyen || null;
+
+    // Step3 — comparables retenus
+    const nbComps = Array.isArray(selComps) ? selComps.length : 0;
+
+    return {
+      // Step 1
+      bienLine: bienParts.length ? bienParts.join(' · ') : null,
+      adresse: adr.label || null,
+      dpe: dpe ? String(dpe).toUpperCase() : null,
+      etat: etat || null,
+      // Step 2
+      ville: villeLabel,
+      prixM2Zone,
+      evolution,
+      delaiMoyen,
+      // Step 3
+      nbComps,
+      // Step 4 (estimation calculée)
+      prixM2Estim: priceRef.prixM2,
+    };
+  }, [activeBien, priceRef]);
 
   // Décomposition de l'estimation en mode live : prix m² de base + ajustements
   // breakdown = array de { label, coef } (coef = 1.0 -> neutre, 1.05 -> +5%, 0.95 -> -5%)
@@ -934,95 +909,8 @@ export default function Step5AvisValeur() {
     return { min, max };
   }, [priceRef]);
 
-  // Points forts / vigilance auto-générés à partir des caractéristiques du bien
-  // (mode live uniquement). Heuristiques simples sur DPE, étage, ascenseur,
-  // exposition, parking, extérieur, état, année de construction.
-  // En mode démo : on garde les listes statiques d'avisValeur.
-  // En mode live : on génère depuis le bien ; si rien n'est généré, listes
-  // vides (l'utilisateur ajoute ses propres points). Aucune donnée fake.
-  const autoPoints = useMemo(() => {
-    if (!hasRealLocation) {
-      return { forts: avisValeur.pointsForts, vigilance: avisValeur.pointsVigilance };
-    }
-    if (!activeBien?.bien) {
-      return { forts: [], vigilance: [] };
-    }
-    const bien = activeBien.bien;
-    const forts = [];
-    const vigilance = [];
-
-    // DPE
-    const dpe = bien.dpe ? String(bien.dpe).toUpperCase() : null;
-    if (dpe && ['A', 'B', 'C'].includes(dpe)) {
-      forts.push(`DPE ${dpe} — bien performant énergétiquement`);
-    } else if (dpe && ['F', 'G'].includes(dpe)) {
-      vigilance.push(`DPE ${dpe} — passoire thermique (interdiction de location 2025/2028)`);
-    } else if (dpe === 'E') {
-      vigilance.push(`DPE E — interdiction de location prévue en 2034`);
-    }
-
-    // Étage + ascenseur (appartement)
-    if (bien.type === 'appartement') {
-      if (bien.etage != null && bien.etage !== '') {
-        const e = Number(bien.etage);
-        if (e === 0) vigilance.push('Rez-de-chaussée — vis-à-vis et sécurité à anticiper');
-        else if (e >= 6 && !bien.ascenseur) vigilance.push(`${e}e étage sans ascenseur — frein commercial fort`);
-        else if (e >= 3 && bien.ascenseur) forts.push(`${e}e étage avec ascenseur — vue dégagée et confort`);
-      }
-    }
-
-    // Exposition
-    if (bien.exposition && /sud/i.test(bien.exposition)) {
-      forts.push(`Exposition ${bien.exposition.replace('_', '-')} — luminosité optimale`);
-    } else if (bien.exposition === 'nord') {
-      vigilance.push('Exposition nord — luminosité réduite');
-    }
-
-    // Extérieur
-    if (bien.exterieur === 'jardin') forts.push('Jardin — atout différenciant rare en zone urbaine');
-    else if (bien.exterieur === 'terrasse') forts.push('Terrasse — extérieur très recherché');
-    else if (bien.exterieur === 'balcon') forts.push('Balcon — extérieur appréciable');
-    else if (bien.exterieur === 'aucun' && bien.type === 'appartement') {
-      vigilance.push('Absence d\u2019extérieur — frein post-Covid');
-    }
-
-    // Parking
-    if (bien.parking === 'box') forts.push('Box / garage fermé — valorise le bien (+5%)');
-    else if (bien.parking === 'place') forts.push('Place de parking — confort apprécié en centre-ville');
-    else if (bien.parking === 'aucun') vigilance.push('Pas de stationnement — frein dans certains quartiers');
-
-    // État
-    if (bien.etat === 'neuf') forts.push('État neuf — aucun travaux à prévoir');
-    else if (bien.etat === 'refait') forts.push('Récemment rénové — prêt à emménager');
-    else if (bien.etat === 'a_renover') vigilance.push('À rénover — anticiper budget travaux');
-    else if (bien.etat === 'a_reconstruire') vigilance.push('À reconstruire — projet lourd, public restreint');
-
-    // Année
-    if (bien.annee) {
-      const a = Number(bien.annee);
-      if (a >= 2010) forts.push(`Construction ${a} — récent, normes thermiques actuelles`);
-      else if (a < 1948) vigilance.push(`Construction ${a} — ancien, vigilance sur structure et isolation`);
-    }
-
-    // Mode live : on retourne ce qu'on a trouvé (peut être vide).
-    // L'utilisateur ajoutera ses propres points si besoin.
-    return { forts, vigilance };
-  }, [activeBien, hasRealLocation]);
-
   const [sliderValue, setSliderValue] = useState(priceRef.prixMedian);
   const [selectedStrategy, setSelectedStrategy] = useState(1);
-  const [pointsForts, setPointsForts] = useState(autoPoints.forts);
-  const [pointsVigilance, setPointsVigilance] = useState(autoPoints.vigilance);
-
-  // Avis du vendeur : zone de texte libre saisie manuellement par l'agent
-  // pendant le RDV pour capter la perception / le ressenti du propriétaire
-  // sur son bien (prix espéré, motivation, points qu'il souligne…).
-  // Hydratation depuis le reportStore pour persister entre les sessions.
-  const persistedAvisVendeur = useMemo(() => {
-    const state = getReportState();
-    return typeof state.avisVendeur === 'string' ? state.avisVendeur : '';
-  }, []);
-  const [avisVendeur, setAvisVendeur] = useState(persistedAvisVendeur);
 
   // Les sections de démonstration (comparables fictifs, biens similaires
   // simulés…) sont toujours affichées : le bouton de masquage a été retiré.
@@ -1032,16 +920,14 @@ export default function Step5AvisValeur() {
    * Step3). Persistées dans reportStore.displayConfig.step5Cols.
    *  - topL : largeur de "Impact du prix" dans la rangée haute (le reste = Stratégie)
    *  - c1 : largeur de la colonne 1 du content-grid (Avis de valeur + Comparables)
-   *  - c2 : largeur de la colonne 2 (Forts/Vigilance + Avis du vendeur)
-   *         le reste (= 100 - c1 - c2) revient à la colonne 3 (Actions) */
+   *         le reste (= 100 - c1) revient à la colonne 2 (Actions) */
   const persistedCols = useMemo(
     () => getReportSection('displayConfig', {}).step5Cols || null,
     []
   );
   const [topL, setTopL] = useState(() => persistedCols?.topL ?? 64);
-  const [c1, setC1] = useState(() => persistedCols?.c1 ?? 40);
-  const [c2, setC2] = useState(() => persistedCols?.c2 ?? 38);
-  // Poignée active : 'top' (rangée haute), 'grid1'/'grid2' (content-grid), ou null
+  const [c1, setC1] = useState(() => persistedCols?.c1 ?? 60);
+  // Poignée active : 'top' (rangée haute), 'grid1' (content-grid), ou null
   const [activeHandle, setActiveHandle] = useState(null);
   const topRowRef = useRef(null);
   const gridRef = useRef(null);
@@ -1069,38 +955,23 @@ export default function Step5AvisValeur() {
     window.addEventListener('mouseup', handleUp);
   };
 
-  /* Poignée 1 (gauche|centre) : la position X donne directement c1, borné. */
+  /* Poignée (gauche|droite) : la position X donne directement c1, borné. */
   const startResizeC1 = (e) =>
-    startResize(e, gridRef, (v) => setC1(clampPct(v, 20, 60)), 'grid1', 20, 60);
-  /* Poignée 2 (centre|droite) : la position X donne le cumul c1+c2, on en
-   * déduit c2 = pos - c1, en gardant la colonne droite >= 18 %. */
-  const startResizeC2 = (e) => {
-    const apply = (pos) => {
-      const right = 100 - pos;
-      const clampedRight = clampPct(right, 18, 60);
-      setC2(clampPct(100 - clampedRight - c1, 18, 60));
-    };
-    startResize(e, gridRef, apply, 'grid2', 0, 100);
-  };
+    startResize(e, gridRef, (v) => setC1(clampPct(v, 35, 75)), 'grid1', 35, 75);
 
-  /* Reset (double-clic) : rangée haute → 64/36, content-grid → 40/38/22 */
+  /* Reset (double-clic) : rangée haute → 64/36, content-grid → 60/40 */
   const resetTop = () => setTopL(64);
-  const resetGrid = () => { setC1(40); setC2(38); };
+  const resetGrid = () => setC1(60);
 
   // Persiste les largeurs dans reportStore.displayConfig
   useEffect(() => {
-    mergeReportSection('displayConfig', { step5Cols: { topL, c1, c2 } });
-  }, [topL, c1, c2]);
+    mergeReportSection('displayConfig', { step5Cols: { topL, c1 } });
+  }, [topL, c1]);
 
   // Persistance dans le reportStore pour que CompteRendu (/report) puisse
-  // afficher les valeurs saisies par l'utilisateur (points forts/vigilance
-  // édités, prix retenu, stratégie sélectionnée).
-  useEffect(() => {
-    setReportState({ pointsForts });
-  }, [pointsForts]);
-  useEffect(() => {
-    setReportState({ pointsVigilance });
-  }, [pointsVigilance]);
+  // afficher les valeurs saisies par l'utilisateur (prix retenu, stratégie
+  // sélectionnée). Les points forts/vigilance + avis vendeur sont désormais
+  // saisis à l'étape 1 (formulaire du bien cible).
   // Le prix retenu (persiste pour CompteRendu / Step4) suit le curseur de prix.
   useEffect(() => {
     if (Number.isFinite(sliderValue) && sliderValue > 0) {
@@ -1110,9 +981,6 @@ export default function Step5AvisValeur() {
   useEffect(() => {
     setReportState({ selectedStrategy });
   }, [selectedStrategy]);
-  useEffect(() => {
-    setReportState({ avisVendeur });
-  }, [avisVendeur]);
 
   /* ---- Demand computation (matching HTML wireframe logic) ---- */
   // Mock acquéreur data (mode démo) — utilisé quand pas d'acquéreurs réels
@@ -1215,12 +1083,13 @@ export default function Step5AvisValeur() {
   const demandColor = ratio >= 0.5 ? '#46B962' : ratio >= 0.25 ? '#f5a623' : '#e74c3c';
 
   /* ---- Tension du marché : nombre d'acheteurs budget-compatibles par bien en vente ----
-     C'est la donnée la plus actionnable pour le vendeur :
-       > 1,5  → marché tendu, position de force vendeur
-       0,8–1,5 → marché équilibré
-       < 0,8  → marché détendu, l'acheteur a le choix (négociation) */
+     C'est la donnée la plus actionnable pour le vendeur. Seuils alignés sur
+     la lecture métier "1 acheteur pour 1 bien = équilibre vendeur" :
+       >= 1   → au moins 1 acheteur par bien → marché favorable au vendeur (vert)
+       0,6–1  → marché équilibré (orange)
+       < 0,6  → l'acheteur a le choix, marché favorable aux acquéreurs (rouge) */
   const tensionRatio = offresImmo > 0 ? budgetMatch / offresImmo : budgetMatch;
-  const tensionLevel = tensionRatio >= 1.5 ? 'high' : tensionRatio >= 0.8 ? 'mid' : 'low';
+  const tensionLevel = tensionRatio >= 1 ? 'high' : tensionRatio >= 0.6 ? 'mid' : 'low';
   const tensionLabel = tensionLevel === 'high'
     ? 'March\u00e9 favorable au vendeur'
     : tensionLevel === 'mid'
@@ -1350,6 +1219,34 @@ export default function Step5AvisValeur() {
     ];
   }, [hasRealLocation, sliderValue]);
 
+  /* ---- Couleur de position du prix ----
+   * La fourchette de référence est issue du calcul d'estimation :
+   *   - "prix marché" (recommandé) = priceRef.prixMedian
+   *   - "prix agressif" = priceRef.prixMedian * 1.07 (borne haute conseillée)
+   * Sous le prix marché → vert (sûr). Entre marché et agressif → orange
+   * (on monte dans la fourchette). Au-dessus de l'agressif → rouge, de plus
+   * en plus saturé à mesure que l'on s'éloigne (jusqu'à +20 % = rouge plein),
+   * pour signaler visuellement la surcote. */
+  const priceColor = useMemo(() => {
+    const marche = priceRef.prixMedian;
+    const agressif = marche * 1.07;
+    const GREEN = '#46B962';
+    const ORANGE = '#f5a623';
+    if (!Number.isFinite(sliderValue) || marche <= 0) return GREEN;
+    if (sliderValue <= marche) return GREEN;
+    if (sliderValue <= agressif) {
+      // dégradé vert → orange dans la fourchette conseillée
+      const t = (sliderValue - marche) / (agressif - marche);
+      return mixColor(GREEN, ORANGE, t);
+    }
+    // au-dessus de l'agressif : orange → rouge de plus en plus profond.
+    // +0 % au-dessus = orange ; +20 % (et au-delà) = rouge foncé.
+    const over = Math.min(1, (sliderValue - agressif) / (agressif * 0.20));
+    return mixColor(ORANGE, '#b3160a', over);
+  }, [priceRef, sliderValue]);
+  // Au-dessus de l'agressif on bascule la classe de tension/verdict en rouge.
+  const priceAboveAggressif = Number.isFinite(sliderValue) && sliderValue > priceRef.prixMedian * 1.07;
+
   // Indice de confiance dynamique en mode live :
   // moyenne pond\u00e9r\u00e9e entre la compl\u00e9tude du bien (10 champs cl\u00e9s)
   // et la disponibilit\u00e9 des comparables DVF (5 min = optimal).
@@ -1362,20 +1259,6 @@ export default function Step5AvisValeur() {
     const nbComp = Array.isArray(activeBien?.dvfTopComparables) ? activeBien.dvfTopComparables.length : 0;
     const volumeScore = Math.min(100, (nbComp / 5) * 100);
     return Math.round((completude * 0.6) + (volumeScore * 0.4));
-  }, [hasRealLocation, activeBien]);
-
-  const confidenceCompletude = useMemo(() => {
-    if (!hasRealLocation) return 64;
-    const bien = activeBien?.bien || {};
-    const champs = ['type', 'surface', 'pieces', 'etat', 'dpe', 'etage', 'ascenseur', 'exposition', 'parking', 'exterieur'];
-    const renseigne = champs.filter((k) => bien[k] != null && bien[k] !== '').length;
-    return Math.round((renseigne / champs.length) * 100);
-  }, [hasRealLocation, activeBien]);
-
-  const confidenceVolume = useMemo(() => {
-    if (!hasRealLocation) return 'Volume zone';
-    const nb = Array.isArray(activeBien?.dvfTopComparables) ? activeBien.dvfTopComparables.length : 0;
-    return `${nb} comparable${nb > 1 ? 's' : ''}`;
   }, [hasRealLocation, activeBien]);
 
   // Date de cr\u00e9ation du bien (mode live) : utilis\u00e9e dans la banni\u00e8re
@@ -1401,16 +1284,6 @@ export default function Step5AvisValeur() {
     return `IDR-${year}-${tail}`;
   }, [hasRealLocation, activeBien]);
 
-  /* list helpers */
-  const addPointFort = () =>
-    setPointsForts((prev) => [...prev, 'Nouveau point\u2026']);
-  const addPointVigilance = () =>
-    setPointsVigilance((prev) => [...prev, 'Nouveau point\u2026']);
-  const removePointFort = (idx) =>
-    setPointsForts((prev) => prev.filter((_, i) => i !== idx));
-  const removePointVigilance = (idx) =>
-    setPointsVigilance((prev) => prev.filter((_, i) => i !== idx));
-
   return (
     <div className="step5-page">
       <style>{cssStyles}</style>
@@ -1418,41 +1291,69 @@ export default function Step5AvisValeur() {
       <Stepper currentStep={5} />
 
       <div className="step5-section">
-        {/* ============ HERO SECTION ============ */}
-        <div className="hero-section">
-          <div className="hero-label">
-            ESTIMATION &mdash; {heroDescription}
+        {/* ============ R\u00c9CAPITULATIF DES \u00c9TAPES ============ */}
+        {/* Synth\u00e8se de ce qui a \u00e9t\u00e9 d\u00e9fini avant d'arriver \u00e0 la fourchette de prix. */}
+        <div className="recap-section">
+          <div className="recap-head">
+            <div className="recap-head-title">R&eacute;capitulatif de l&apos;estimation</div>
+            <div className="recap-head-sub">{heroDescription}</div>
           </div>
-          <div className="hero-prices">
+
+          <div className="recap-grid">
+            {/* Step 1 — Le bien */}
+            <div className="recap-card">
+              <div className="recap-step-label">&#9312; Le bien</div>
+              <div className="recap-card-main">{recapData.bienLine || '\u2014'}</div>
+              {recapData.adresse && <div className="recap-card-line">{recapData.adresse}</div>}
+              <div className="recap-card-tags">
+                {recapData.dpe && <span className="recap-tag">DPE {recapData.dpe}</span>}
+                {recapData.etat && <span className="recap-tag">{recapData.etat}</span>}
+              </div>
+            </div>
+
+            {/* Step 2 — La zone / le marché local */}
+            <div className="recap-card">
+              <div className="recap-step-label">&#9313; March&eacute; local</div>
+              <div className="recap-card-main">
+                {recapData.prixM2Zone ? `${recapData.prixM2Zone} \u20ac/m\u00b2` : '\u2014'}
+              </div>
+              {recapData.ville && <div className="recap-card-line">{recapData.ville}</div>}
+              <div className="recap-card-tags">
+                {recapData.evolution && <span className="recap-tag">{recapData.evolution}</span>}
+                {recapData.delaiMoyen && <span className="recap-tag">D&eacute;lai {recapData.delaiMoyen}</span>}
+              </div>
+            </div>
+
+            {/* Step 3 — Comparables retenus */}
+            <div className="recap-card">
+              <div className="recap-step-label">&#9314; Comparables</div>
+              <div className="recap-card-main">
+                {recapData.nbComps > 0 ? `${recapData.nbComps} retenu${recapData.nbComps > 1 ? 's' : ''}` : '\u2014'}
+              </div>
+              <div className="recap-card-line">Biens de r&eacute;f&eacute;rence du secteur</div>
+            </div>
+
+            {/* Step 4 — Estimation calculée */}
+            <div className="recap-card">
+              <div className="recap-step-label">&#9315; Prix calcul&eacute; (/m&sup2;)</div>
+              <div className="recap-card-main">{recapData.prixM2Estim.toLocaleString('fr-FR')} &euro;/m&sup2;</div>
+              <div className="recap-card-line">Base de la fourchette ci-dessous</div>
+            </div>
+          </div>
+
+          {/* Fourchette de prix issue du calcul (conserv\u00e9e sous le r\u00e9cap) */}
+          <div className="recap-prices">
             <div className="price-item">
               <div className="price-label">Fourchette basse</div>
               <div className="price-low">{formatPrice(priceRef.prixBas)}</div>
             </div>
             <div className="price-item">
+              <div className="price-label">Prix retenu</div>
               <div className="price-main">{formatPrice(priceRef.prixMedian)}</div>
             </div>
             <div className="price-item">
               <div className="price-label">Fourchette haute</div>
               <div className="price-high">{formatPrice(priceRef.prixHaut)}</div>
-            </div>
-          </div>
-          <div className="price-meta">
-            <span className="price-meta-item"><strong>{priceRef.prixM2.toLocaleString('fr-FR')} &euro;/m&sup2;</strong></span>
-          </div>
-          <div className="confidence-wrap">
-            <svg className="confidence-gauge" viewBox="0 0 120 120" style={{ transform: 'rotate(-90deg)' }}>
-              <circle cx="60" cy="60" r="50" fill="none" stroke="#eee" strokeWidth="10"/>
-              <circle cx="60" cy="60" r="50" fill="none" stroke="#46B962" strokeWidth="10"
-                strokeDasharray="245" strokeDashoffset="54"
-                strokeLinecap="round"/>
-              <circle cx="60" cy="60" r="38" fill="white"/>
-            </svg>
-            <div className="confidence-text">
-              <div className="confidence-number">{confidenceScore}</div>
-              <div className="confidence-label">Indice de confiance</div>
-              <div className="confidence-details">
-                Compl&eacute;tude {confidenceCompletude}% &times; {confidenceVolume}
-              </div>
             </div>
           </div>
         </div>
@@ -1482,7 +1383,7 @@ export default function Step5AvisValeur() {
                 <div className={`tension-note ${tensionLevel}`}>
                   <span className="tension-note-dot" />
                   <span className="tension-note-text">
-                    <strong>{tensionRatioLabel}</strong> acheteur{tensionRatio >= 2 ? 's' : ''} pour {offresImmo} bien{offresImmo > 1 ? 's' : ''} en vente &middot; {tensionLabel}
+                    <strong>{tensionRatioLabel}</strong> acheteur{tensionRatio >= 2 ? 's' : ''} pour 1 bien. {offresImmo} bien{offresImmo > 1 ? 's' : ''} en vente. {tensionLabel}.
                   </span>
                 </div>
               </div>
@@ -1493,7 +1394,7 @@ export default function Step5AvisValeur() {
               </div>
             )}
             <div className="demand-gauge-wrap">
-              <div className="demand-price-display">
+              <div className="demand-price-display" style={{ color: priceColor }}>
                 {formatPrice(sliderValue)}
                 <span className="price-perm">{ppm.toLocaleString('fr-FR')} &euro;/m&sup2;</span>
               </div>
@@ -1571,13 +1472,19 @@ export default function Step5AvisValeur() {
                     <div className="strategy-radio">
                       <div className="strategy-radio-inner" />
                     </div>
-                    <span className="strategy-name">{s.label} &mdash; {formatPrice(s.prix)}</span>
+                    <span className="strategy-name">
+                      {s.label} &mdash;{' '}
+                      <span style={isSelected ? { color: priceColor } : undefined}>{formatPrice(s.prix)}</span>
+                    </span>
                   </div>
                   <div className="strategy-desc">{s.description}</div>
                   {confidenceScore >= 90 && (
                     <div className="strategy-duration">&#128197; {s.duration}</div>
                   )}
                   {s.recommended && <div className="badge-rec">&#10003; Recommand&eacute;</div>}
+                  {isSelected && priceAboveAggressif && (
+                    <div className="strategy-overcote">&#9888; Au-dessus du prix agressif &mdash; surcote, risque commercial &eacute;lev&eacute;</div>
+                  )}
                 </div>
               );
             })}
@@ -1588,8 +1495,8 @@ export default function Step5AvisValeur() {
         {/* ============ CONTENT GRID (redimensionnable) ============ */}
         <div
           ref={gridRef}
-          className={`content-grid${hideDemo ? ' single-col' : ''}${(activeHandle === 'grid1' || activeHandle === 'grid2') ? ' is-resizing' : ''}`}
-          style={{ '--col-1': `${c1}%`, '--col-2': `${c2}%` }}
+          className={`content-grid${hideDemo ? ' single-col' : ''}${activeHandle === 'grid1' ? ' is-resizing' : ''}`}
+          style={{ '--col-1': `${c1}%` }}
         >
           {/* --- Column 1: Decomposition + Comparables (mock — masqu\u00e9 en mode "Masquer la d\u00e9mo") --- */}
           {!hideDemo && (
@@ -1737,7 +1644,7 @@ export default function Step5AvisValeur() {
           </div>
           )}
 
-          {/* Poign\u00e9e 1 : entre col1 (Avis de valeur) et col2 (Forts/Vigilance) */}
+          {/* Poign\u00e9e : entre col1 (Avis de valeur) et col2 (Actions) */}
           {!hideDemo && (
             <div
               className={`col-resize-handle${activeHandle === 'grid1' ? ' is-dragging' : ''}`}
@@ -1747,90 +1654,7 @@ export default function Step5AvisValeur() {
             />
           )}
 
-          {/* --- Column 2: Points forts + Points de vigilance + Avis du vendeur --- */}
-          <div className="content-grid-col">
-            <div className="card strengths">
-              <div className="card-title">Points forts <span className="card-title-hint">(cliquer pour modifier)</span></div>
-              <div>
-                {pointsForts.map((p, i) => (
-                  <div key={i} className="list-item">
-                    <span className="list-icon">&#10004;</span>
-                    <span
-                      className="item-text"
-                      contentEditable
-                      suppressContentEditableWarning
-                      onBlur={(e) => {
-                        const updated = [...pointsForts];
-                        updated[i] = e.currentTarget.textContent;
-                        setPointsForts(updated);
-                      }}
-                    >
-                      {p}
-                    </span>
-                    <div className="item-actions">
-                      <button className="item-btn delete" onClick={() => removePointFort(i)} title="Supprimer">&times;</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <button className="add-item-btn" onClick={addPointFort}>+ Ajouter un point fort</button>
-            </div>
-
-            <div className="card weaknesses">
-              <div className="card-title">Points de vigilance <span className="card-title-hint">(cliquer pour modifier)</span></div>
-              <div>
-                {pointsVigilance.map((p, i) => (
-                  <div key={i} className="list-item">
-                    <span className="list-icon">&#9888;</span>
-                    <span
-                      className="item-text"
-                      contentEditable
-                      suppressContentEditableWarning
-                      onBlur={(e) => {
-                        const updated = [...pointsVigilance];
-                        updated[i] = e.currentTarget.textContent;
-                        setPointsVigilance(updated);
-                      }}
-                    >
-                      {p}
-                    </span>
-                    <div className="item-actions">
-                      <button className="item-btn delete" onClick={() => removePointVigilance(i)} title="Supprimer">&times;</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <button className="add-item-btn" onClick={addPointVigilance}>+ Ajouter un point de vigilance</button>
-            </div>
-
-            <div className="card seller-opinion">
-              <div className="card-title">
-                Avis du vendeur <span className="card-title-hint">(perception du propri&eacute;taire)</span>
-              </div>
-              <textarea
-                className="seller-opinion-input"
-                value={avisVendeur}
-                onChange={(e) => setAvisVendeur(e.target.value)}
-                placeholder="Notez ici ce que le vendeur pense de son bien : ressenti, points qu'il souligne, prix qu'il espère, motivation de vente, contraintes…"
-                rows={6}
-              />
-              {avisVendeur.trim().length > 0 && (
-                <div className="seller-opinion-meta">{avisVendeur.trim().length} caract&egrave;res saisis</div>
-              )}
-            </div>
-          </div>
-
-          {/* Poign\u00e9e 2 : entre col2 (Forts/Vigilance) et col3 (Actions) */}
-          {!hideDemo && (
-            <div
-              className={`col-resize-handle${activeHandle === 'grid2' ? ' is-dragging' : ''}`}
-              onMouseDown={startResizeC2}
-              onDoubleClick={resetGrid}
-              title="Glisser pour redimensionner \u00b7 double-clic pour r\u00e9initialiser"
-            />
-          )}
-
-          {/* --- Column 3: Actions --- */}
+          {/* --- Column 2: Actions --- */}
           <div className="content-grid-col">
             <div className="card">
               <div className="card-title">Actions</div>
