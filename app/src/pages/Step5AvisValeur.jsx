@@ -20,6 +20,19 @@ const TYPE_LABELS = {
   local: 'Local',
 };
 
+/* Objectif de vente : délai souhaité par le vendeur. Sert d'aide au choix
+ * de la stratégie de prix (court terme → plutôt prudent, long terme →
+ * possible d'être agressif). */
+const OBJECTIF_OPTIONS = [
+  { value: 'court', short: 'Court terme', label: 'Court terme (< 3 mois)' },
+  { value: 'moyen', short: 'Moyen terme', label: 'Moyen terme (3 à 6 mois)' },
+  { value: 'long', short: 'Long terme', label: 'Long terme (> 6 mois)' },
+];
+const OBJECTIF_LABELS = OBJECTIF_OPTIONS.reduce((acc, o) => {
+  acc[o.value] = o.label;
+  return acc;
+}, {});
+
 function describeBien(active) {
   if (!active || !active.bien) return null;
   const b = active.bien;
@@ -124,6 +137,36 @@ const cssStyles = `
     font-weight: 600;
     padding: 2px 7px;
     border-radius: 4px;
+  }
+  /* Objectif de vente : sélecteur de délai (court / moyen / long terme) */
+  .objectif-choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 8px;
+  }
+  .objectif-chip {
+    flex: 1 1 0;
+    min-width: 0;
+    border: 1px solid #d8e0da;
+    background: #fff;
+    color: #555;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 5px 6px;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+  }
+  .objectif-chip:hover {
+    border-color: var(--green, #46b962);
+    color: var(--green-dark, #3da856);
+  }
+  .objectif-chip.selected {
+    background: var(--green, #46b962);
+    border-color: var(--green, #46b962);
+    color: #fff;
   }
 
   /* ---- Demand Section ---- */
@@ -797,6 +840,12 @@ export default function Step5AvisValeur() {
   const [sliderValue, setSliderValue] = useState(priceRef.prixMedian);
   const [selectedStrategy, setSelectedStrategy] = useState(1);
 
+  // Objectif de vente : délai souhaité par le vendeur (court / moyen / long
+  // terme). Persisté dans le reportStore pour le compte rendu. Défaut « moyen ».
+  const [objectifVente, setObjectifVente] = useState(
+    () => getReportSection('objectifVente', 'moyen')
+  );
+
   // Les sections de démonstration (comparables fictifs, biens similaires
   // simulés…) sont toujours affichées : le bouton de masquage a été retiré.
   const hideDemo = false;
@@ -857,6 +906,9 @@ export default function Step5AvisValeur() {
   useEffect(() => {
     setReportState({ selectedStrategy });
   }, [selectedStrategy]);
+  useEffect(() => {
+    setReportState({ objectifVente });
+  }, [objectifVente]);
 
   /* ---- Demand computation (matching HTML wireframe logic) ---- */
   // Mock acquéreur data (mode démo) — utilisé quand pas d'acquéreurs réels
@@ -1174,7 +1226,7 @@ export default function Step5AvisValeur() {
         {/* Synth\u00e8se de ce qui a \u00e9t\u00e9 d\u00e9fini avant d'arriver \u00e0 la fourchette de prix. */}
         <div className="recap-section">
           <div className="recap-head">
-            <div className="recap-head-title">R&eacute;capitulatif de l&apos;estimation</div>
+            <div className="recap-head-title">R&eacute;capitulatif de l&apos;&eacute;tude de march&eacute;</div>
             <div className="recap-head-sub">{heroDescription}</div>
           </div>
 
@@ -1217,6 +1269,25 @@ export default function Step5AvisValeur() {
               <div className="recap-step-label">&#9315; Prix calcul&eacute; (/m&sup2;)</div>
               <div className="recap-card-main">{recapData.prixM2Estim.toLocaleString('fr-FR')} &euro;/m&sup2;</div>
               <div className="recap-card-line">Base de la fourchette ci-dessous</div>
+            </div>
+
+            {/* Objectif de vente — délai souhaité par le vendeur */}
+            <div className="recap-card">
+              <div className="recap-step-label">&#9316; Objectif de vente</div>
+              <div className="recap-card-main">{OBJECTIF_LABELS[objectifVente] || '\u2014'}</div>
+              <div className="recap-card-line">D&eacute;lai souhait&eacute; par le vendeur</div>
+              <div className="objectif-choices">
+                {OBJECTIF_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    className={`objectif-chip${objectifVente === opt.value ? ' selected' : ''}`}
+                    onClick={() => setObjectifVente(opt.value)}
+                  >
+                    {opt.short}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
