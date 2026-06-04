@@ -124,45 +124,6 @@ const cssStyles = `
     border-radius: 4px;
   }
 
-  /* ---- Fourchette de prix (sous le récap) ---- */
-  .recap-prices {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 48px;
-    padding-top: 18px;
-    border-top: 1px solid #f0f0f0;
-  }
-  .price-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-  }
-  .price-label {
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    color: #bbb;
-    letter-spacing: 0.5px;
-  }
-  .price-low {
-    font-size: 22px;
-    font-weight: 600;
-    color: #bbb;
-  }
-  .price-main {
-    font-size: 40px;
-    font-weight: 700;
-    color: var(--green);
-    line-height: 1;
-  }
-  .price-high {
-    font-size: 22px;
-    font-weight: 600;
-    color: #bbb;
-  }
-
   /* ---- Demand Section ---- */
   /* ---- Rang\u00e9e haute : Impact du prix + Strat\u00e9gie c\u00f4te \u00e0 c\u00f4te ----
    * Grid 2 colonnes redimensionnable (1 poign\u00e9e). Largeurs via --top-l/--top-r. */
@@ -1338,22 +1299,6 @@ export default function Step5AvisValeur() {
               <div className="recap-step-label">&#9315; Prix calcul&eacute; (/m&sup2;)</div>
               <div className="recap-card-main">{recapData.prixM2Estim.toLocaleString('fr-FR')} &euro;/m&sup2;</div>
               <div className="recap-card-line">Base de la fourchette ci-dessous</div>
-            </div>
-          </div>
-
-          {/* Fourchette de prix issue du calcul (conserv\u00e9e sous le r\u00e9cap) */}
-          <div className="recap-prices">
-            <div className="price-item">
-              <div className="price-label">Fourchette basse</div>
-              <div className="price-low">{formatPrice(priceRef.prixBas)}</div>
-            </div>
-            <div className="price-item">
-              <div className="price-label">Prix retenu</div>
-              <div className="price-main">{formatPrice(priceRef.prixMedian)}</div>
-            </div>
-            <div className="price-item">
-              <div className="price-label">Fourchette haute</div>
-              <div className="price-high">{formatPrice(priceRef.prixHaut)}</div>
             </div>
           </div>
         </div>

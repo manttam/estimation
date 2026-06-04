@@ -354,11 +354,6 @@ const cssStyles = `
   .act-title { font-size: 17px; font-weight: 700; color: var(--text); }
   .act-subtitle { font-size: 13px; color: var(--muted); margin-bottom: 28px; line-height: 1.55; }
 
-  .pdf-toggle { position: absolute; top: 10px; right: 12px; display: flex; align-items: center; gap: 5px; z-index: 5; }
-  .pdf-toggle input[type="checkbox"] { display: none; }
-  .pdf-toggle label { display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 10px; color: #bbb; padding: 3px 8px; border-radius: 5px; border: 1px solid transparent; user-select: none; background: rgba(255,255,255,0.9); }
-  .pdf-toggle label:hover { color: #888; background: #f5f5f5; }
-  .pdf-toggle input:checked + label { color: var(--green); background: var(--green-soft); border-color: #c5e8cf; }
 
   /* ACTE 1 */
   .act-1 { text-align: center; padding: 32px 28px 28px; }
@@ -793,7 +788,6 @@ function ProjectModal({ name, onClose }) {
 export default function Step4TensionMarche() {
   const [activePersona, setActivePersona] = useState('familles');
   const [openedProject, setOpenedProject] = useState(null);
-  const [pdfSel, setPdfSel] = useState({ act1: true, act2: true, act3: true });
 
   const P = PERIOD;
   const OFFRE_SNAPSHOT = 7;
@@ -807,16 +801,6 @@ export default function Step4TensionMarche() {
   const cardCount = P.personas[activePersona];
   const shownBuyers = persona.buyers.slice(0, cardCount);
   const othersCount = Math.max(0, cardCount - shownBuyers.length);
-
-  const pdfChecked = Object.values(pdfSel).filter(Boolean).length;
-  const pdfTotal = Object.keys(pdfSel).length;
-
-  const togglePdf = (key) => setPdfSel((s) => ({ ...s, [key]: !s[key] }));
-  const toggleAllPdf = () => {
-    const allChecked = Object.values(pdfSel).every(Boolean);
-    const next = !allChecked;
-    setPdfSel({ act1: next, act2: next, act3: next });
-  };
 
   // Histogramme budgets — mode = indice de la tranche la plus représentée
   const maxDist = Math.max(...P.dist);
@@ -1082,10 +1066,6 @@ export default function Step4TensionMarche() {
 
       {/* ═══ ACTE 1 ═══ */}
       <section className="act act-1">
-        <div className="pdf-toggle">
-          <input type="checkbox" id="pdf-act1" checked={pdfSel.act1} onChange={() => togglePdf('act1')} />
-          <label htmlFor="pdf-act1"><span role="img" aria-label="pdf">📄</span> PDF</label>
-        </div>
         <div className="act-header">
           <span className="act-num">1</span>
           <span className="act-title">Demande réelle correspondant à votre bien</span>
@@ -1211,10 +1191,6 @@ export default function Step4TensionMarche() {
 
       {/* ═══ ACTE 2 ═══ */}
       <section className="act act-2">
-        <div className="pdf-toggle">
-          <input type="checkbox" id="pdf-act2" checked={pdfSel.act2} onChange={() => togglePdf('act2')} />
-          <label htmlFor="pdf-act2"><span role="img" aria-label="pdf">📄</span> PDF</label>
-        </div>
         <div className="act-header">
           <span className="act-num">2</span>
           <span className="act-title">Profils des acquéreurs potentiels</span>
@@ -1297,10 +1273,6 @@ export default function Step4TensionMarche() {
 
       {/* ═══ ACTE 3 ═══ */}
       <section className="act act-3">
-        <div className="pdf-toggle">
-          <input type="checkbox" id="pdf-act3" checked={pdfSel.act3} onChange={() => togglePdf('act3')} />
-          <label htmlFor="pdf-act3"><span role="img" aria-label="pdf">📄</span> PDF</label>
-        </div>
         <div className="act-header">
           <span className="act-num">3</span>
           <span className="act-title">Atouts et freins du bien face à la demande</span>
@@ -1394,24 +1366,6 @@ export default function Step4TensionMarche() {
       <div className="footer-buttons">
         <Link to="/step/3" className="btn btn-ghost">← Étape précédente : Comparables</Link>
         <Link to="/step/5" className="btn btn-primary">Étape suivante : Avis de valeur →</Link>
-      </div>
-
-      {/* PDF FLOATING BAR */}
-      <div style={{ position: 'fixed', bottom: 0, left: 220, right: 0, background: '#fff', borderTop: '1px solid var(--border)', padding: '10px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 100 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 13 }}>
-          <span role="img" aria-label="pdf">📄</span>
-          <span>Rapport vendeur :</span>
-          <span style={{ background: '#46B962', color: 'white', padding: '2px 10px', borderRadius: 12, fontWeight: 700, fontSize: 12 }}>{pdfChecked}</span>
-          <span style={{ color: '#666', fontSize: 12 }}>actes sélectionnés sur {pdfTotal}</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button onClick={toggleAllPdf} style={{ padding: '6px 14px', borderRadius: 6, fontSize: 12, cursor: 'pointer', border: '1px solid var(--border)', background: '#fff', color: '#999', fontFamily: 'Open Sans, sans-serif' }}>
-            Tout (dé)sélectionner
-          </button>
-          <button style={{ padding: '8px 20px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', border: 'none', background: '#46B962', color: 'white', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'Open Sans, sans-serif' }}>
-            <span role="img" aria-label="pdf">📄</span> Générer PDF vendeur
-          </button>
-        </div>
       </div>
 
       <ProjectModal name={openedProject} onClose={() => setOpenedProject(null)} />
