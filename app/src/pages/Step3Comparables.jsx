@@ -1680,6 +1680,56 @@ const cssStyles = `
     background: linear-gradient(135deg, #d6efdf 0%, #a8d8b8 100%);
     color: #2d8856;
   }
+  /* Carrousel vignette : flèches + dots visibles au hover de la carte. */
+  .pool-carousel-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.9);
+    color: #333;
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    opacity: 0;
+    transition: opacity 0.15s;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+    z-index: 2;
+  }
+  .pool-carousel-arrow.left { left: 6px; }
+  .pool-carousel-arrow.right { right: 6px; }
+  .pool-card:hover .pool-carousel-arrow { opacity: 1; }
+  .pool-carousel-arrow:hover { background: #fff; }
+  .pool-carousel-dots {
+    position: absolute;
+    bottom: 5px;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    z-index: 2;
+  }
+  .pool-carousel-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.6);
+    box-shadow: 0 0 2px rgba(0,0,0,0.4);
+    cursor: pointer;
+    transition: background 0.15s, transform 0.15s;
+  }
+  .pool-carousel-dot.active {
+    background: #fff;
+    transform: scale(1.25);
+  }
   .pool-card-source-badge {
     position: absolute;
     top: 6px;
@@ -3835,6 +3885,41 @@ function CompactCompCard({ comp, onAdd, onOpenEdit }) {
   );
 }
 
+/* PoolCardCarousel — carrousel d'images de couverture pour la vignette d'une
+ * pool-card. Affiche la photo courante en background-image (cover), avec
+ * flèches ‹ › + dots + compteur si plusieurs photos. Les contrôles stoppent
+ * la propagation pour ne pas déclencher le clic carte (ouverture du drawer)
+ * ni le drag. Le children (badges source/score) est superposé. */
+function PoolCardCarousel({ photos, children }) {
+  const [idx, setIdx] = useState(0);
+  const n = photos.length;
+  const prev = (e) => { e.preventDefault(); e.stopPropagation(); setIdx((i) => (i - 1 + n) % n); };
+  const next = (e) => { e.preventDefault(); e.stopPropagation(); setIdx((i) => (i + 1) % n); };
+  return (
+    <div
+      className="pool-card-photo"
+      style={{ backgroundImage: `url(${photos[idx]})` }}
+    >
+      {children}
+      {n > 1 && (
+        <>
+          <button className="pool-carousel-arrow left" onClick={prev} draggable={false} aria-label="Photo précédente">&#8249;</button>
+          <button className="pool-carousel-arrow right" onClick={next} draggable={false} aria-label="Photo suivante">&#8250;</button>
+          <div className="pool-carousel-dots">
+            {photos.map((_, i) => (
+              <span
+                key={i}
+                className={`pool-carousel-dot ${i === idx ? 'active' : ''}`}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIdx(i); }}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 /* PoolCompCard — carte miniature draggable d'un bien disponible (colonne 2
  * du workspace 3 colonnes). Affiche une vignette photo (ou gradient fallback
  * par source pour DVF/Ideeri), un badge source, un badge score de similarité,
@@ -3863,7 +3948,7 @@ function PoolCompCard({ comp, onOpenEdit, onFocusOnMap, onDragStart, onDragEnd, 
   // Photo : priorité comp.photos[0], sinon photo stock Unsplash (libre de
   // droit, déterministe par id). DVF reste sans photo (anonymisé) → fallback
   // gradient + icon, cohérent avec sa nature de transaction officielle.
-  const photoUrl = getCompPhoto(comp);
+  const photos = getCompPhotos(comp);
   // Pour les sources DVF / Ideeri vendu, le placeholder a une teinte spécifique.
   const noPhotoClass = `pool-card-photo no-photo source-${comp.source}`;
   const photoIcon = comp.source === 'dvf' ? '\ud83d\udcca' : '\ud83c\udfe0';
@@ -3929,16 +4014,13 @@ function PoolCompCard({ comp, onOpenEdit, onFocusOnMap, onDragStart, onDragEnd, 
       style={{ position: 'relative' }}
     >
       {v1Badge}
-      {photoUrl ? (
-        <div
-          className="pool-card-photo"
-          style={{ backgroundImage: `url(${photoUrl})` }}
-        >
+      {photos.length > 0 ? (
+        <PoolCardCarousel photos={photos}>
           <span className="pool-card-source-badge">
             <span className={`source-dot ${dotClass}`} /> {sourceLabel}
           </span>
           <span className={`pool-card-score-badge ${scoreClass}`}>{simNum}%</span>
-        </div>
+        </PoolCardCarousel>
       ) : (
         <div className={noPhotoClass}>
           <span>{photoIcon}</span>
@@ -3988,24 +4070,20 @@ const STOCK_PHOTOS_BIEN = [
   'https://images.unsplash.com/photo-1554995207-c18c203602cb?w=400&q=70',
 ];
 
-/* Assignation déterministe d'une photo stock à un comparable selon son id
- * (somme des charCodes mod taille du pool). Le même id donne toujours la
- * même photo → pas de flicker au re-render. */
-function pickStockPhoto(id) {
-  const s = String(id || '');
+/* Renvoie la LISTE des photos à afficher pour un comparable (carrousel) :
+ *  - photos réelles si dispo (Ideeri / Portail avec data)
+ *  - sinon 3 photos stock déterministes par id (offsets distincts dans le
+ *    pool → pas de doublon ni de flicker), sauf DVF (anonymisé → []).
+ *  - DVF sans photo réelle → [] (le caller affiche le placeholder gradient). */
+function getCompPhotos(comp) {
+  if (Array.isArray(comp?.photos) && comp.photos.length > 0) return comp.photos;
+  if (comp?.source === 'dvf') return [];
+  const s = String(comp?.id || '');
   let sum = 0;
   for (let i = 0; i < s.length; i++) sum += s.charCodeAt(i);
-  return STOCK_PHOTOS_BIEN[sum % STOCK_PHOTOS_BIEN.length];
-}
-
-/* Renvoie l'URL photo à afficher pour un comparable :
- *  - photos réelles si dispo (Ideeri / Portail avec data)
- *  - sinon photo stock Unsplash, sauf pour DVF (pas de photo trompeuse)
- *  - DVF sans photo réelle → null (le caller affiche le placeholder gradient) */
-function getCompPhoto(comp) {
-  if (Array.isArray(comp?.photos) && comp.photos[0]) return comp.photos[0];
-  if (comp?.source === 'dvf') return null;
-  return pickStockPhoto(comp?.id);
+  const n = STOCK_PHOTOS_BIEN.length;
+  // 3 photos distinctes : base, base+4, base+8 (modulo) → spread dans le pool.
+  return [0, 4, 8].map((off) => STOCK_PHOTOS_BIEN[(sum + off) % n]);
 }
 
 /* Liste exhaustive des types de bien pour le filtre "Type de bien"
