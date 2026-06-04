@@ -1837,6 +1837,26 @@ export default function Step5AvisValeur() {
               <div className="actions-card">
                 <button className="action-btn secondary" onClick={() => {
                   const estimations = JSON.parse(localStorage.getItem('ideeri_estimations') || '[]');
+                  // Snapshot des comparables s\u00e9lectionn\u00e9s (Step3) pour permettre
+                  // la comparaison V1 vs V2 \u00e0 la prochaine \u00e9tude du m\u00eame bien.
+                  // On ne garde que les champs n\u00e9cessaires (id, adresse, coords,
+                  // source, prix, m2, surface, weight) pour limiter le poids.
+                  const rs = getReportState();
+                  const comparablesSnapshot = Array.isArray(rs.comparablesSelectionnes)
+                    ? rs.comparablesSelectionnes.map((c) => ({
+                        id: c.id,
+                        title: c.title,
+                        addr: c.addr,
+                        coords: c.coords,
+                        source: c.source,
+                        prix: c.prix,
+                        prixM2: c.prixM2,
+                        surface: c.fields?.surface ?? c._dvfRaw?.surface,
+                        pieces: c.fields?.pieces ?? c._dvfRaw?.pieces,
+                        weight: rs.comparablesConfig?.weights?.[c.id],
+                      }))
+                    : [];
+                  const nowIso = new Date().toISOString();
                   // Mode d\u00e9mo : payload statique du wireframe.
                   // Mode live : payload d\u00e9riv\u00e9 du bien actif (zero fake data).
                   const payload = hasRealLocation
@@ -1848,8 +1868,10 @@ export default function Step5AvisValeur() {
                         agent: '',
                         date: new Date().toLocaleDateString('fr-FR'),
                         heure: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+                        snapshotDate: nowIso,
                         statut: 'sauvegarde',
                         prix: formatPrice(priceRef.prixMedian),
+                        comparables: comparablesSnapshot,
                       }
                     : {
                         id: Date.now(),
@@ -1859,8 +1881,10 @@ export default function Step5AvisValeur() {
                         agent: 'Marie Dupont',
                         date: new Date().toLocaleDateString('fr-FR'),
                         heure: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+                        snapshotDate: nowIso,
                         statut: 'sauvegarde',
                         prix: '300 000 \u20ac',
+                        comparables: comparablesSnapshot,
                       };
                   const exists = estimations.find((e) => e.reference === payload.reference);
                   if (!exists) {
@@ -1868,9 +1892,11 @@ export default function Step5AvisValeur() {
                   } else {
                     exists.date = payload.date;
                     exists.heure = payload.heure;
+                    exists.snapshotDate = nowIso;
                     exists.adresse = payload.adresse;
                     exists.description = payload.description;
                     exists.prix = payload.prix;
+                    exists.comparables = comparablesSnapshot;
                   }
                   localStorage.setItem('ideeri_estimations', JSON.stringify(estimations));
                   navigate('/');
@@ -1914,14 +1940,9 @@ export default function Step5AvisValeur() {
           <button className="btn btn-ghost" onClick={() => navigate('/step/4')}>
             &larr; &Eacute;tape pr&eacute;c&eacute;dente : Tension march&eacute;
           </button>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button className="btn btn-ghost" onClick={() => navigate('/report')}>
-              Compte rendu d'estimation
-            </button>
-            <button className="btn btn-primary" onClick={() => navigate('/avis-valeur')}>
-              G&eacute;n&eacute;rer l'avis de valeur &rarr;
-            </button>
-          </div>
+          <button className="btn btn-primary" onClick={() => navigate('/mandat')}>
+            Passer au mandat &rarr;
+          </button>
         </div>
       </div>
     </div>

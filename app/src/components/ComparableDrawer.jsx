@@ -2,33 +2,53 @@ import { useState, useEffect, useRef } from 'react';
 import L from 'leaflet';
 
 const drawerCss = `
+  /* Drawer non-bloquant : restreint à la zone du panel à droite, sans
+   * overlay sombre. Le reste de l'écran (barre de tags, workspace) reste
+   * visible et utilisable. Fermeture via × (header) ou touche Escape. */
   .comp-drawer-overlay {
     position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.42);
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 560px;
+    max-width: 95vw;
     z-index: 9999;
     display: flex;
     justify-content: flex-end;
-    animation: drawer-fade-in 0.18s ease;
-  }
-  @keyframes drawer-fade-in {
-    from { background: rgba(0, 0, 0, 0); }
-    to { background: rgba(0, 0, 0, 0.42); }
+    pointer-events: none;
   }
   .comp-drawer-panel {
-    width: 560px;
-    max-width: 95vw;
+    width: 100%;
     height: 100vh;
     background: #fff;
     overflow-y: auto;
     animation: drawer-slide-in 0.25s ease;
     box-shadow: -4px 0 20px rgba(0, 0, 0, 0.12);
     font-family: var(--font);
+    pointer-events: auto;
   }
   @keyframes drawer-slide-in {
     from { transform: translateX(100%); }
     to { transform: translateX(0); }
   }
+  /* Mode inline : rendu dans son conteneur parent (ex: colonne 3 du
+   * workspace Step3, à la place du panier). Pas de position fixed, prend
+   * 100% de la hauteur disponible. */
+  .comp-drawer-inline {
+    width: 100%;
+    height: 100%;
+    background: #fff;
+    overflow-y: auto;
+    font-family: var(--font);
+    display: flex;
+    flex-direction: column;
+  }
+  .comp-drawer-inline .drawer-header {
+    padding: 12px 16px 10px;
+  }
+  .comp-drawer-inline .drawer-title { font-size: 14px; }
+  .comp-drawer-inline .drawer-subtitle { font-size: 11px; }
+  .comp-drawer-inline .drawer-body { padding: 12px 16px 24px; }
   .drawer-header {
     position: sticky;
     top: 0;
@@ -1076,21 +1096,191 @@ function PriceEvolution({ historique, joursEnCommercialisation, source }) {
   );
 }
 
-export default function ComparableDrawer({ comp, onClose, isSelected = false, weight, onWeightChange }) {
-  // Close on Escape key
+export default function ComparableDrawer({ comp, onClose, isSelected = false, weight, onWeightChange, inline = false, onAdd, onRemove }) {
+  // Close on Escape key (uniquement en mode overlay)
   useEffect(() => {
+    if (inline) return undefined;
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [onClose, inline]);
 
   if (!comp) return null;
   const isDvf = comp.source === 'dvf';
   const isPortail = comp.source === 'portail';
   const showWeight = isSelected && typeof weight === 'number' && typeof onWeightChange === 'function';
 
+  /* ─── Mode INLINE — rendu dans la colonne 3 du workspace Step3 ─── */
+  if (inline) {
+    return (
+      <div className="comp-drawer-inline">
+        <style>{drawerCss}</style>
+        <header className="drawer-header">
+          <button
+            className="drawer-close"
+            onClick={onClose}
+            aria-label="Retour au panier"
+            title="Retour au panier"
+            style={{ width: 28, height: 28, fontSize: 14 }}
+          >
+            ←
+          </button>
+          <div className="drawer-header-text">
+            <h2 className="drawer-title">{comp.title}</h2>
+            <div className="drawer-subtitle">
+              <span>{comp.addr}</span>
+              {comp.sourceLabel && <span>·</span>}
+              {comp.sourceLabel && <span className={`source-badge ${comp.source}`}>{comp.sourceLabel}</span>}
+              {comp.portalName && <span className="portal-tag">{comp.portalName}</span>}
+            </div>
+          </div>
+        </header>
+        <div className="drawer-body">
+          {/* Action ajouter / retirer du panier */}
+          <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
+            {isSelected ? (
+              <button
+                type="button"
+                onClick={() => onRemove && onRemove(comp.id)}
+                style={{
+                  flex: 1, padding: '9px 14px', borderRadius: 8,
+                  border: '1px solid var(--red, #e74c3c)', background: '#fff',
+                  color: 'var(--red, #e74c3c)', fontSize: 12, fontWeight: 600,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                − Retirer du panier
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onAdd && onAdd(comp.id)}
+                style={{
+                  flex: 1, padding: '9px 14px', borderRadius: 8,
+                  border: 'none', background: 'var(--green, #46B962)',
+                  color: '#fff', fontSize: 12, fontWeight: 700,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                + Ajouter au panier
+              </button>
+            )}
+          </div>
+
+          {/* Poids dans l'estimation (uniquement si dans le panier) */}
+          {showWeight && (
+            <div className="drawer-weight-block">
+              <div className="drawer-weight-header">
+                <span className="drawer-weight-label">Poids dans l&rsquo;estimation</span>
+                <span className="drawer-weight-value">{weight}%</span>
+              </div>
+              <input
+                type="range" min="0" max="100" step="1" value={weight}
+                onChange={(e) => onWeightChange(comp.id, Number(e.target.value))}
+                className="drawer-weight-slider"
+              />
+              <div className="drawer-weight-hint">
+                Ajustez l&rsquo;influence de ce comparable dans le calcul du prix final.
+              </div>
+            </div>
+          )}
+
+          {/* Photos / vue cadastrale / no-photo */}
+          {comp.photos && comp.photos.length > 0 ? (
+            <div className="drawer-section">
+              <PhotoCarousel photos={comp.photos} />
+            </div>
+          ) : isDvf && comp.coords ? (
+            <div className="drawer-section">
+              <h3 className="drawer-section-title">Localisation du bien</h3>
+              <ParcelMap coords={comp.coords} addr={comp.addr} parcelleRef={comp.parcelleRef} />
+            </div>
+          ) : isDvf ? (
+            <div className="drawer-section">
+              <div className="no-photo-block">
+                Pas de photos — les transactions DVF ne contiennent pas d&rsquo;images
+              </div>
+            </div>
+          ) : null}
+
+          {/* Key facts */}
+          <div className="drawer-section">
+            <KeyFacts comp={comp} />
+          </div>
+
+          {/* Atouts / contraintes */}
+          {(comp.atoutsQualitatifs || comp.pointsContraintes) && (
+            <div className="drawer-section">
+              <h3 className="drawer-section-title">Qualité du bien</h3>
+              <ProsCons
+                atouts={comp.atoutsQualitatifs || []}
+                contraintes={comp.pointsContraintes || []}
+              />
+            </div>
+          )}
+
+          {/* Critères portails */}
+          {isPortail && comp.criteresEnAvant && comp.criteresEnAvant.length > 0 && (
+            <div className="drawer-section">
+              <h3 className="drawer-section-title">Critères mis en avant sur l&rsquo;annonce</h3>
+              <div className="highlights-tags">
+                {comp.criteresEnAvant.map((c, i) => (
+                  <span key={i} className="highlight-tag">{c}</span>
+                ))}
+              </div>
+            </div>
+          )}
+          {isPortail && comp.criteresPortail && comp.criteresPortail.length > 0 && (
+            <div className="drawer-section">
+              <h3 className="drawer-section-title">Caractéristiques de l&rsquo;annonce</h3>
+              <CriteresPortail criteres={comp.criteresPortail} />
+            </div>
+          )}
+
+          {/* Pièces */}
+          {comp.rooms && comp.rooms.length > 0 && (
+            <div className="drawer-section">
+              <h3 className="drawer-section-title">Détail des pièces</h3>
+              <RoomsTable rooms={comp.rooms} />
+            </div>
+          )}
+
+          {/* Infos générales */}
+          {comp.infosGenerales && (
+            <div className="drawer-section">
+              <h3 className="drawer-section-title">Informations générales</h3>
+              <GeneralInfo data={comp.infosGenerales} />
+            </div>
+          )}
+
+          {/* Évolution prix */}
+          {comp.historique && comp.historique.length > 0 && (
+            <div className="drawer-section">
+              <h3 className="drawer-section-title">Évolution du prix &amp; commercialisation</h3>
+              <PriceEvolution
+                historique={comp.historique}
+                joursEnCommercialisation={comp.joursEnCommercialisation}
+                source={comp.source}
+              />
+            </div>
+          )}
+
+          {/* DVF notice */}
+          {isDvf && (
+            <div className="drawer-section">
+              <div className="data-notice">
+                <strong>Données limitées — source DVF.</strong> Transactions sans photos ni détails.
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  /* ─── Mode OVERLAY (legacy, non utilisé pour l'instant) ─── */
   return (
-    <div className="comp-drawer-overlay" onClick={onClose}>
+    <div className="comp-drawer-overlay">
       <style>{drawerCss}</style>
       <aside className="comp-drawer-panel" onClick={(e) => e.stopPropagation()}>
         <header className="drawer-header">

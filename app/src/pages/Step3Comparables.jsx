@@ -751,6 +751,8 @@ const cssStyles = `
   .dot-estimation { background: #9b59b6; }
   .dot-mandat-clos { background: #7f8c8d; }
   .dot-autre-agence { background: #16a085; }
+  /* Invendu depuis 3 mois : marron pour signaler la longue durée sans activité */
+  .dot-invendu-3m { background: #b86e3a; }
   /* Sous-groupe Papiris dans le panneau Source & ancienneté */
   .source-subgroup-label {
     font-size: 10px;
@@ -1073,6 +1075,101 @@ const cssStyles = `
    * Layout CSS Grid avec 2 poignées de redimensionnement entre colonnes.
    * Les largeurs sont des CSS variables modifiées au drag des poignées.
    * Inspiration : VSCode / Figma side panels. */
+  /* ═══════════════════════════════════════════════════════════════
+   * Barre tags caractéristiques du bien cible (au-dessus du workspace)
+   * Clic sur un bien comparable → tags colorés selon match.
+   * ═══════════════════════════════════════════════════════════════ */
+  .target-tags-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: #fff;
+    border: 1px solid #eee;
+    border-radius: 10px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .target-tags-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #888;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .target-tags-list {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    flex: 1;
+  }
+  .target-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 11px;
+    border-radius: 14px;
+    font-size: 11px;
+    font-weight: 600;
+    border: 1.5px solid;
+    transition: all 0.2s;
+    line-height: 1.2;
+  }
+  .target-tag.is-neutral {
+    background: #fafafa;
+    border-color: #e8e8e8;
+    color: #555;
+  }
+  .target-tag.is-match {
+    background: #e4f3e8;
+    border-color: #46B962;
+    color: #2d8856;
+    box-shadow: 0 0 0 2px rgba(70, 185, 98, 0.08);
+  }
+  .target-tag.is-nomatch {
+    background: #fef6f6;
+    border-color: #f3d4d4;
+    color: #c0392b;
+  }
+  .target-tag.is-na {
+    background: #fafafa;
+    border-color: #e8e8e8;
+    color: #b0b0b0;
+    border-style: dashed;
+    font-weight: 500;
+  }
+  .target-tag .tag-tick {
+    font-weight: 800;
+    font-size: 12px;
+    line-height: 1;
+  }
+  .target-tags-focused-label {
+    font-size: 11px;
+    color: #888;
+    font-style: italic;
+    flex-shrink: 0;
+    margin-right: 4px;
+  }
+  .target-tags-focused-label strong {
+    color: #1a1a1a;
+    font-style: normal;
+    font-weight: 700;
+  }
+  .target-tags-clear {
+    background: transparent;
+    border: 1px solid #ddd;
+    color: #666;
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .target-tags-clear:hover { background: #f5f5f5; border-color: #ccc; color: #1a1a1a; }
+
   .workspace-3col {
     display: grid;
     grid-template-columns:
@@ -1416,6 +1513,124 @@ const cssStyles = `
   .pool-grid::-webkit-scrollbar { width: 6px; }
   .pool-grid::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
 
+  /* ═══════════════════════════════════════════════════════════════
+   * Pool en sections classées : Marché théorique (haut) → Marché réel
+   * (bas). Chaque section a un header marqué (couleur, sous-titre),
+   * et contient des sous-sections par source (DVF, En cours, etc.)
+   * ═══════════════════════════════════════════════════════════════ */
+  .pool-sections {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  .pool-sections::-webkit-scrollbar { width: 6px; }
+  .pool-sections::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+  .pool-section-block {
+    display: flex;
+    flex-direction: column;
+  }
+  .pool-section-block:not(:last-child) {
+    border-bottom: 3px solid #ececec;
+  }
+  /* Header de section compact (sticky pour rester visible au scroll) */
+  .pool-section-header {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    padding: 7px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    border-bottom: 1px solid #eee;
+  }
+  .pool-section-block.theorique .pool-section-header {
+    background: linear-gradient(90deg, #fff8e8 0%, #fffdf6 100%);
+    border-left: 3px solid #f5a623;
+  }
+  .pool-section-block.reel .pool-section-header {
+    background: linear-gradient(90deg, #effaf2 0%, #f7fbf8 100%);
+    border-left: 3px solid #46B962;
+  }
+  .pool-section-title {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    line-height: 1.1;
+  }
+  .pool-section-block.theorique .pool-section-title { color: #8a5a30; }
+  .pool-section-block.reel .pool-section-title { color: #2d8856; }
+  .pool-section-count {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    padding: 3px 9px;
+    border-radius: 11px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #555;
+    flex-shrink: 0;
+  }
+  .pool-section-block.theorique .pool-section-count { color: #b07800; border-color: #ffe082; }
+  .pool-section-block.reel .pool-section-count { color: #2d8856; border-color: #d4ead8; }
+
+  /* Sous-section par source (En cours, DVF, etc.) */
+  .pool-subsection {
+    padding: 10px 12px 12px;
+    border-top: 1px solid #f3f3f3;
+  }
+  .pool-subsection:first-of-type { border-top: none; }
+  .pool-subsection.is-empty { padding-bottom: 8px; }
+  .pool-subsection-head {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 7px;
+  }
+  .pool-subsection-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    border: 1.5px solid #fff;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.12);
+    flex-shrink: 0;
+  }
+  .pool-subsection-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #1a1a1a;
+    letter-spacing: 0.2px;
+  }
+  .pool-subsection-count {
+    font-size: 10px;
+    color: #888;
+    margin-left: auto;
+    background: #f5f5f5;
+    padding: 1px 7px;
+    border-radius: 8px;
+    font-weight: 600;
+  }
+  .pool-subsection-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 8px;
+  }
+  .pool-subsection-empty {
+    font-size: 10px;
+    color: #c0c0c0;
+    font-style: italic;
+    padding: 2px 0 0 16px;
+  }
+
+  /* Bouton "Ajouter un comparable manuel" en bas des sections */
+  .pool-manual-add-wrap {
+    padding: 12px;
+    border-top: 1px solid #eee;
+    background: #fafafa;
+    flex-shrink: 0;
+  }
+
   /* Carte miniature draggable d'un bien du pool */
   .pool-card {
     position: relative;
@@ -1536,28 +1751,184 @@ const cssStyles = `
     color: #999;
     margin-left: 3px;
   }
-  .pool-card-actions {
-    display: flex;
+  /* Badge V1 — biens qui étaient dans l'étude précédente.
+   * Position : coin haut-gauche de la card (sur la photo).
+   * Couleur fond = statut d'évolution (vendu, encore en vente, etc.) */
+  .pool-card-v1-badge,
+  .mini-comp-v1-badge {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
     gap: 4px;
-    padding: 6px 8px 8px;
-    flex-shrink: 0;
-  }
-  .pool-card-add-btn {
-    flex: 1;
     background: #fff;
-    color: #2d8856;
-    border: 1px solid var(--green);
-    padding: 5px 8px;
+    color: #1a1a1a;
+    border: 1.5px solid;
+    padding: 2px 7px 2px 6px;
+    border-radius: 10px;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    line-height: 1.2;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    pointer-events: auto;
+    cursor: help;
+  }
+  .pool-card-v1-badge .v1-dot,
+  .mini-comp-v1-badge .v1-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+  .pool-card-v1-badge .v1-delta,
+  .mini-comp-v1-badge .v1-delta {
+    font-weight: 600;
+    color: inherit;
+  }
+  /* Position du badge sur la mini card du panier (pas de photo) */
+  .mini-comp-v1-badge {
+    position: static;
+    margin-right: 6px;
+    box-shadow: none;
+  }
+  /* Toggle on/off de la comparaison V1 */
+  .v1-toggle-bar {
+    background: #fff;
+    border: 1px solid #eee;
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .v1-toggle-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #555;
+  }
+  .v1-toggle-info strong { color: #1a1a1a; font-weight: 700; }
+  .v1-toggle-icon {
+    font-size: 14px;
+    line-height: 1;
+  }
+  .v1-toggle-date,
+  .v1-toggle-count {
+    color: #888;
+    font-weight: 500;
+  }
+  /* Switch toggle (style iOS-like) */
+  .v1-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .v1-switch input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+    width: 0;
+    height: 0;
+  }
+  .v1-switch-track {
+    position: relative;
+    display: inline-block;
+    width: 36px;
+    height: 20px;
+    background: #d0d6dd;
+    border-radius: 10px;
+    transition: background 0.18s ease;
+  }
+  .v1-switch-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+    transition: transform 0.18s ease;
+  }
+  .v1-switch.is-on .v1-switch-track {
+    background: #46B962;
+  }
+  .v1-switch.is-on .v1-switch-thumb {
+    transform: translateX(16px);
+  }
+
+  /* Bandeau "biens disparus de l'offre" au-dessus du workspace */
+  .previous-missing-bar {
+    background: linear-gradient(90deg, #fff8e1 0%, #fffdf6 100%);
+    border: 1px solid #ffe082;
+    border-left: 4px solid #f5a623;
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .previous-missing-bar-text {
+    flex: 1;
+    font-size: 12px;
+    color: #8a5a30;
+    font-weight: 500;
+  }
+  .previous-missing-bar-text strong { font-weight: 700; }
+  .previous-missing-bar-toggle {
+    background: rgba(255,255,255,0.7);
+    border: 1px solid #ffd97a;
+    color: #8a5a30;
+    padding: 4px 12px;
     border-radius: 6px;
     font-size: 11px;
     font-weight: 600;
     cursor: pointer;
     font-family: inherit;
-    transition: all 0.15s;
   }
-  .pool-card-add-btn:hover {
-    background: var(--green);
-    color: white;
+  .previous-missing-bar-toggle:hover { background: #fff; border-color: #f5a623; }
+  .previous-missing-list {
+    width: 100%;
+    margin-top: 6px;
+    padding-top: 10px;
+    border-top: 1px dashed #ffe082;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .previous-missing-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+    color: #555;
+    padding: 4px 0;
+  }
+  .previous-missing-item-source {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .previous-missing-item-title {
+    flex: 1;
+    color: #1a1a1a;
+    font-weight: 600;
+  }
+  .previous-missing-item-price {
+    color: #8a5a30;
+    font-weight: 600;
   }
   .pool-card-drag-hint {
     font-size: 9px;
@@ -3381,7 +3752,7 @@ function SelectedCompCard({ comp, onRemove, onOpenDrawer, weight, onWeightChange
  * de pertinence) et ouvre le drawer détail au clic. Le slider de poids
  * dans l'estimation est désormais dans le drawer détail, pas sur cette
  * carte (pour garder l'aperçu épuré). */
-function MiniSelectedCompCard({ comp, onRemove, onOpenDrawer }) {
+function MiniSelectedCompCard({ comp, onRemove, onOpenDrawer, v1Status }) {
   const dotClass = comp.source === 'dvf'
     ? 'dot-dvf'
     : comp.source === 'ideeri'
@@ -3403,7 +3774,19 @@ function MiniSelectedCompCard({ comp, onRemove, onOpenDrawer }) {
       <div className="mini-comp-row">
         <span className={`source-dot ${dotClass}`} />
         <div className="mini-comp-main">
-          <div className="mini-comp-title">{comp.title}</div>
+          <div className="mini-comp-title">
+            {v1Status && (
+              <span
+                className="mini-comp-v1-badge"
+                style={{ borderColor: v1Status.color, color: v1Status.color, marginRight: 6 }}
+                title={`V1 · ${v1Status.label}${v1Status.delta != null ? ` · ${v1Status.delta > 0 ? '+' : ''}${v1Status.delta}%` : ''}`}
+              >
+                <span className="v1-dot" style={{ background: v1Status.color }} />
+                V1
+              </span>
+            )}
+            {comp.title}
+          </div>
           <div className="mini-comp-sub">{comp.prix} &euro; &middot; {comp.prixM2} &euro;/m&sup2; &middot; {comp.distance}</div>
         </div>
         <span className={`mini-comp-score ${pertClass}`}>{pertinence}%</span>
@@ -3459,7 +3842,7 @@ function CompactCompCard({ comp, onAdd, onOpenEdit }) {
  *
  * Le drag & drop natif HTML5 : onDragStart pose l'id dans dataTransfer ;
  * la colonne Panier (cart-list) déclenche addToSelected sur onDrop. */
-function PoolCompCard({ comp, onAdd, onOpenEdit, onFocusOnMap, onDragStart, onDragEnd }) {
+function PoolCompCard({ comp, onOpenEdit, onFocusOnMap, onDragStart, onDragEnd, v1Status }) {
   // Extrait un score numérique 0-100 depuis "85% sim." pour le badge.
   const simNum = parseInt(String(comp.simScore || '').replace(/\D/g, ''), 10) || 0;
   const scoreClass = simNum >= 80 ? 'score-high' : simNum >= 60 ? 'score-mid' : 'score-low';
@@ -3502,7 +3885,6 @@ function PoolCompCard({ comp, onAdd, onOpenEdit, onFocusOnMap, onDragStart, onDr
       handleCardClick();
     }
   };
-  const stop = (e) => e.stopPropagation();
 
   // Drag & drop natif HTML5 : on stocke l'id du comp dans dataTransfer
   // pour permettre au panier de retrouver le bien dropé.
@@ -3518,6 +3900,21 @@ function PoolCompCard({ comp, onAdd, onOpenEdit, onFocusOnMap, onDragStart, onDr
   };
   const handleDragEnd = () => { if (onDragEnd) onDragEnd(comp.id); };
 
+  // Badge V1 si le bien était dans l'étude précédente (calque visuel)
+  const v1Badge = v1Status ? (
+    <span
+      className="pool-card-v1-badge"
+      style={{ borderColor: v1Status.color, color: v1Status.color }}
+      title={`Bien déjà présent dans votre étude précédente · ${v1Status.label}${v1Status.delta != null ? ` · ${v1Status.delta > 0 ? '+' : ''}${v1Status.delta}%` : ''}`}
+    >
+      <span className="v1-dot" style={{ background: v1Status.color }} />
+      V1 · {v1Status.label}
+      {v1Status.delta != null && v1Status.delta !== 0 && (
+        <span className="v1-delta">{v1Status.delta > 0 ? '+' : ''}{v1Status.delta}%</span>
+      )}
+    </span>
+  ) : null;
+
   return (
     <div
       className="pool-card"
@@ -3529,7 +3926,9 @@ function PoolCompCard({ comp, onAdd, onOpenEdit, onFocusOnMap, onDragStart, onDr
       onClick={handleCardClick}
       onKeyDown={handleKeyDown}
       title="Glissez vers le panier ou cliquez pour le détail"
+      style={{ position: 'relative' }}
     >
+      {v1Badge}
       {photoUrl ? (
         <div
           className="pool-card-photo"
@@ -3558,16 +3957,6 @@ function PoolCompCard({ comp, onAdd, onOpenEdit, onFocusOnMap, onDragStart, onDr
             {m2Label && <span className="pool-card-price-m2">&middot; {m2Label}</span>}
           </div>
         )}
-      </div>
-      <div className="pool-card-actions" onClick={stop}>
-        <button
-          type="button"
-          className="pool-card-add-btn"
-          onClick={(e) => { e.stopPropagation(); if (onAdd) onAdd(comp.id); }}
-          title="Ajouter au panier sans glisser"
-        >
-          + Panier
-        </button>
       </div>
       <div className="pool-card-drag-hint">&#8942;&#8942; Glissez vers le panier</div>
     </div>
@@ -3807,6 +4196,120 @@ export default function Step3Comparables() {
   const targetCityShort = activeBien?.adresse?.city || 'Lyon 3ème';
   const hasRealLocation = !!activeBien?.adresse?.citycode;
 
+  /* ─── Étude précédente : charge la dernière estimation antérieure pour
+   * le même bien, si elle existe. Permet la comparaison V1 vs V2 dans
+   * Step3 (badge "⏱ V1" sur les biens du pool actuel + statut + delta).
+   *
+   * Stratégie de matching tolérante :
+   *   1. par adresse complète normalisée (lowercase + trim + no accents)
+   *   2. sinon par adresse partielle (l'une contient l'autre)
+   *   3. sinon (mode démo) : adresse fallback Lyon 3
+   *   4. en dernier recours : la dernière étude AVEC comparables snapshot
+   *      (pour qu'on voie quelque chose même si l'adresse a changé) */
+  const previousStudy = useMemo(() => {
+    try {
+      const list = JSON.parse(localStorage.getItem('ideeri_estimations') || '[]');
+      if (!Array.isArray(list) || list.length === 0) return null;
+
+      // Normalisation : lower, trim, sans accents, espaces unifiés
+      const norm = (s) => String(s || '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ');
+
+      const onlyWithComparables = list.filter(
+        (e) => e && Array.isArray(e.comparables) && e.comparables.length > 0
+      );
+      if (onlyWithComparables.length === 0) return null;
+
+      // Adresse actuelle. En mode démo (pas d'activeBien), on utilise
+      // l'adresse fallback Lyon 3 — c'est celle utilisée par la sauvegarde
+      // Step5 quand hasRealLocation est false.
+      const currentAddrRaw = activeBien?.adresse?.label
+        || (hasRealLocation ? '' : '12 rue des Lilas, 69003 Lyon');
+      const currentAddr = norm(currentAddrRaw);
+
+      const sortByDateDesc = (a, b) => {
+        const ta = new Date(a.snapshotDate || a.date || 0).getTime();
+        const tb = new Date(b.snapshotDate || b.date || 0).getTime();
+        return tb - ta;
+      };
+
+      // 1) Match exact (normalisé)
+      let matches = onlyWithComparables.filter(
+        (e) => norm(e.adresse) === currentAddr
+      );
+      // 2) Match partiel : l'une contient l'autre
+      if (matches.length === 0 && currentAddr) {
+        matches = onlyWithComparables.filter((e) => {
+          const a = norm(e.adresse);
+          return a && (a.includes(currentAddr) || currentAddr.includes(a));
+        });
+      }
+      // 3) Fallback ultime : on prend juste la dernière étude avec comparables
+      // (permet de voir la feature à l'œuvre même si l'adresse a changé).
+      if (matches.length === 0) {
+        matches = [...onlyWithComparables];
+      }
+      matches.sort(sortByDateDesc);
+      return matches[0] || null;
+    } catch {
+      return null;
+    }
+  }, [activeBien, hasRealLocation]);
+
+  /* Map id → snapshot du comparable précédent, pour lookup rapide
+   * pendant le rendu des cards du pool/panier. */
+  const previousById = useMemo(() => {
+    const m = {};
+    if (previousStudy?.comparables) {
+      previousStudy.comparables.forEach((c) => { if (c.id) m[c.id] = c; });
+    }
+    return m;
+  }, [previousStudy]);
+
+  /* Calcule le statut d'évolution d'un bien depuis l'étude précédente.
+   * Renvoie un objet { state, label, color, delta } avec state ∈ :
+   *   - 'vendu'         : passé en source DVF ou ideeri (transaction)
+   *   - 'compromis'     : statut explicite "sous compromis" sur le comp actuel
+   *   - 'baisse'        : encore en vente mais prix < prix initial
+   *   - 'en_vente'      : encore en vente, prix stable ou +
+   *   - 'retire'        : plus dans le pool actuel (non passé en param)
+   * Pour 'retire', appeler avec currentComp = null. */
+  const getPreviousStatus = (currentComp, prev) => {
+    if (!prev) return null;
+    // Bien disparu du pool actuel
+    if (!currentComp) {
+      return { state: 'retire', label: 'Retiré du marché', color: '#888', delta: null };
+    }
+    const prevPrix = parseInt(String(prev.prix || '').replace(/\D/g, ''), 10) || 0;
+    const currPrix = parseInt(String(currentComp.prix || '').replace(/\D/g, ''), 10) || 0;
+    const delta = (prevPrix > 0 && currPrix > 0)
+      ? Math.round(((currPrix - prevPrix) / prevPrix) * 1000) / 10
+      : null;
+    // Vendu : passé en source DVF ou Ideeri vendu (depuis encours/portail)
+    if ((currentComp.source === 'dvf' || currentComp.source === 'ideeri'
+        || currentComp.source === 'autre_agence')
+        && (prev.source === 'encours' || prev.source === 'portail')) {
+      return { state: 'vendu', label: 'Vendu', color: '#2d8856', delta };
+    }
+    // Compromis (si donnée disponible)
+    if (currentComp.statut === 'compromis' || currentComp.statutVente === 'compromis') {
+      return { state: 'compromis', label: 'Sous compromis', color: '#2a3f8a', delta };
+    }
+    // Baisse de prix
+    if (delta != null && delta <= -1) {
+      return { state: 'baisse', label: 'Prix baissé', color: '#d97706', delta };
+    }
+    // Encore en vente (par défaut)
+    return { state: 'en_vente', label: 'Encore en vente', color: '#4a6cf7', delta };
+  };
+
+  /* Note : le calcul des biens "disparus" (présents dans l'étude
+   * précédente mais plus dans le pool actuel) est fait inline dans le
+   * JSX du bandeau, où `others` est disponible. */
+
   /* targetFields = Set des clés (parmi COMPARABLE_FIELDS) renseignées sur le
    * bien cible (Step 1). C'est le DÉNOMINATEUR du ratio "M/N" affiché sur
    * chaque carte comparable. Reflète le périmètre réel de comparaison. */
@@ -3814,6 +4317,170 @@ export default function Step3Comparables() {
     const cats = buildBienCibleCategories(bienCibleCategoriesBase, activeBien);
     return getTargetFilledFieldKeys(cats);
   }, [activeBien]);
+
+  /* ─── Tags caractéristiques du bien cible (au-dessus du workspace) ───
+   * Affichage en chips colorés selon le match avec le comparable focusé :
+   *   neutre = pas de comp focusé
+   *   match  = le comp a la même valeur (avec tolérance pour les numériques)
+   *   nomatch= le comp a une valeur différente
+   *   na     = le comp n'a pas cette info
+   *
+   * Source : on construit les features depuis bienCibleCategories enrichi
+   * (buildBienCibleCategories), qui contient les valeurs par défaut + les
+   * saisies utilisateur résolues. */
+  const [focusedComp, setFocusedComp] = useState(null);
+  // Toggle d'affichage de la liste des biens "disparus de l'offre"
+  // (présents dans l'étude précédente mais plus dans le pool actuel)
+  const [previousMissingOpen, setPreviousMissingOpen] = useState(false);
+  // Toggle global d'affichage de la comparaison avec l'étude V1
+  // (badges V1 sur les cards + bandeau biens disparus). Activé par défaut.
+  const [showV1, setShowV1] = useState(true);
+  const bienCats = useMemo(
+    () => buildBienCibleCategories(bienCibleCategoriesBase, activeBien),
+    [activeBien]
+  );
+
+  /* Helper : récupère la valeur d'un field (par title de catégorie + label). */
+  const getCatField = (cats, catTitle, fieldLabel) => {
+    const cat = cats?.find((c) => c.title === catTitle);
+    if (!cat) return undefined;
+    const f = cat.fields?.find((x) => x.label === fieldLabel);
+    if (!f) return undefined;
+    if (f.type === 'toggle') return f.on;
+    return f.value;
+  };
+
+  /* Extrait un nombre d'étage depuis une string ("4ème étage" → 4, "RDC" → 0). */
+  const parseEtage = (v) => {
+    if (v == null || v === '') return null;
+    if (typeof v === 'number') return v;
+    const s = String(v).toLowerCase();
+    if (s.includes('rez') || s.includes('rdc')) return 0;
+    const m = s.match(/(\d+)/);
+    return m ? Number(m[1]) : null;
+  };
+
+  const targetFeatures = useMemo(() => {
+    if (!bienCats) return [];
+    const features = [];
+    const isEmpty = (v) => v === null || v === undefined || v === ''
+      || v === false || v === '0' || v === 0
+      || (typeof v === 'string' && v.startsWith('\u2014'));
+    const push = (key, label, targetVal, getCompVal, equals) => {
+      if (isEmpty(targetVal)) return;
+      features.push({ key, label, targetVal, getCompVal, equals });
+    };
+
+    // ─── Identification ───────────────────────────────────────────
+    const type = getCatField(bienCats, 'Identification et Statut Juridique', 'Type de bien');
+    push('type', String(type || ''),
+      String(type || '').toLowerCase(),
+      (c) => c.fields?.type || c._dvfRaw?.type,
+      (cv, tv) => String(cv).toLowerCase() === tv
+    );
+
+    // ─── Caractéristiques Générales ───────────────────────────────
+    const surface = getCatField(bienCats, 'Caractéristiques Générales', 'Surface Carrez (m²)');
+    push('surface', `${surface} m²`, Number(surface),
+      (c) => c.fields?.surface ?? c._dvfRaw?.surface,
+      (cv, tv) => cv != null && Math.abs(Number(cv) - tv) <= 10
+    );
+    const pieces = getCatField(bienCats, 'Caractéristiques Générales', 'Nombre de pièces');
+    push('pieces', `T${pieces}`, Number(pieces),
+      (c) => c.fields?.pieces ?? c._dvfRaw?.pieces,
+      (cv, tv) => cv != null && Number(cv) === tv
+    );
+    const chambres = getCatField(bienCats, 'Caractéristiques Générales', 'Nombre de chambres');
+    push('chambres', `${chambres} ch.`, Number(chambres),
+      (c) => c.fields?.chambres ?? c._dvfRaw?.chambres,
+      (cv, tv) => cv != null && Number(cv) === tv
+    );
+    const sdb = getCatField(bienCats, 'Caractéristiques Générales', 'Nombre SDB');
+    push('sdb', `${sdb} SDB`, Number(sdb),
+      (c) => c.fields?.sdb,
+      (cv, tv) => cv != null && Number(cv) === tv
+    );
+    const wc = getCatField(bienCats, 'Caractéristiques Générales', 'Nombre WC');
+    push('wc', `${wc} WC`, Number(wc),
+      (c) => c.fields?.wc,
+      (cv, tv) => cv != null && Number(cv) === tv
+    );
+    const etage = getCatField(bienCats, 'Caractéristiques Générales', 'Étage du bien');
+    const etageNum = parseEtage(etage);
+    if (etageNum != null) {
+      push('etage', etageNum === 0 ? 'RDC' : `Étage ${etageNum}`, etageNum,
+        (c) => parseEtage(c.fields?.etage),
+        (cv, tv) => cv != null && Math.abs(cv - tv) <= 1
+      );
+    }
+    const orientation = getCatField(bienCats, 'Caractéristiques Générales', 'Orientation');
+    push('orientation', String(orientation || ''), String(orientation || '').toLowerCase(),
+      (c) => c.fields?.orientation || c.fields?.exposition,
+      (cv, tv) => String(cv).toLowerCase() === tv
+    );
+    const ascenseur = getCatField(bienCats, 'Caractéristiques Générales', 'Ascenseur');
+    push('ascenseur', 'Ascenseur', ascenseur === true,
+      (c) => Boolean(c.fields?.ascenseur),
+      (cv) => cv === true
+    );
+    const cave = getCatField(bienCats, 'Caractéristiques Générales', 'Cave (m²)');
+    push('cave', 'Cave', Number(cave) > 0,
+      (c) => Number(c.fields?.cave) > 0 || Boolean(c.fields?.cave),
+      (cv) => Boolean(cv)
+    );
+    const parkingExt = getCatField(bienCats, 'Caractéristiques Générales', 'Parking extérieur');
+    push('parking_ext', 'Parking', parkingExt === true,
+      (c) => Boolean(c.fields?.parking),
+      (cv) => cv === true
+    );
+    const garage = getCatField(bienCats, 'Caractéristiques Générales', 'Garage / Box fermé');
+    push('garage', 'Garage', Number(garage) > 0,
+      (c) => Number(c.fields?.garage) > 0,
+      (cv) => Boolean(cv)
+    );
+    const balcon = getCatField(bienCats, 'Caractéristiques Générales', 'Balcon (m²)');
+    push('balcon', `Balcon ${balcon} m²`, Number(balcon) > 0 ? Number(balcon) : null,
+      (c) => Number(c.fields?.balcon) || 0,
+      (cv, tv) => cv > 0 && Math.abs(cv - tv) <= 5
+    );
+    const terrasse = getCatField(bienCats, 'Caractéristiques Générales', 'Terrasse (m²)');
+    push('terrasse', `Terrasse ${terrasse} m²`, Number(terrasse) > 0 ? Number(terrasse) : null,
+      (c) => Number(c.fields?.terrasse) || 0,
+      (cv, tv) => cv > 0 && Math.abs(cv - tv) <= 5
+    );
+    const jardin = getCatField(bienCats, 'Caractéristiques Générales', 'Jardin privatif (m²)');
+    push('jardin', `Jardin ${jardin} m²`, Number(jardin) > 0 ? Number(jardin) : null,
+      (c) => Number(c.fields?.jardin) || 0,
+      (cv, tv) => cv > 0 && Math.abs(cv - tv) <= 20
+    );
+
+    // ─── Structure / Gros Œuvre ───────────────────────────────────
+    const annee = getCatField(bienCats, 'Structure et Gros Œuvre', 'Année de construction');
+    push('annee', `Année ${annee}`, Number(annee),
+      (c) => c.fields?.anneeConstruction ?? c._dvfRaw?.anneeConstruction,
+      (cv, tv) => cv != null && Math.abs(Number(cv) - tv) <= 10
+    );
+    const epoque = getCatField(bienCats, 'Structure et Gros Œuvre', 'Époque de construction');
+    push('epoque', String(epoque || ''), String(epoque || ''),
+      (c) => c.fields?.epoque,
+      (cv, tv) => String(cv) === tv
+    );
+    const facades = getCatField(bienCats, 'Structure et Gros Œuvre', 'Façades — Matériaux');
+    push('facades', `Façade ${facades}`, String(facades || '').toLowerCase(),
+      (c) => c.fields?.facades || c.fields?.facadesMateriaux,
+      (cv, tv) => String(cv).toLowerCase() === tv
+    );
+
+    return features;
+  }, [bienCats]);
+
+  /* Calcule l'état du tag pour une feature donnée selon le focusedComp. */
+  const tagState = (feature, comp) => {
+    if (!comp) return 'neutral';
+    const cv = feature.getCompVal(comp);
+    if (cv == null || cv === '' || (typeof cv === 'number' && Number.isNaN(cv))) return 'na';
+    return feature.equals(cv, feature.targetVal) ? 'match' : 'nomatch';
+  };
 
   const [radius, setRadius] = useState(1000);
   // Communes/quartiers exclus du périmètre par l'utilisateur (croix sur le tag).
@@ -4752,6 +5419,8 @@ export default function Step3Comparables() {
    * Appelé au clic d'une PoolCompCard pour donner un feedback visuel
    * immédiat de la position du bien sur la carte. */
   const focusCompOnMap = (comp) => {
+    // Met à jour le comp focusé pour les tags caractéristiques (barre haut)
+    setFocusedComp(comp);
     const map = mapInstanceRef.current;
     if (!map) return;
     const coords = comp.coords || COMP_COORDS[comp.id];
@@ -5213,6 +5882,136 @@ export default function Step3Comparables() {
         * Layout CSS Grid avec 2 poignées draggable entre colonnes.
         * Drag & drop natif HTML5 du pool vers le panier.
         * ═══════════════════════════════════════════════════════════════ */}
+      {/* ─── Barre de tags : caractéristiques du bien cible
+       * Au clic sur un comparable (pool ou panier), chaque tag se colore
+       * selon le match avec ce comparable :
+       *   vert  ✓ = match  (même valeur, ou tolérance respectée)
+       *   rouge ✕ = no match (valeur différente)
+       *   gris  = info absente sur le comparable
+       *   neutre (aucun clic encore) = gris pâle uniforme
+       * ─── */}
+      {targetFeatures.length > 0 && (
+        <div className="target-tags-bar">
+          <span className="target-tags-label">Bien cible</span>
+          <div className="target-tags-list">
+            {targetFeatures.map((f) => {
+              const state = tagState(f, focusedComp);
+              return (
+                <span key={f.key} className={`target-tag is-${state}`}>
+                  {state === 'match' && <span className="tag-tick">✓</span>}
+                  {state === 'nomatch' && <span className="tag-tick">✕</span>}
+                  {f.label}
+                </span>
+              );
+            })}
+          </div>
+          {focusedComp && (
+            <>
+              <span className="target-tags-focused-label">
+                vs <strong>{focusedComp.title || focusedComp.id}</strong>
+              </span>
+              <button
+                type="button"
+                className="target-tags-clear"
+                onClick={() => setFocusedComp(null)}
+              >
+                Réinitialiser
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Toggle on/off de la comparaison V1.
+       * Visible dès qu'une étude précédente existe pour le bien.
+       * Contrôle l'affichage des badges V1 sur les cards + bandeau biens
+       * disparus. Permet de revenir à une vue "neutre" sans superposition. */}
+      {previousStudy && (
+        <div className="v1-toggle-bar">
+          <div className="v1-toggle-info">
+            <span className="v1-toggle-icon">⏱</span>
+            <span>
+              <strong>Étude précédente</strong>
+              {previousStudy.date && (
+                <span className="v1-toggle-date"> · {previousStudy.date}</span>
+              )}
+              {Array.isArray(previousStudy.comparables) && (
+                <span className="v1-toggle-count">
+                  {' · '}
+                  {previousStudy.comparables.length} bien
+                  {previousStudy.comparables.length > 1 ? 's' : ''} en mémoire
+                </span>
+              )}
+            </span>
+          </div>
+          <label
+            className={`v1-switch${showV1 ? ' is-on' : ''}`}
+            title={showV1 ? 'Masquer la comparaison V1' : 'Afficher la comparaison V1'}
+          >
+            <input
+              type="checkbox"
+              checked={showV1}
+              onChange={(e) => setShowV1(e.target.checked)}
+            />
+            <span className="v1-switch-track">
+              <span className="v1-switch-thumb" />
+            </span>
+          </label>
+        </div>
+      )}
+
+      {/* Bandeau "biens disparus de l'offre" — biens présents dans l'étude
+       * précédente qui n'apparaissent plus dans le pool actuel (vendus
+       * silencieusement, retirés, etc.). Calque visuel intelligent.
+       * Conditionné par le toggle showV1. */}
+      {previousStudy && showV1 && (() => {
+        const currentIds = new Set([
+          ...selected.map((c) => c.id),
+          ...others.map((c) => c.id),
+        ]);
+        const missing = (previousStudy.comparables || []).filter((p) => !currentIds.has(p.id));
+        if (missing.length === 0) return null;
+        return (
+          <div className="previous-missing-bar">
+            <div className="previous-missing-bar-text">
+              ⏱ <strong>{missing.length} bien{missing.length > 1 ? 's' : ''}</strong> de votre étude
+              précédente {previousStudy.date ? `du ${previousStudy.date}` : ''} n&rsquo;
+              {missing.length > 1 ? 'apparaissent' : 'apparaît'} plus dans l&rsquo;offre actuelle.
+            </div>
+            <button
+              type="button"
+              className="previous-missing-bar-toggle"
+              onClick={() => setPreviousMissingOpen((v) => !v)}
+            >
+              {previousMissingOpen ? '▴ Masquer' : '▾ Voir la liste'}
+            </button>
+            {previousMissingOpen && (
+              <div className="previous-missing-list">
+                {missing.map((p) => {
+                  const sourceColor = p.source === 'dvf' ? '#4a6cf7'
+                    : p.source === 'ideeri' ? '#46B962'
+                    : p.source === 'encours' ? '#f5a623'
+                    : p.source === 'portail' ? '#e74c3c'
+                    : p.source === 'estimation' ? '#9b59b6'
+                    : p.source === 'mandat_clos' ? '#7f8c8d'
+                    : p.source === 'autre_agence' ? '#16a085' : '#999';
+                  return (
+                    <div key={p.id} className="previous-missing-item">
+                      <span className="previous-missing-item-source" style={{ background: sourceColor }} />
+                      <span className="previous-missing-item-title">{p.title || p.addr || p.id}</span>
+                      {p.prix && <span className="previous-missing-item-price">{p.prix}</span>}
+                      <span style={{ fontSize: 10, color: '#aaa', fontStyle: 'italic' }}>
+                        retiré du marché
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {(() => {
         const visibleOthers = others
           .filter((c) => {
@@ -5344,34 +6143,130 @@ export default function Step3Comparables() {
               title="Glissez pour redimensionner · Double-clic pour reset"
             />
 
-            {/* COL 2 \u2014 POOL (biens disponibles, draggable) */}
+            {/* COL 2 — POOL (biens disponibles, draggable)
+             * Layout en 2 sections empilées :
+             *   • Marché théorique (haut) : prix affichés / estimations /
+             *     mandats clos / portails — informations non concrétisées
+             *   • Marché réel (bas) : DVF / Biens vendus / Vendu autre agence
+             *     — transactions réellement effectuées
+             * Chaque section a un header coloré + sous-sections par source. */}
             <div className="workspace-col pool-panel">
               <div className="pool-header">
                 <span className="pool-header-title">Disponibles</span>
                 <span className="pool-header-count">{visibleOthers.length} bien{visibleOthers.length > 1 ? 's' : ''}</span>
               </div>
-              <div className="pool-grid">
+
+              {(() => {
+                // Regroupement par sous-catégorie. "Invendu depuis 3 mois"
+                // est un état DÉRIVÉ : il agrège les biens des sources
+                // 'encours' (Papiris) et 'portail' dont la durée de mise en
+                // vente dépasse 90 jours. Ces biens sont RETIRÉS de leur
+                // source d'origine (pas d'affichage en double).
+                const JOURS_INVENDU = 90;
+                const isInvendu = (c) => {
+                  if (c.source !== 'encours' && c.source !== 'portail') return false;
+                  const jours = Number(c.joursEnCommercialisation) || 0;
+                  return jours >= JOURS_INVENDU;
+                };
+                const groups = {
+                  encours:      { label: 'En cours',                dotClass: 'dot-encours',      items: [] },
+                  estimation:   { label: 'Estimations',             dotClass: 'dot-estimation',   items: [] },
+                  portail:      { label: 'Portails',                dotClass: 'dot-portail',      items: [] },
+                  mandat_clos:  { label: 'Mandats clos',            dotClass: 'dot-mandat-clos',  items: [] },
+                  invendu_3m:   { label: 'Invendu depuis 3 mois',   dotClass: 'dot-invendu-3m',   items: [] },
+                  dvf:          { label: 'DVF',                     dotClass: 'dot-dvf',          items: [] },
+                  ideeri:       { label: 'Biens vendus (Papiris)',  dotClass: 'dot-ideeri',       items: [] },
+                  autre_agence: { label: 'Vendu par autre agence',  dotClass: 'dot-autre-agence', items: [] },
+                };
+                visibleOthers.forEach((c) => {
+                  if (isInvendu(c)) {
+                    groups.invendu_3m.items.push(c);
+                    return;
+                  }
+                  const key = String(c.source);
+                  if (groups[key]) groups[key].items.push(c);
+                });
+                // Invendu en DERNIER de Marché théorique : signal négatif
+                // fort (biens qui ne trouvent pas preneur → indique souvent
+                // un prix demandé trop haut, info précieuse pour l'estimation).
+                const theoriqueKeys = ['encours', 'estimation', 'portail', 'mandat_clos', 'invendu_3m'];
+                const reelKeys      = ['dvf', 'ideeri', 'autre_agence'];
+                const theoriqueTotal = theoriqueKeys.reduce((s, k) => s + groups[k].items.length, 0);
+                const reelTotal      = reelKeys.reduce((s, k) => s + groups[k].items.length, 0);
+
+                const renderSubsection = (key) => {
+                  const g = groups[key];
+                  if (!g) return null;
+                  const empty = g.items.length === 0;
+                  return (
+                    <div key={key} className={`pool-subsection${empty ? ' is-empty' : ''}`}>
+                      <div className="pool-subsection-head">
+                        <span className={`pool-subsection-dot ${g.dotClass}`} />
+                        <span className="pool-subsection-label">{g.label}</span>
+                        <span className="pool-subsection-count">{g.items.length}</span>
+                      </div>
+                      {empty ? (
+                        <div className="pool-subsection-empty">Aucun bien</div>
+                      ) : (
+                        <div className="pool-subsection-cards">
+                          {g.items.map((c) => {
+                            const prev = showV1 ? previousById[c.id] : null;
+                            const v1Status = prev ? getPreviousStatus(c, prev) : null;
+                            return (
+                              <PoolCompCard
+                                key={c.id}
+                                comp={c}
+                                onOpenEdit={setDrawerComp}
+                                onFocusOnMap={focusCompOnMap}
+                                v1Status={v1Status}
+                              />
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                };
+
+                return (
+                  <div className="pool-sections">
+                    {/* SECTION HAUT — MARCHÉ THÉORIQUE */}
+                    <div className="pool-section-block theorique">
+                      <div className="pool-section-header">
+                        <div className="pool-section-title">Marché théorique</div>
+                        <span className="pool-section-count">{theoriqueTotal}</span>
+                      </div>
+                      {theoriqueKeys.map(renderSubsection)}
+                    </div>
+
+                    {/* SECTION BAS — MARCHÉ RÉEL */}
+                    <div className="pool-section-block reel">
+                      <div className="pool-section-header">
+                        <div className="pool-section-title">Marché réel</div>
+                        <span className="pool-section-count">{reelTotal}</span>
+                      </div>
+                      {reelKeys.map(renderSubsection)}
+                    </div>
+
+                    {visibleOthers.length === 0 && (
+                      <div style={{ textAlign: 'center', color: '#999', padding: '30px 14px', fontSize: 12, fontStyle: 'italic' }}>
+                        Aucun bien ne correspond aux filtres actuels
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Bouton "Ajouter un comparable manuel" en pied de pool */}
+              <div className="pool-manual-add-wrap">
                 <button
                   type="button"
                   className="pool-manual-add"
                   onClick={() => setManualDrawerOpen(true)}
+                  style={{ width: '100%' }}
                 >
                   + Ajouter un comparable manuel
                 </button>
-                {visibleOthers.map((c) => (
-                  <PoolCompCard
-                    key={c.id}
-                    comp={c}
-                    onAdd={addToSelected}
-                    onOpenEdit={setDrawerComp}
-                    onFocusOnMap={focusCompOnMap}
-                  />
-                ))}
-                {visibleOthers.length === 0 && (
-                  <div style={{ gridColumn: '1 / -1', textAlign: 'center', color: '#999', padding: '30px 14px', fontSize: 12, fontStyle: 'italic' }}>
-                    Aucun bien ne correspond aux filtres actuels
-                  </div>
-                )}
               </div>
             </div>
 
@@ -5386,41 +6281,63 @@ export default function Step3Comparables() {
               title="Glissez pour redimensionner · Double-clic pour reset"
             />
 
-            {/* COL 3 \u2014 PANIER (s\u00e9lection, drop zone) */}
+            {/* COL 3 — bascule entre PANIER (default) et DÉTAIL d'un comparable
+             * Quand drawerComp est défini, on remplace la vue panier par le
+             * détail du bien cliqué. Bouton "← Retour" pour revenir au panier. */}
             <div className="workspace-col cart-panel">
-              <div className="cart-header">
-                <span className="cart-header-title">{'\ud83d\uded2'} Panier sélection</span>
-                <span className="cart-header-count">{selected.length} bien{selected.length > 1 ? 's' : ''}</span>
-              </div>
-              <div
-                className={`cart-list${isDragOverCart ? ' is-drag-over' : ''}`}
-                onDragOver={handleCartDragOver}
-                onDragEnter={handleCartDragEnter}
-                onDragLeave={handleCartDragLeave}
-                onDrop={handleCartDrop}
-              >
-                {selected.length === 0 && (
-                  <div className="cart-dropzone">
-                    <div className="icon">{'\ud83d\uded2'}</div>
-                    <div>Glissez des biens ici</div>
-                    <div className="hint">depuis la colonne &laquo;&nbsp;Disponibles&nbsp;&raquo;</div>
+              {drawerComp ? (
+                <ComparableDrawer
+                  comp={drawerComp}
+                  inline
+                  onClose={() => { setDrawerComp(null); setFocusedComp(null); }}
+                  isSelected={selected.some((c) => c.id === drawerComp.id)}
+                  weight={selected.some((c) => c.id === drawerComp.id) ? effectiveWeight(drawerComp) : undefined}
+                  onWeightChange={selected.some((c) => c.id === drawerComp.id) ? handleWeightChange : undefined}
+                  onAdd={(id) => addToSelected(id)}
+                  onRemove={(id) => handleRemoveComparable(id)}
+                />
+              ) : (
+                <>
+                  <div className="cart-header">
+                    <span className="cart-header-title">{'\ud83d\uded2'} Panier sélection</span>
+                    <span className="cart-header-count">{selected.length} bien{selected.length > 1 ? 's' : ''}</span>
                   </div>
-                )}
-                {selected.map((c) => applySimOverride(c, simOverrides)).map((c) => (
-                  <MiniSelectedCompCard
-                    key={c.id}
-                    comp={c}
-                    onRemove={handleRemoveComparable}
-                    onOpenDrawer={setDrawerComp}
-                  />
-                ))}
-                {selected.length > 0 && (
-                  <div className="cart-dropzone compact">
-                    <div className="icon">+</div>
-                    <div>Glissez d&rsquo;autres biens ici</div>
+                  <div
+                    className={`cart-list${isDragOverCart ? ' is-drag-over' : ''}`}
+                    onDragOver={handleCartDragOver}
+                    onDragEnter={handleCartDragEnter}
+                    onDragLeave={handleCartDragLeave}
+                    onDrop={handleCartDrop}
+                  >
+                    {selected.length === 0 && (
+                      <div className="cart-dropzone">
+                        <div className="icon">{'\ud83d\uded2'}</div>
+                        <div>Glissez des biens ici</div>
+                        <div className="hint">depuis la colonne &laquo;&nbsp;Disponibles&nbsp;&raquo;</div>
+                      </div>
+                    )}
+                    {selected.map((c) => applySimOverride(c, simOverrides)).map((c) => {
+                      const prev = showV1 ? previousById[c.id] : null;
+                      const v1Status = prev ? getPreviousStatus(c, prev) : null;
+                      return (
+                        <MiniSelectedCompCard
+                          key={c.id}
+                          comp={c}
+                          onRemove={handleRemoveComparable}
+                          onOpenDrawer={(cc) => { setFocusedComp(cc); setDrawerComp(cc); }}
+                          v1Status={v1Status}
+                        />
+                      );
+                    })}
+                    {selected.length > 0 && (
+                      <div className="cart-dropzone compact">
+                        <div className="icon">+</div>
+                        <div>Glissez d&rsquo;autres biens ici</div>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                </>
+              )}
             </div>
           </div>
         );
@@ -5527,20 +6444,9 @@ export default function Step3Comparables() {
         </div>
       </div>
 
-      {/* Drawer d\u00e9tail comparable — slider de poids affich\u00e9 uniquement
-          si le bien fait partie de la s\u00e9lection (panier) */}
-      {drawerComp && (() => {
-        const isSelected = selected.some((c) => c.id === drawerComp.id);
-        return (
-          <ComparableDrawer
-            comp={drawerComp}
-            onClose={() => setDrawerComp(null)}
-            isSelected={isSelected}
-            weight={isSelected ? effectiveWeight(drawerComp) : undefined}
-            onWeightChange={isSelected ? handleWeightChange : undefined}
-          />
-        );
-      })()}
+      {/* Le drawer d\u00e9tail comparable est maintenant rendu inline dans la
+          colonne 3 du workspace ci-dessus (\u00e0 la place du panier quand un
+          comparable est s\u00e9lectionn\u00e9 via le state drawerComp). */}
 
       {/* Le drawer d'override manuel de la similarité a été retiré :
           le clic sur une carte ouvre désormais directement le drawer
