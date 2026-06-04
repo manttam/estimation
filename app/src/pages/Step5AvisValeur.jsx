@@ -563,12 +563,13 @@ const cssStyles = `
     margin-top: 14px;
   }
   .action-btn {
-    padding: 10px 12px;
-    border-radius: 8px;
+    padding: 7px 10px;
+    border-radius: 7px;
     border: none;
     cursor: pointer;
     text-align: left;
-    font-size: 12px;
+    font-size: 11px;
+    line-height: 1.25;
     transition: all 0.2s;
     font-family: var(--font);
   }
@@ -590,9 +591,9 @@ const cssStyles = `
   }
   .btn-sub {
     display: block;
-    font-size: 10px;
+    font-size: 9px;
     opacity: 0.85;
-    margin-top: 2px;
+    margin-top: 1px;
     font-weight: 400;
     color: #555;
   }
