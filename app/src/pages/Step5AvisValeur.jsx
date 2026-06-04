@@ -1169,6 +1169,13 @@ const cssStyles = `
     padding: 12px 14px;
     font-size: 12px;
   }
+  .docs-modal-body .action-btn:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+  .docs-modal-body .action-btn.primary:disabled:hover {
+    background: var(--green);
+  }
 
   /* ---- History Banner ---- */
   .history-banner {
@@ -2264,7 +2271,7 @@ export default function Step5AvisValeur() {
                 </button>
               </div>
               <div className="docs-modal-body">
-                <button className="action-btn primary" onClick={() => { setDocsModalOpen(false); navigate('/report'); }}>
+                <button type="button" className="action-btn primary" disabled aria-disabled="true">
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ verticalAlign: '-2px', marginRight: '6px' }}>
                     <rect x="2" y="1" width="12" height="14" rx="1.5" stroke="currentColor" strokeWidth="1.3" fill="none"/>
                     <line x1="5" y1="5" x2="11" y2="5" stroke="currentColor" strokeWidth="1.2"/>
@@ -2274,7 +2281,7 @@ export default function Step5AvisValeur() {
                   G&eacute;n&eacute;rer un compte rendu d&apos;estimation
                   <span className="btn-sub">R&eacute;sum&eacute; de l&apos;&eacute;tude de march&eacute; et avis de valeur</span>
                 </button>
-                <button className="action-btn primary" onClick={() => { setDocsModalOpen(false); navigate('/avis-valeur'); }}>
+                <button type="button" className="action-btn primary" disabled aria-disabled="true">
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ verticalAlign: '-2px', marginRight: '6px' }}>
                     <path d="M9 1H3.5A1.5 1.5 0 002 2.5v11A1.5 1.5 0 003.5 15h9a1.5 1.5 0 001.5-1.5V6L9 1z" stroke="currentColor" strokeWidth="1.3" fill="none"/>
                     <path d="M9 1v5h5" stroke="currentColor" strokeWidth="1.3" fill="none"/>
