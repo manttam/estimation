@@ -554,14 +554,16 @@ const cssStyles = `
     margin-top: 6px;
   }
   /* ---- Actions Card ---- */
+  /* Grille de 3 boutons cote a cote : la carte n'occupe plus toute la largeur
+     depuis le passage en mono-colonne, donc on garde des boutons compacts. */
   .actions-card {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
     gap: 8px;
     margin-top: 14px;
   }
   .action-btn {
-    padding: 12px;
+    padding: 10px 12px;
     border-radius: 8px;
     border: none;
     cursor: pointer;
