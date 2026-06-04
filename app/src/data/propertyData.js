@@ -791,7 +791,7 @@ export const bienCibleCategories = [
   // 1. Identification et Statut Juridique
   {
     title: "Identification et Statut Juridique",
-    progress: "9/10",
+    progress: "9/15",
     low: false,
     defaultOpen: false,
     fields: [
@@ -805,12 +805,17 @@ export const bienCibleCategories = [
       { label: "Hypothèques et sûretés", type: "toggle", on: false },
       { label: "Bail en cours", type: "toggle", on: false },
       { label: "Droits de préemption actifs", type: "toggle", on: false },
+      { label: "Nombre de lots de la copropriété", type: "number", value: "", placeholder: "0" },
+      { label: "Syndic — Type", type: "select", value: "", options: ["— Sélectionner —", "Professionnel", "Bénévole", "Coopératif"] },
+      { label: "Procédure judiciaire en cours", type: "toggle", on: false },
+      { label: "Zone d'urbanisme (PLU)", type: "text", value: "", placeholder: "Ex. UCe2, UB..." },
+      { label: "Date d'acquisition par le vendeur", type: "text", value: "", placeholder: "MM/AAAA" },
     ],
   },
   // 2. Caractéristiques Générales (OPEN)
   {
     title: "Caractéristiques Générales",
-    progress: "17/20",
+    progress: "17/26",
     low: false,
     defaultOpen: true,
     fields: [
@@ -837,6 +842,13 @@ export const bienCibleCategories = [
       { label: "Cour", type: "number", value: "", placeholder: "0" },
       { label: "Piscine", type: "select", value: "Non", options: ["Non", "Oui"] },
       { label: "Dépendances", type: "text", value: "Cellier 2m²" },
+      { label: "Année de la dernière rénovation", type: "number", value: "", placeholder: "AAAA" },
+      { label: "Type de vue", type: "select", value: "Dégagée", options: ["Dégagée", "Vis-à-vis", "Cour intérieure", "Rue", "Jardin", "Panoramique", "Mer/Lac", "Montagne"] },
+      { label: "Luminosité", type: "select", value: "Bonne", options: ["— Évaluer —", "Excellente", "Bonne", "Moyenne", "Faible"] },
+      { label: "Vis-à-vis", type: "select", value: "Modéré", options: ["— Évaluer —", "Aucun", "Modéré", "Important"] },
+      { label: "Niveau de bruit perçu", type: "select", value: "Calme", options: ["— Évaluer —", "Très calme", "Calme", "Modéré", "Bruyant"] },
+      { label: "État général du bien", type: "select", value: "Bon état", options: ["— Évaluer —", "Neuf / Refait à neuf", "Bon état", "À rafraîchir", "Travaux à prévoir", "À rénover entièrement"] },
+      { label: "Meublé", type: "toggle", on: false },
     ],
   },
   // 3. Structure et Gros Œuvre
@@ -1069,7 +1081,7 @@ export const bienCibleCategories = [
   // 15. Cuisine
   {
     title: "Cuisine",
-    progress: "3/9",
+    progress: "3/12",
     low: true,
     defaultOpen: false,
     fields: [
@@ -1082,6 +1094,9 @@ export const bienCibleCategories = [
       { label: "Four", type: "select", value: "", options: ["— Sélectionner —", "Intégré", "Pose libre", "Combiné micro-ondes"] },
       { label: "Lave-vaisselle", type: "select", value: "", options: ["— Sélectionner —", "Intégré", "Pose libre", "Semi-intégré", "Absent"] },
       { label: "État général cuisine", type: "select", value: "", options: ["— Évaluer —", "Neuf", "Bon état", "Daté", "À refaire entièrement"] },
+      { label: "Réfrigérateur intégré", type: "toggle", on: false },
+      { label: "Îlot central", type: "toggle", on: false },
+      { label: "Crédence — Matériau", type: "select", value: "", options: ["— Sélectionner —", "Carrelage", "Verre", "Inox", "Quartz", "Stratifié"] },
     ],
   },
   // 16. Salles de Bain et WC
@@ -1106,7 +1121,7 @@ export const bienCibleCategories = [
   // 17. Parties Communes
   {
     title: "Parties Communes",
-    progress: "4/8",
+    progress: "4/11",
     low: true,
     defaultOpen: false,
     fields: [
@@ -1118,6 +1133,9 @@ export const bienCibleCategories = [
       { label: "Fonds de travaux ALUR (€)", type: "number", value: "", placeholder: "0" },
       { label: "Travaux votés à venir", type: "text", value: "", placeholder: "Description des travaux votés" },
       { label: "Taux d'impayés (%)", type: "number", value: "", placeholder: "0" },
+      { label: "Local vélos / poussettes", type: "toggle", on: false },
+      { label: "Gardien / Concierge", type: "select", value: "", options: ["— Sélectionner —", "Absent", "Temps partiel", "Temps plein"] },
+      { label: "Espaces verts communs", type: "toggle", on: false },
     ],
   },
   // 18. Diagnostics Obligatoires
