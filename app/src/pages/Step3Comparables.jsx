@@ -4471,8 +4471,47 @@ export default function Step3Comparables() {
       (cv, tv) => String(cv).toLowerCase() === tv
     );
 
+    // ─── Choix explicites « négatifs » du formulaire (/nouveau-bien) ──
+    // Ces champs sont saisis volontairement par l'utilisateur (et comptés
+    // dans la complétude) mais valent "aucun"/false, donc ignorés par
+    // buildBienCibleCategories + isEmpty plus haut. Leur forme POSITIVE est
+    // déjà gérée par les push() ci-dessus (Ascenseur, Parking, Balcon...).
+    // On n'ajoute ici QUE la forme négative explicite ("Sans ascenseur",
+    // "Sans parking", "Sans extérieur") pour ne pas créer de doublon.
+    const ab = activeBien?.bien;
+    if (ab) {
+      const hasKey = (k) => features.some((f) => f.key === k);
+      if (ab.ascenseur === false && !hasKey('ascenseur')) {
+        features.push({
+          key: 'ascenseur',
+          label: 'Sans ascenseur',
+          targetVal: false,
+          getCompVal: (c) => (typeof c.fields?.ascenseur === 'boolean' ? c.fields.ascenseur : undefined),
+          equals: (cv, tv) => cv === tv,
+        });
+      }
+      if (ab.parking === 'aucun' && !hasKey('parking_ext') && !hasKey('garage')) {
+        features.push({
+          key: 'parking',
+          label: 'Sans parking',
+          targetVal: 'aucun',
+          getCompVal: (c) => c.fields?.parkingType,
+          equals: (cv) => cv === 'aucun' || cv == null,
+        });
+      }
+      if (ab.exterieur === 'aucun' && !hasKey('balcon') && !hasKey('terrasse') && !hasKey('jardin')) {
+        features.push({
+          key: 'exterieur',
+          label: 'Sans extérieur',
+          targetVal: 'aucun',
+          getCompVal: (c) => c.fields?.exterieurType,
+          equals: (cv) => cv === 'aucun' || cv == null,
+        });
+      }
+    }
+
     return features;
-  }, [bienCats]);
+  }, [bienCats, activeBien]);
 
   /* Calcule l'état du tag pour une feature donnée selon le focusedComp. */
   const tagState = (feature, comp) => {
