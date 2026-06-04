@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PropertyCard from '../components/PropertyCard';
 import Stepper from '../components/Stepper';
-import RdvPlanner from '../components/RdvPlanner';
 import { avisValeur } from '../data/propertyData';
 import { getActiveBien } from '../utils/activeBien';
 import { getAcquereurs } from '../utils/acquereursStore';
@@ -70,6 +69,46 @@ function getServicesForMandat(mandatType, overrides) {
     if (Array.isArray(custom)) return custom.includes(mandatType);
     return s.mandats.includes(mandatType);
   });
+}
+
+/* ---- Helpers calendrier (vue mensuelle des services planifiés) ---- */
+const CAL_MONTH_NAMES = [
+  'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+  'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
+];
+const CAL_DAY_NAMES = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+
+function calIsoDate(d) {
+  const x = new Date(d);
+  const m = String(x.getMonth() + 1).padStart(2, '0');
+  const day = String(x.getDate()).padStart(2, '0');
+  return `${x.getFullYear()}-${m}-${day}`;
+}
+function calFromIso(s) {
+  const [y, m, d] = String(s).split('-').map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+}
+function calAddDays(d, n) {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return x;
+}
+/* Grille du mois : tableau de semaines, chaque semaine = 7 jours (lundi→dimanche),
+ * complétée par les jours débordants des mois voisins. */
+function buildMonthGrid(year, month) {
+  const first = new Date(year, month, 1);
+  const startOffset = (first.getDay() + 6) % 7; // 0 = lundi
+  const gridStart = calAddDays(first, -startOffset);
+  const weeks = [];
+  for (let w = 0; w < 6; w += 1) {
+    const days = [];
+    for (let i = 0; i < 7; i += 1) {
+      const day = calAddDays(gridStart, w * 7 + i);
+      days.push(day);
+    }
+    weeks.push(days);
+  }
+  return weeks;
 }
 
 function describeBien(active) {
@@ -738,6 +777,146 @@ const cssStyles = `
     outline: none;
     border-color: var(--green, #46b962);
   }
+  .calendar-item-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    text-align: left;
+    cursor: pointer;
+    min-width: 0;
+    font-family: var(--font);
+  }
+  .calendar-item.active {
+    border-color: var(--green, #46b962);
+    background: var(--green-soft, #e8f6ec);
+  }
+
+  /* ---- Drawer-head view-back button ---- */
+  .agence-view-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    font-family: var(--font);
+    font-size: var(--fs-xs, 11px);
+    font-weight: 600;
+    color: var(--green-dark, #3da856);
+  }
+  .agence-view-back:hover { text-decoration: underline; }
+
+  /* ---- Service calendar (central drawer) ---- */
+  .svc-cal {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .svc-cal-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .svc-cal-nav-btn {
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #d8e0da;
+    border-radius: 6px;
+    background: #fff;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--text);
+    line-height: 1;
+  }
+  .svc-cal-nav-btn:hover { border-color: var(--green, #46b962); }
+  .svc-cal-month {
+    font-size: var(--fs-sm, 12px);
+    font-weight: 700;
+    color: var(--text);
+    text-transform: capitalize;
+  }
+  .svc-cal-dow {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+  }
+  .svc-cal-dow-cell {
+    text-align: center;
+    font-size: var(--fs-xs, 11px);
+    font-weight: 700;
+    color: var(--text-muted, #888);
+    padding: 2px 0;
+  }
+  .svc-cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+  }
+  .svc-cal-cell {
+    min-height: 46px;
+    border: 1px solid #eef1ef;
+    border-radius: 6px;
+    background: #fff;
+    padding: 3px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .svc-cal-cell.out {
+    background: #fafbfa;
+    opacity: 0.55;
+  }
+  .svc-cal-cell.today {
+    border-color: var(--green, #46b962);
+    box-shadow: inset 0 0 0 1px var(--green, #46b962);
+  }
+  .svc-cal-daynum {
+    font-size: var(--fs-xs, 11px);
+    font-weight: 600;
+    color: var(--text-muted, #888);
+    line-height: 1;
+  }
+  .svc-cal-events {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .svc-cal-event {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    background: var(--green-soft, #e8f6ec);
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 1px 3px;
+    cursor: pointer;
+    overflow: hidden;
+  }
+  .svc-cal-event:hover { border-color: var(--green, #46b962); }
+  .svc-cal-event.focus {
+    border-color: var(--green-dark, #3da856);
+    background: #d6efdd;
+  }
+  .svc-cal-event .service-icon { font-size: 11px; }
+  .svc-cal-event-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--green-dark, #3da856);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 
   @media (max-width: 980px) {
     .agence-row {
@@ -1154,6 +1333,64 @@ export default function Step5AvisValeur() {
       return next;
     });
   };
+
+  /* Vue du drawer central : 'services' (liste cochable) ou 'calendar' (vue
+   * mensuelle de la planification). Un clic sur un service dans le drawer
+   * « Calendrier du projet » bascule le central en vue calendrier. */
+  const [centerView, setCenterView] = useState('services');
+  const [calMonth, setCalMonth] = useState(() => {
+    const d = new Date();
+    return { year: d.getFullYear(), month: d.getMonth() };
+  });
+  const [calFocusId, setCalFocusId] = useState(null);
+
+  /* Date effective d'un service : date saisie, sinon date par défaut échelonnée
+   * (J+7, J+14, …) selon l'ordre dans le catalogue, pour qu'il soit visible
+   * sur le calendrier même sans planification explicite. */
+  const serviceDates = useMemo(() => {
+    const base = new Date();
+    base.setHours(0, 0, 0, 0);
+    const out = {};
+    servicesAPlanifier.forEach((s, idx) => {
+      out[s.id] = servicesPlanned[s.id] || calIsoDate(calAddDays(base, 7 * (idx + 1)));
+    });
+    return out;
+  }, [servicesAPlanifier, servicesPlanned]);
+
+  // Services planifiés indexés par jour ISO (pour la grille mensuelle).
+  const servicesByDay = useMemo(() => {
+    const map = {};
+    servicesAPlanifier.forEach((s) => {
+      const iso = serviceDates[s.id];
+      if (!map[iso]) map[iso] = [];
+      map[iso].push(s);
+    });
+    return map;
+  }, [servicesAPlanifier, serviceDates]);
+
+  // Ouvre la vue calendrier centrée sur le mois du service cliqué.
+  const openServiceInCalendar = (id) => {
+    const iso = serviceDates[id];
+    if (iso) {
+      const d = calFromIso(iso);
+      setCalMonth({ year: d.getFullYear(), month: d.getMonth() });
+    }
+    setCalFocusId(id);
+    setCenterView('calendar');
+  };
+
+  const monthGrid = useMemo(
+    () => buildMonthGrid(calMonth.year, calMonth.month),
+    [calMonth]
+  );
+  const gotoPrevMonth = () =>
+    setCalMonth(({ year, month }) =>
+      month === 0 ? { year: year - 1, month: 11 } : { year, month: month - 1 }
+    );
+  const gotoNextMonth = () =>
+    setCalMonth(({ year, month }) =>
+      month === 11 ? { year: year + 1, month: 0 } : { year, month: month + 1 }
+    );
 
   // Persistance de la section services.
   useEffect(() => {
@@ -1977,32 +2214,89 @@ export default function Step5AvisValeur() {
               aria-label="Redimensionner mandat / services"
             />
 
-            {/* Drawer 2 — Services proposés (cochables) */}
+            {/* Drawer 2 — central : liste des services OU vue calendrier */}
             <div className="agence-drawer">
               <div className="agence-drawer-head">
-                Services proposés
-                <span className="agence-drawer-badge">{servicesProposes.length}</span>
+                {centerView === 'calendar' ? 'Planification' : 'Services proposés'}
+                {centerView === 'services' && (
+                  <span className="agence-drawer-badge">{servicesProposes.length}</span>
+                )}
+                {centerView === 'calendar' && (
+                  <button
+                    type="button"
+                    className="agence-view-back"
+                    onClick={() => setCenterView('services')}
+                  >
+                    &larr; Services
+                  </button>
+                )}
               </div>
               <div className="agence-drawer-body">
-                <div className="service-list">
-                  {servicesProposes.map((s) => {
-                    const checked = !!servicesChecked[s.id];
-                    return (
-                      <label
-                        key={s.id}
-                        className={`service-item${checked ? ' checked' : ''}`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggleService(s.id)}
-                        />
-                        <span className="service-icon">{s.icon}</span>
-                        <span className="service-label">{s.label}</span>
-                      </label>
-                    );
-                  })}
-                </div>
+                {centerView === 'services' ? (
+                  <div className="service-list">
+                    {servicesProposes.map((s) => {
+                      const checked = !!servicesChecked[s.id];
+                      return (
+                        <label
+                          key={s.id}
+                          className={`service-item${checked ? ' checked' : ''}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleService(s.id)}
+                          />
+                          <span className="service-icon">{s.icon}</span>
+                          <span className="service-label">{s.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="svc-cal">
+                    <div className="svc-cal-nav">
+                      <button type="button" className="svc-cal-nav-btn" onClick={gotoPrevMonth}>&lsaquo;</button>
+                      <span className="svc-cal-month">
+                        {CAL_MONTH_NAMES[calMonth.month]} {calMonth.year}
+                      </span>
+                      <button type="button" className="svc-cal-nav-btn" onClick={gotoNextMonth}>&rsaquo;</button>
+                    </div>
+                    <div className="svc-cal-dow">
+                      {CAL_DAY_NAMES.map((d, i) => (
+                        <span key={i} className="svc-cal-dow-cell">{d}</span>
+                      ))}
+                    </div>
+                    <div className="svc-cal-grid">
+                      {monthGrid.flat().map((day) => {
+                        const iso = calIsoDate(day);
+                        const inMonth = day.getMonth() === calMonth.month;
+                        const dayServices = servicesByDay[iso] || [];
+                        const today = calIsoDate(new Date());
+                        return (
+                          <div
+                            key={iso}
+                            className={`svc-cal-cell${inMonth ? '' : ' out'}${iso === today ? ' today' : ''}`}
+                          >
+                            <span className="svc-cal-daynum">{day.getDate()}</span>
+                            <div className="svc-cal-events">
+                              {dayServices.map((s) => (
+                                <span
+                                  key={s.id}
+                                  className={`svc-cal-event${calFocusId === s.id ? ' focus' : ''}`}
+                                  title={s.label}
+                                  onClick={() => setCalFocusId(s.id)}
+                                >
+                                  <span className="service-icon">{s.icon}</span>
+                                  <span className="svc-cal-event-label">{s.label}</span>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -2029,9 +2323,19 @@ export default function Step5AvisValeur() {
                 ) : (
                   <div className="calendar-list">
                     {servicesAPlanifier.map((s) => (
-                      <div key={s.id} className="calendar-item">
-                        <span className="service-icon">{s.icon}</span>
-                        <span className="calendar-item-label">{s.label}</span>
+                      <div
+                        key={s.id}
+                        className={`calendar-item${calFocusId === s.id && centerView === 'calendar' ? ' active' : ''}`}
+                      >
+                        <button
+                          type="button"
+                          className="calendar-item-btn"
+                          onClick={() => openServiceInCalendar(s.id)}
+                          title="Voir dans le calendrier"
+                        >
+                          <span className="service-icon">{s.icon}</span>
+                          <span className="calendar-item-label">{s.label}</span>
+                        </button>
                         <input
                           type="date"
                           className="calendar-date"
@@ -2061,9 +2365,6 @@ export default function Step5AvisValeur() {
             Passer au mandat &rarr;
           </button>
         </div>
-
-        {/* ============ PLANIFICATEUR DE RENDEZ-VOUS (apr\u00e8s le mandat) ============ */}
-        <RdvPlanner />
       </div>
     </div>
   );
