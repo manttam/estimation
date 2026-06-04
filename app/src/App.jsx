@@ -5,6 +5,7 @@ import Step2ContexteZone from './pages/Step2ContexteZone';
 import Step3Comparables from './pages/Step3Comparables';
 import Step4TensionMarche from './pages/Step4TensionMarche';
 import Step5AvisValeur from './pages/Step5AvisValeur';
+import Mandat from './pages/Mandat';
 import CompteRendu from './pages/CompteRendu';
 import AvisValeurDoc from './pages/AvisValeurDoc';
 import Dashboard from './pages/Dashboard';
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="/step/3" element={<Step3Comparables />} />
           <Route path="/step/4" element={<Step4TensionMarche />} />
           <Route path="/step/5" element={<Step5AvisValeur />} />
+          <Route path="/mandat" element={<Mandat />} />
           <Route path="/report" element={<CompteRendu />} />
           <Route path="/avis-valeur" element={<AvisValeurDoc />} />
           <Route path="/reglages" element={<Reglages />} />

@@ -164,7 +164,7 @@ const styles = {
   },
 };
 
-export default function PropertyCard() {
+export default function PropertyCard({ activeTab = 'Estimation active' }) {
   const navigate = useNavigate();
   // Bien actif (saisi via /nouveau-bien) -> override le bien demo statique.
   const property = getActiveBienAsProperty() || propertyDemo;
@@ -260,23 +260,26 @@ export default function PropertyCard() {
 
       {/* Tab bar */}
       <div style={styles.tabBar}>
-        {tabs.map((tab) => (
-          <button
-            key={tab}
-            style={{
-              ...styles.tab,
-              ...(tab === 'Estimation active' ? styles.tabActive : {}),
-            }}
-            onMouseEnter={(e) => {
-              if (tab !== 'Estimation active') e.currentTarget.style.color = '#393939';
-            }}
-            onMouseLeave={(e) => {
-              if (tab !== 'Estimation active') e.currentTarget.style.color = '#949494';
-            }}
-          >
-            {tab}
-          </button>
-        ))}
+        {tabs.map((tab) => {
+          const isActive = tab === activeTab;
+          return (
+            <button
+              key={tab}
+              style={{
+                ...styles.tab,
+                ...(isActive ? styles.tabActive : {}),
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive) e.currentTarget.style.color = '#393939';
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) e.currentTarget.style.color = '#949494';
+              }}
+            >
+              {tab}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
