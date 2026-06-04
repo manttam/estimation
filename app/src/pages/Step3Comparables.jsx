@@ -15,6 +15,7 @@ import {
 } from '../utils/comparableFields';
 import { setReportState, mergeReportSection, getReportSection } from '../utils/reportStore';
 import { getCompPhotos } from '../utils/compPhotos';
+import { computeWeightedM2, defaultWeightFor } from '../utils/weightedM2';
 
 /* Clé localStorage des overrides de similarité.
  * Format : { [compId: string]: number 0-100 }
@@ -4883,12 +4884,8 @@ export default function Step3Comparables() {
     mergeReportSection('comparablesConfig', { weights });
   }, [weights]);
 
-  // Poids par défaut d'un comparable = sa pertinence (Sim x0.6 + Donn x0.4).
-  // Utilisé comme fallback partout où weights[c.id] est undefined : slider,
-  // cellule récap, calcul de moyenne pondérée. Garantit qu'on n'affiche
-  // jamais 0% par défaut — chaque comparable part avec son propre score.
-  const defaultWeightFor = (c) =>
-    Math.round((Number(c.similarite) || 0) * 0.6 + (Number(c.donnees) || 0) * 0.4);
+  // Poids effectif : poids explicite (weights[id]) sinon poids par défaut
+  // (pertinence Sim x0.6 + Donn x0.4, cf. defaultWeightFor partagé).
   const effectiveWeight = (c) =>
     weights[c.id] !== undefined ? weights[c.id] : defaultWeightFor(c);
 
@@ -6441,19 +6438,13 @@ export default function Step3Comparables() {
             </div>
           );
         }
-        // Pré-calcul par comparable + agrégat pondéré
-        const rows = selected.map((rawC) => {
-          const c = applySimOverride(rawC, simOverrides);
-          const w = effectiveWeight(c);
-          const m2Num = parseInt(String(c.prixM2).replace(/\D/g, ''), 10) || 0;
-          const adjPctMatch = String(c.adjTotal || '0%').replace(',', '.').match(/-?\d+(\.\d+)?/);
-          const adjPct = adjPctMatch ? parseFloat(adjPctMatch[0]) * (String(c.adjTotal).startsWith('\u2212') ? -1 : 1) : 0;
-          const adjustedM2 = Math.round(m2Num * (1 + adjPct / 100));
-          return { id: c.id, title: c.title, source: c.source, prixM2: m2Num, adjPct, adjustedM2, weight: w };
-        });
-        const sumW = rows.reduce((s, r) => s + r.weight, 0);
-        const sumWP = rows.reduce((s, r) => s + r.adjustedM2 * r.weight, 0);
-        const avgM2 = sumW > 0 ? Math.round(sumWP / sumW) : 0;
+        // Pré-calcul par comparable + agrégat pondéré (util partagé avec Step5).
+        // On applique d'abord l'override de similarité, puis on fige le poids
+        // effectif dans une map pour que computeWeightedM2 l'utilise tel quel.
+        const effComps = selected.map((rawC) => applySimOverride(rawC, simOverrides));
+        const effWeights = {};
+        effComps.forEach((c) => { effWeights[c.id] = effectiveWeight(c); });
+        const { avgM2, sumW, rows } = computeWeightedM2(effComps, effWeights);
         return (
           <div className="estimation-final-card">
             <h3 className="estimation-final-title">

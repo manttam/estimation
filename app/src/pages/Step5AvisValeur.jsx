@@ -7,6 +7,7 @@ import { avisValeur } from '../data/propertyData';
 import { getActiveBien } from '../utils/activeBien';
 import { getAcquereurs } from '../utils/acquereursStore';
 import { setReportState, mergeReportSection, getReportSection, getReportState } from '../utils/reportStore';
+import { computeWeightedM2 } from '../utils/weightedM2';
 
 const TYPE_LABELS = {
   appartement: 'Appartement',
@@ -680,13 +681,34 @@ export default function Step5AvisValeur() {
     return Number.isFinite(s) && s > 0 ? s : 72.5;
   }, [activeBien]);
 
-  // Prix de référence : depuis activeBien.result si dispo, sinon mock avisValeur
-  const priceRef = useMemo(() => {
+  /* ─── Prix de marché RECOMMANDÉ (fixe) ───
+   * Source de vérité = moyenne pondérée du prix/m² des comparables retenus en
+   * Step3 (mêmes poids comparablesConfig.weights, même formule computeWeightedM2).
+   * Ce prix au m² × surface = valeur de marché. Il ne varie PAS avec le curseur :
+   * le curseur sert uniquement à explorer la stratégie commerciale autour.
+   * Fallback : activeBien.result.prix (calcul Step3/Step4), puis mock démo. */
+  const marketM2 = useMemo(() => {
+    const selComps = getReportSection('comparablesSelectionnes', []);
+    const weights = getReportSection('comparablesConfig', {}).weights || {};
+    const { avgM2 } = computeWeightedM2(selComps, weights);
+    if (avgM2 > 0) return avgM2;
+    // Pas de comparables exploitables → dérive du prix calculé déjà persisté.
     if (hasRealLocation && activeBien?.result?.prix) {
-      const prix = Number(activeBien.result.prix);
-      const prixBas = Number(activeBien.result.prixBas) || Math.round(prix * 0.93);
-      const prixHaut = Number(activeBien.result.prixHaut) || Math.round(prix * 1.07);
-      return { prixMedian: prix, prixBas, prixHaut, prixM2: Math.round(prix / surface) };
+      return Math.round(Number(activeBien.result.prix) / surface);
+    }
+    return avisValeur.prixM2;
+  }, [hasRealLocation, activeBien, surface]);
+
+  // Prix de référence : prix de marché = marketM2 × surface (recommandé, fixe).
+  const priceRef = useMemo(() => {
+    const marche = Math.round(marketM2 * surface);
+    if (marche > 0) {
+      return {
+        prixMedian: marche,
+        prixBas: Math.round(marche * 0.93),
+        prixHaut: Math.round(marche * 1.07),
+        prixM2: marketM2,
+      };
     }
     return {
       prixMedian: avisValeur.prixMedian,
@@ -694,7 +716,7 @@ export default function Step5AvisValeur() {
       prixHaut: avisValeur.prixHaut,
       prixM2: avisValeur.prixM2,
     };
-  }, [activeBien, hasRealLocation, surface]);
+  }, [marketM2, surface]);
 
   // Description hero : "Appartement T3 · 72m² · Lyon 3ème · 4ème étage"
   const heroDescription = useMemo(() => {
@@ -1049,29 +1071,32 @@ export default function Step5AvisValeur() {
   }
 
   /* ---- Strategy pricing ----
-   * Les prix des 3 strategies sont alignes sur le curseur : la valeur du
-   * curseur est le prix "Marche" (recommande), Agressif = +7 % au-dessus,
-   * Prudent = -7 % en dessous (arrondi au millier). Tout se recalcule en
-   * continu quand l'agent deplace le curseur de prix.
+   * Le prix "Marche" (recommande) est FIXE : c'est la moyenne ponderee des
+   * comparables (priceRef.prixMedian), il ne bouge pas avec le curseur.
+   * Le curseur represente le prix de MISE EN VENTE choisi par l'agent ; les
+   * strategies "Prudent" et "Agressif" sont des bornes calculees autour de ce
+   * prix de mise en vente (-7 % / +7 %, arrondi au millier) et evoluent donc
+   * en continu quand l'agent deplace le curseur. Seul le Marche reste fige.
    */
   const strategies = useMemo(() => {
-    const base = sliderValue;
     const round1k = (n) => Math.round(n / 1000) * 1000;
+    const marche = round1k(priceRef.prixMedian);
+    const base = sliderValue; // prix de mise en vente piloté par le curseur
     const descAggr = hasRealLocation
-      ? 'Au-dessus du prix retenu. Pour test d\u2019app\u00e9tence avec marge de n\u00e9gociation.'
-      : 'Au-dessus du prix retenu. Capitalise sur la tension forte.';
+      ? 'Au-dessus du prix de mise en vente. Pour test d\u2019app\u00e9tence avec marge de n\u00e9gociation.'
+      : 'Au-dessus du prix de mise en vente. Capitalise sur la tension forte.';
     const descMarche = hasRealLocation
-      ? '\u00c9quilibre valorisation / liquidit\u00e9. Aligne le bien sur le prix retenu.'
-      : '\u00c9quilibre valorisation et liquidit\u00e9.';
+      ? 'Valeur de march\u00e9 issue de la moyenne pond\u00e9r\u00e9e des comparables. R\u00e9f\u00e9rence fixe.'
+      : 'Valeur de march\u00e9 de r\u00e9f\u00e9rence (moyenne pond\u00e9r\u00e9e des comparables).';
     const descPrudent = hasRealLocation
-      ? 'En dessous du prix retenu. Maximise la rapidit\u00e9 de transaction.'
-      : 'En dessous du prix retenu. Maximise la rapidit\u00e9.';
+      ? 'En dessous du prix de mise en vente. Maximise la rapidit\u00e9 de transaction.'
+      : 'En dessous du prix de mise en vente. Maximise la rapidit\u00e9.';
     return [
       { label: 'Agressif', prix: round1k(base * 1.07), description: descAggr, duration: 'Dur\u00e9e estim\u00e9e : 35-50 jours' },
-      { label: 'March\u00e9', prix: round1k(base), description: descMarche, duration: 'Dur\u00e9e estim\u00e9e : 40-55 jours', recommended: true },
+      { label: 'March\u00e9', prix: marche, description: descMarche, duration: 'Dur\u00e9e estim\u00e9e : 40-55 jours', recommended: true, fixed: true },
       { label: 'Prudent', prix: round1k(base * 0.93), description: descPrudent, duration: 'Dur\u00e9e estim\u00e9e : 25-35 jours' },
     ];
-  }, [hasRealLocation, sliderValue]);
+  }, [hasRealLocation, sliderValue, priceRef]);
 
   /* ---- Couleur de position du prix ----
    * La fourchette de référence est issue du calcul d'estimation :
@@ -1301,8 +1326,20 @@ export default function Step5AvisValeur() {
                   className={`strategy-option${isSelected ? ' selected' : ''}`}
                   onClick={() => {
                     setSelectedStrategy(i);
-                    // Aligner le curseur sur le prix affiche de la strategie choisie.
-                    const clamped = Math.min(sliderBounds.max, Math.max(sliderBounds.min, s.prix));
+                    // Snap du curseur (= prix de mise en vente) sur une cible
+                    // ANCREE au prix de marche fixe, pas sur le prix affiche de
+                    // la strategie (qui suit deja le curseur) : evite l'effet de
+                    // compounding (re-cliquer ne deplace plus la cible).
+                    //  - Marche  -> prix de marche fixe
+                    //  - Agressif -> marche +7 %
+                    //  - Prudent  -> marche -7 %
+                    const marche = priceRef.prixMedian;
+                    const target =
+                      s.label === 'Agressif' ? marche * 1.07
+                      : s.label === 'Prudent' ? marche * 0.93
+                      : marche;
+                    const snapped = Math.round(target / 1000) * 1000;
+                    const clamped = Math.min(sliderBounds.max, Math.max(sliderBounds.min, snapped));
                     setSliderValue(clamped);
                   }}
                 >
