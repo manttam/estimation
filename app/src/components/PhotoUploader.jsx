@@ -177,8 +177,13 @@ const styles = `
  *   onChange (callback) : appele apres chaque ajout/suppression avec la liste
  *                         a jour des entrees IDB ([{ id, type, label, blob, ... }]).
  *                         Permet au parent (Step1) de regenerer le carrousel.
+ *   roomId (string?)    : si fourni, scope l'uploader a une piece. Les photos
+ *                         ajoutees sont taguees avec ce roomId et la grille
+ *                         interne ne montre que les photos de cette piece.
+ *   roomType (string?)  : type photo a appliquer aux uploads d'une piece
+ *                         (ex. 'chambre', 'sdb'). Defaut : detection auto.
  */
-export default function PhotoUploader({ onChange }) {
+export default function PhotoUploader({ onChange, roomId = null, roomType = null }) {
   const [items, setItems] = useState([]); // [{ id, type, label, blob, src }]
   const [busy, setBusy] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -188,7 +193,10 @@ export default function PhotoUploader({ onChange }) {
   const urlsRef = useRef(new Map()); // id -> objectURL
 
   const refreshItems = async () => {
-    const raw = await getAllPhotos();
+    const allRaw = await getAllPhotos();
+    // En mode piece (roomId fourni) on ne garde que les photos de cette piece.
+    // Sinon, comportement global inchange (toutes les photos).
+    const raw = roomId ? allRaw.filter((p) => p.roomId === roomId) : allRaw;
     // Cree un objectURL par item (ou reutilise celui deja en cache)
     const next = raw.map((p) => {
       if (!urlsRef.current.has(p.id)) {
@@ -244,12 +252,19 @@ export default function PhotoUploader({ onChange }) {
     setBusy(true);
     try {
       const compressed = await compressImageFiles(files, { maxDim: 1600, quality: 0.75 });
-      const payload = compressed.map(({ file, blob }) => ({
-        blob,
-        filename: file.name,
-        type: detectTypeFromFilename(file.name),
-        label: deriveLabelFromFilename(file.name, detectTypeFromFilename(file.name)),
-      }));
+      const payload = compressed.map(({ file, blob }) => {
+        // En mode piece : on force le type photo de la piece (roomType) plutot
+        // que la detection par nom de fichier, et on tague avec le roomId.
+        const type = roomId ? (roomType || detectTypeFromFilename(file.name)) : detectTypeFromFilename(file.name);
+        const entry = {
+          blob,
+          filename: file.name,
+          type,
+          label: deriveLabelFromFilename(file.name, type),
+        };
+        if (roomId) entry.roomId = roomId;
+        return entry;
+      });
       await addPhotos(payload);
       await refreshItems();
     } catch (err) {

@@ -13,6 +13,7 @@
  *   filename: string,   // nom de fichier original (pour reference)
  *   order: number,      // ordre dans le carrousel (auto-increment)
  *   createdAt: number,  // Date.now()
+ *   roomId?: string,    // optionnel : rattache la photo a une piece (Step1 refonte)
  * }
  */
 
@@ -121,6 +122,8 @@ export async function addPhotos(photos) {
         order: p.order != null ? p.order : nextOrder,
         createdAt: now + idx, // pour preserver l'ordre d'ajout
       };
+      // Champ optionnel : rattachement a une piece (Step1 refonte).
+      if (p.roomId) entry.roomId = p.roomId;
       store.add(entry);
       created.push(entry);
     });
@@ -151,6 +154,20 @@ export async function getAllPhotos() {
     };
     req.onerror = () => reject(req.error);
   });
+}
+
+/**
+ * Recupere les photos rattachees a une piece donnee (champ custom `roomId`).
+ *
+ * Les photos sans `roomId` sont des photos globales (rétrocompat) : elles ne
+ * remontent PAS ici (séparation stricte par pièce). Triées par order asc.
+ *
+ * @param {string} roomId - identifiant stable de la piece
+ */
+export async function getPhotosByRoom(roomId) {
+  if (!roomId) return [];
+  const all = await getAllPhotos();
+  return all.filter((p) => p.roomId === roomId);
 }
 
 /**

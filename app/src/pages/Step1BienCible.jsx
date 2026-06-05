@@ -6,12 +6,28 @@ import 'leaflet/dist/leaflet.css';
 import PropertyCard from '../components/PropertyCard';
 import Stepper from '../components/Stepper';
 import PhotoUploader from '../components/PhotoUploader';
-import { bienCibleCategories as bienCibleCategoriesBase, avisValeur } from '../data/propertyData';
+import Step1EditDrawer from '../components/Step1EditDrawer';
+import { avisValeur } from '../data/propertyData';
 import { PROPERTY_PHOTOS } from '../data/propertyPhotos';
-import { getActiveBien, buildBienCibleCategories } from '../utils/activeBien';
+import { getActiveBien } from '../utils/activeBien';
 import { getAllPhotos, deletePhoto } from '../utils/photosStore';
 import CadastrePLUCards from '../components/CadastrePLUCards';
-import { mergeReportSection, getReportSection, getReportState, setReportState, slugifyKey } from '../utils/reportStore';
+import {
+  sectionsGenerales,
+  roomFieldSchema,
+  ROOM_TYPES,
+  roomTypeLabel,
+  roomPhotoType,
+  buildRoomsFromActiveBien,
+  createEmptyRoom,
+  buildInitialBienDetails,
+} from '../data/step1Schema';
+import {
+  mergeReportSection,
+  getReportSection,
+  getReportState,
+  setReportState,
+} from '../utils/reportStore';
 
 // Fix default Leaflet marker icon issue in React
 delete L.Icon.Default.prototype._getIconUrl;
@@ -28,7 +44,6 @@ const missingCriticalFields = [
   'Toiture \u00e9tat',
   'Type de vitrage',
 ];
-
 
 // Photos custom du bien actif : Vite scanne le dossier au build et inclut
 // chaque image dans le bundle (avec hash de cache busting). Pour ajouter des
@@ -107,225 +122,200 @@ const cssStyles = `
     font-family: var(--font);
   }
 
+  /* Workspace 2 colonnes redimensionnables (pattern Step3) */
   .step1-content {
-    display: flex;
-    gap: 24px;
-    max-width: 1200px;
+    display: grid;
+    grid-template-columns: var(--s1-col-main, 1fr) 6px var(--s1-col-side, 340px);
+    gap: 0;
+    max-width: 1280px;
     margin: 0 auto;
     padding: 0 20px;
+    align-items: start;
   }
 
   .step1-left {
-    flex: 1;
     min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 12px;
+    padding-right: 16px;
+  }
+
+  .step1-resizer {
+    align-self: stretch;
+    width: 6px;
+    cursor: col-resize;
+    background: transparent;
+    border: none;
+    padding: 0;
+    position: relative;
+  }
+  .step1-resizer::before {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    background: var(--border, #e6e6e6);
+    border-radius: 2px;
+    transition: background 0.15s;
+  }
+  .step1-resizer:hover::before,
+  .step1-resizer.is-dragging::before {
+    background: var(--green, #46B962);
+    width: 3px;
   }
 
   .step1-right {
-    width: 320px;
-    flex-shrink: 0;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 24px;
+    padding-left: 16px;
   }
 
-  /* ACCORDION */
-  .accordion-item {
+  /* SECTION TITLE */
+  .step1-section-label {
+    font-size: var(--fs-sm, 12px);
+    font-weight: 700;
+    color: #9a9a9a;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 12px 0 2px;
+  }
+  .step1-section-label:first-child { margin-top: 0; }
+
+  /* READ-ONLY CARD (section générale ou pièce) */
+  .info-card {
     background: white;
-    border: 1px solid #eee;
-    border-radius: var(--radius-card);
+    border: 1px solid var(--border, #eee);
+    border-radius: var(--radius-card, 10px);
     overflow: hidden;
   }
-
-  .accordion-header {
-    padding: 12px 16px;
-    cursor: pointer;
+  .info-card-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    background: white;
-    transition: all 0.2s;
-    user-select: none;
+    padding: 12px 16px;
+    border-bottom: 1px solid #f2f2f2;
   }
-
-  .accordion-header:hover {
-    background: #f9f9f9;
-  }
-
-  .accordion-header.open {
-    border-bottom: 1px solid #eee;
-  }
-
-  .accordion-title-section {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex: 1;
-    min-width: 0;
-  }
-
-  .accordion-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text);
-    margin: 0;
-  }
-
-  .accordion-progress {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-left: auto;
-    flex-shrink: 0;
-  }
-
-  .accordion-progress-bar {
-    width: 40px;
-    height: 4px;
-    background: #f0f0f0;
-    border-radius: 2px;
-    overflow: hidden;
-  }
-
-  .accordion-progress-fill {
-    height: 100%;
-    background: var(--green);
-    border-radius: 2px;
-  }
-
-  .accordion-progress-text {
-    font-size: 12px;
-    color: #888;
-    font-weight: 500;
-    min-width: 30px;
-    text-align: right;
-  }
-
-  .accordion-progress.low .accordion-progress-bar {
-    background: #ffe0e0;
-  }
-
-  .accordion-progress.low .accordion-progress-fill {
-    background: var(--red);
-  }
-
-  .accordion-arrow {
-    font-size: 18px;
-    color: #999;
-    transition: transform 0.2s;
-    flex-shrink: 0;
-  }
-
-  .accordion-arrow.open {
-    transform: rotate(180deg);
-  }
-
-  .accordion-body {
-    padding: 16px;
-  }
-
-  /* FORM GRID */
-  .form-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px 16px;
-  }
-
-  .form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .form-label {
-    font-size: 12px;
-    font-weight: 500;
-    color: #444;
-  }
-
-  .form-input,
-  .form-select {
-    padding: 8px 10px;
-    border: 1px solid #eee;
-    border-radius: 8px;
-    font-size: 13px;
-    color: #333;
-    outline: none;
-    background: #fff;
-    width: 100%;
-    box-sizing: border-box;
-    font-family: inherit;
-    transition: all 0.2s;
-  }
-
-  .form-input:focus,
-  .form-select:focus {
-    border-color: var(--green);
-    box-shadow: 0 0 0 3px rgba(70, 185, 98, 0.1);
-  }
-
-  .form-input.error,
-  .form-select.error {
-    border-color: var(--red);
-    background: #fff5f5;
-  }
-
-  .form-input.error:focus,
-  .form-select.error:focus {
-    box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.1);
-  }
-
-  .form-select {
-    appearance: auto;
-  }
-
-  /* TOGGLE SWITCH */
-  .toggle-row {
+  .info-card-head-left {
     display: flex;
     align-items: center;
     gap: 10px;
+    min-width: 0;
   }
-
-  .toggle-switch {
-    width: 44px;
-    height: 24px;
-    background: #ccc;
-    border-radius: var(--radius-card);
-    cursor: pointer;
-    position: relative;
-    transition: background 0.2s;
-    border: none;
-    padding: 0;
+  .info-card-icon {
+    font-size: 16px;
     flex-shrink: 0;
   }
-
-  .toggle-switch.on {
-    background: var(--green);
+  .info-card-title {
+    font-size: var(--fs-md, 14px);
+    font-weight: 700;
+    color: var(--text, #222);
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-
-  .toggle-switch::after {
-    content: '';
-    position: absolute;
-    width: 20px;
-    height: 20px;
-    background: white;
-    border-radius: 50%;
-    top: 2px;
-    left: 2px;
-    transition: left 0.2s;
-  }
-
-  .toggle-switch.on::after {
-    left: 22px;
-  }
-
-  .toggle-label {
-    font-size: 14px;
-    color: var(--text);
+  .info-card-sub {
+    font-size: var(--fs-sm, 12px);
+    color: #999;
     font-weight: 500;
+    margin-left: 4px;
+  }
+  .info-card-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .info-card-btn {
+    padding: 5px 12px;
+    border-radius: 7px;
+    font-size: var(--fs-sm, 12px);
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--border, #e6e6e6);
+    background: #fff;
+    color: #444;
+    font-family: inherit;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .info-card-btn:hover {
+    border-color: var(--green, #46B962);
+    color: var(--green-dark, #3da856);
+    background: rgba(70, 185, 98, 0.05);
+  }
+  .info-card-btn.danger:hover {
+    border-color: var(--red, #e74c3c);
+    color: var(--red, #e74c3c);
+    background: #fef2f2;
+  }
+
+  .info-card-body {
+    padding: 14px 16px;
+  }
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 18px;
+  }
+  .info-row {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .info-row.full { grid-column: 1 / -1; }
+  .info-row-label {
+    font-size: var(--fs-xs, 11px);
+    color: #999;
+    font-weight: 500;
+  }
+  .info-row-value {
+    font-size: var(--fs-base, 13px);
+    color: var(--text, #333);
+    font-weight: 500;
+    word-break: break-word;
+  }
+  .info-row-value.empty {
+    color: #c0c0c0;
+    font-style: italic;
+    font-weight: 400;
+  }
+  .info-card-empty {
+    font-size: var(--fs-base, 13px);
+    color: #bbb;
+    font-style: italic;
+    text-align: center;
+    padding: 6px 0;
+  }
+
+  .step1-add-room {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px;
+    border-radius: var(--radius-card, 10px);
+    border: 1px dashed #d0d0d0;
+    background: #fff;
+    cursor: pointer;
+    font-size: var(--fs-base, 13px);
+    font-weight: 600;
+    color: #666;
+    font-family: inherit;
+    transition: all 0.15s;
+    width: 100%;
+  }
+  .step1-add-room:hover {
+    border-color: var(--green, #46B962);
+    color: var(--green-dark, #3da856);
+    background: rgba(70, 185, 98, 0.04);
   }
 
   /* SIDEBAR SECTIONS */
@@ -633,86 +623,6 @@ const cssStyles = `
     font-size: 12px;
     color: #888;
     margin-bottom: 8px;
-  }
-
-  /* DOCS LOCALITY (Cadastre / Plan de zone) */
-  .docs-locality {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-top: 12px;
-    margin-bottom: 4px;
-  }
-
-  .doc-card {
-    background: white;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    padding: 0;
-    overflow: hidden;
-    cursor: pointer;
-    text-align: left;
-    font-family: inherit;
-    transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .doc-card:hover {
-    border-color: var(--green);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-  }
-
-  .doc-thumb {
-    position: relative;
-    width: 100%;
-    aspect-ratio: 4 / 3;
-    overflow: hidden;
-    background: #f5f5f5;
-  }
-
-  .doc-thumb img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-    transition: transform 0.2s;
-  }
-
-  .doc-card:hover .doc-thumb img {
-    transform: scale(1.03);
-  }
-
-  .doc-zoom {
-    position: absolute;
-    bottom: 6px;
-    right: 6px;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background: rgba(0,0,0,0.55);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-    font-weight: 700;
-  }
-
-  .doc-meta {
-    padding: 8px 10px 10px;
-  }
-
-  .doc-title {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text);
-  }
-
-  .doc-sub {
-    font-size: 11px;
-    color: #949494;
-    margin-top: 2px;
   }
 
   /* MEDIA MODAL (agrandissement Cadastre / Plan de zone) */
@@ -1036,29 +946,39 @@ const cssStyles = `
     border-color: var(--text);
   }
 
-  @media (max-width: 1200px) {
+  @media (max-width: 1100px) {
     .step1-content {
+      display: flex;
       flex-direction: column;
     }
-    .step1-right {
-      width: 100%;
-    }
-    .form-grid {
-      grid-template-columns: 1fr;
-    }
-    .photos-grid {
-      grid-template-columns: repeat(4, 1fr);
-    }
+    .step1-left { padding-right: 0; }
+    .step1-right { padding-left: 0; width: 100%; }
+    .step1-resizer { display: none; }
+    .info-grid { grid-template-columns: 1fr; }
+    .photos-grid { grid-template-columns: repeat(4, 1fr); }
   }
 `;
 
-function parseProgress(progress) {
-  if (!progress) return 0;
-  const parts = progress.split('/');
-  if (parts.length !== 2) return 0;
-  const num = parseInt(parts[0], 10);
-  const den = parseInt(parts[1], 10);
-  return den > 0 ? (num / den) * 100 : 0;
+// Bornes de redimensionnement de la colonne principale (ratio 0..1).
+const MIN_MAIN_RATIO = 0.45;
+const MAX_MAIN_RATIO = 0.78;
+const DEFAULT_MAIN_RATIO = 0.66;
+
+// Construit le sous-titre d'une carte pièce : "X m²".
+function roomSubtitle(room) {
+  const s = room.surface;
+  if (s !== undefined && s !== null && String(s).trim() !== '') {
+    return `${s} m\u00b2`;
+  }
+  return '';
+}
+
+// Formate une valeur de champ pour l'affichage lecture seule.
+function displayValue(field, value) {
+  if (value === undefined || value === null || String(value).trim() === '') return null;
+  if (field.type === 'toggle') return value ? 'Oui' : 'Non';
+  const unit = field.unit ? ` ${field.unit}` : '';
+  return `${value}${unit}`;
 }
 
 export default function Step1BienCible() {
@@ -1066,12 +986,8 @@ export default function Step1BienCible() {
   // demo (12 rue des Lilas, Lyon 3eme).
   const [activeBien] = useState(() => getActiveBien());
 
-  // Photos uploadees via PhotoUploader (IndexedDB). Recuperees au mount + apres
-  // chaque ajout/suppression via le callback onChange du composant.
-  // Forme : [{ id, src (objectURL), type, label, order, filename }]
+  // ---- Photos uploadées via PhotoUploader (IndexedDB) -------------------
   const [uploadedPhotos, setUploadedPhotos] = useState([]);
-  // Pour eviter les fuites memoire, on cree les objectURLs ici (un par photo)
-  // et on les revoke quand la liste est remplacee ou au demontage.
   const uploadedUrlsRef = useRef(new Map());
 
   const buildUploadedFromRaw = (raw) => {
@@ -1090,7 +1006,6 @@ export default function Step1BienCible() {
         url,
       };
     });
-    // revoke les URLs orphelines
     const liveIds = new Set((raw || []).map((p) => p.id));
     for (const [id, url] of uploadedUrlsRef.current.entries()) {
       if (!liveIds.has(id)) {
@@ -1098,7 +1013,6 @@ export default function Step1BienCible() {
         uploadedUrlsRef.current.delete(id);
       }
     }
-    // tri par type (selon PHOTO_TYPE_VALUES) puis order
     next.sort((a, b) => {
       const ta = PHOTO_TYPE_VALUES.indexOf(a.type);
       const tb = PHOTO_TYPE_VALUES.indexOf(b.type);
@@ -1113,8 +1027,6 @@ export default function Step1BienCible() {
     getAllPhotos()
       .then((raw) => { if (alive) setUploadedPhotos(buildUploadedFromRaw(raw)); })
       .catch((err) => console.error('[Step1] getAllPhotos', err));
-    // Capture la ref dans une variable locale pour le cleanup (evite warning
-    // react-hooks/exhaustive-deps sur un ref.current "stale").
     const urlsCache = uploadedUrlsRef.current;
     return () => {
       alive = false;
@@ -1125,33 +1037,37 @@ export default function Step1BienCible() {
     };
   }, []);
 
-  // Cle forcant le remount du PhotoUploader quand une photo est supprimee
-  // depuis le carrousel principal (sinon son state interne reste obsolete).
+  // Cle forcant le remount du PhotoUploader quand une photo est supprimée
+  // depuis le carrousel principal (sinon son state interne reste obsolète).
   const [uploaderKey, setUploaderKey] = useState(0);
 
-  // Suppression d'une photo uploadee depuis le carrousel principal.
+  // Resync photos après modification d'une galerie pièce (dans le drawer).
+  const refreshUploadedPhotos = async () => {
+    try {
+      const fresh = await getAllPhotos();
+      setUploadedPhotos(buildUploadedFromRaw(fresh));
+      setUploaderKey((k) => k + 1);
+    } catch (err) {
+      console.error('[Step1] refreshUploadedPhotos', err);
+    }
+  };
+
   const handleDeleteUploaded = async (rawId) => {
     if (!rawId) return;
     try {
       await deletePhoto(rawId);
       const fresh = await getAllPhotos();
       setUploadedPhotos(buildUploadedFromRaw(fresh));
-      setUploaderKey((k) => k + 1); // resync l'uploader
-      // Si l'index lightbox courant n'existe plus, on ferme.
+      setUploaderKey((k) => k + 1);
       if (lightboxIndex !== null) setLightboxIndex(null);
     } catch (err) {
       console.error('[Step1] handleDeleteUploaded', err);
     }
   };
 
-  // Catalogue effectif :
-  // - En mode live (activeBien) : UNIQUEMENT les photos uploadees par
-  //   l'utilisateur via le PhotoUploader (zero donnee fake). Si elle n'a
-  //   rien uploade, le carrousel est vide et seul le PhotoUploader est
-  //   propose. Les CUSTOM_PHOTOS bundlees etaient utilisees comme
-  //   "fallback live" mais ne sont jamais supprimables (pas en IDB) -
-  //   donc inadaptees au mode live.
-  // - En mode demo (pas de bien actif) : CUSTOM_PHOTOS > PROPERTY_PHOTOS.
+  // Catalogue photo effectif :
+  // - mode live (bien actif) : uniquement les photos uploadées (zéro fake).
+  // - mode démo : CUSTOM_PHOTOS > PROPERTY_PHOTOS.
   let photoCatalog;
   if (activeBien) {
     photoCatalog = uploadedPhotos;
@@ -1161,13 +1077,100 @@ export default function Step1BienCible() {
     photoCatalog = PROPERTY_PHOTOS;
   }
 
-  // Categories pre-remplies dynamiquement a partir du bien actif. Si aucun
-  // bien actif, retombe sur le bien demo statique.
-  const [bienCibleCategories] = useState(() => {
-    return buildBienCibleCategories(bienCibleCategoriesBase, activeBien);
+  // ---- bienDetails (sections générales) persisté dans reportStore -------
+  // Clé d'un champ section : `${section.key}__${field.key}`.
+  // On hydrate depuis reportStore (saisies précédentes) en complétant avec
+  // le pré-remplissage dérivé du bien actif (priorité aux saisies stockées).
+  const [bienDetails, setBienDetails] = useState(() => {
+    const stored = getReportSection('bienDetails', {});
+    const prefill = buildInitialBienDetails(activeBien);
+    return { ...prefill, ...stored };
   });
 
-  // Mini-carte + adresse + CadastrePLU : derivees du bien actif (ou demo).
+  useEffect(() => {
+    mergeReportSection('bienDetails', bienDetails);
+  }, [bienDetails]);
+
+  const sectionFieldKey = (sectionKey, fieldKey) => `${sectionKey}__${fieldKey}`;
+
+  const setSectionField = (sectionKey, fieldKey, value) => {
+    setBienDetails((prev) => ({ ...prev, [sectionFieldKey(sectionKey, fieldKey)]: value }));
+  };
+
+  // ---- Pièces (state local persisté sous reportStore.rooms) --------------
+  const [rooms, setRooms] = useState(() => {
+    const stored = getReportSection('rooms', null);
+    if (Array.isArray(stored) && stored.length > 0) return stored;
+    return buildRoomsFromActiveBien(activeBien);
+  });
+
+  useEffect(() => {
+    mergeReportSection('rooms', rooms);
+  }, [rooms]);
+
+  const setRoomField = (roomId, fieldKey, value) => {
+    setRooms((prev) => prev.map((r) => (
+      r.id === roomId ? { ...r, fields: { ...r.fields, [fieldKey]: value } } : r
+    )));
+  };
+  const setRoomName = (roomId, name) => {
+    setRooms((prev) => prev.map((r) => (r.id === roomId ? { ...r, name } : r)));
+  };
+  const setRoomType = (roomId, type) => {
+    setRooms((prev) => prev.map((r) => (r.id === roomId ? { ...r, type } : r)));
+  };
+  const addRoom = () => {
+    const room = createEmptyRoom('autre');
+    setRooms((prev) => [...prev, room]);
+    setDrawer({ kind: 'room', roomId: room.id });
+  };
+  const removeRoom = (roomId) => {
+    setRooms((prev) => prev.filter((r) => r.id !== roomId));
+  };
+
+  // ---- Drawer d'édition (section générale OU pièce) ----------------------
+  // drawer = null | { kind: 'section', sectionKey } | { kind: 'room', roomId }
+  const [drawer, setDrawer] = useState(null);
+  const closeDrawer = () => setDrawer(null);
+
+  const openSection = sectionsGenerales.find(
+    (s) => drawer?.kind === 'section' && s.key === drawer.sectionKey
+  );
+  const openRoom = rooms.find((r) => drawer?.kind === 'room' && r.id === drawer.roomId);
+
+  // ---- Colonnes redimensionnables ----------------------------------------
+  const [mainRatio, setMainRatio] = useState(DEFAULT_MAIN_RATIO);
+  const [dragging, setDragging] = useState(false);
+  const contentRef = useRef(null);
+
+  const startResize = (e) => {
+    e.preventDefault();
+    setDragging(true);
+    const container = contentRef.current;
+    if (!container) return;
+    const onMove = (ev) => {
+      const rect = container.getBoundingClientRect();
+      const x = (ev.touches ? ev.touches[0].clientX : ev.clientX) - rect.left;
+      let ratio = x / rect.width;
+      if (ratio < MIN_MAIN_RATIO) ratio = MIN_MAIN_RATIO;
+      if (ratio > MAX_MAIN_RATIO) ratio = MAX_MAIN_RATIO;
+      setMainRatio(ratio);
+    };
+    const onUp = () => {
+      setDragging(false);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('touchmove', onMove);
+    window.addEventListener('touchend', onUp);
+  };
+  const resetResize = () => setMainRatio(DEFAULT_MAIN_RATIO);
+
+  // ---- Mini-carte + adresse + Cadastre/PLU -------------------------------
   const DEMO_COORDS = [45.758, 4.859];
   const DEMO_ADDRESS_LINE1 = '12 rue des Lilas';
   const DEMO_ADDRESS_LINE2 = '69003 Lyon';
@@ -1176,8 +1179,6 @@ export default function Step1BienCible() {
   const cadastreLat = mapCenter[0];
   const cadastreLon = mapCenter[1];
 
-  // Adresse en deux lignes : "{numero rue}" / "{cp ville}". On essaie d'extraire
-  // a partir du label BAN ; sinon on retombe sur postcode + city ou demo.
   let addressLine1 = DEMO_ADDRESS_LINE1;
   let addressLine2 = DEMO_ADDRESS_LINE2;
   let cadastreAddress = `${DEMO_ADDRESS_LINE1}, ${DEMO_ADDRESS_LINE2}`;
@@ -1186,8 +1187,6 @@ export default function Step1BienCible() {
     const postcode = activeBien.adresse.postcode || '';
     const city = activeBien.adresse.city || '';
     const tail = `${postcode} ${city}`.trim();
-    // Le label BAN est souvent du type "12 rue des Lilas 69003 Lyon".
-    // On retire la fin (cp + ville) pour garder la rue seule.
     if (tail && label.endsWith(tail)) {
       addressLine1 = label.slice(0, label.length - tail.length).trim();
     } else {
@@ -1197,70 +1196,9 @@ export default function Step1BienCible() {
     cadastreAddress = label;
   }
 
-  // Find the index with defaultOpen, fallback to index 1
-  const defaultOpenIdx = bienCibleCategories.findIndex((c) => c.defaultOpen);
-  const initialOpen = defaultOpenIdx >= 0 ? defaultOpenIdx : 1;
-  const [openSection, setOpenSection] = useState(initialOpen);
-
-  // Construit la clé stable d'un champ pour reportStore : "${catSlug}__${fieldSlug}".
-  const fieldKey = (cat, field) => `${slugifyKey(cat.title)}__${slugifyKey(field.label)}`;
-
-  // bienDetails persisté : on hydrate l'état local à partir de reportStore
-  // (saisies précédentes), sinon avec les valeurs/toggles par défaut du
-  // schéma propertyData/buildBienCibleCategories.
-  const [bienDetails, setBienDetails] = useState(() => {
-    const stored = getReportSection('bienDetails', {});
-    const init = { ...stored };
-    bienCibleCategories.forEach((cat) => {
-      (cat.fields || []).forEach((field) => {
-        const key = fieldKey(cat, field);
-        if (init[key] === undefined) {
-          if (field.type === 'toggle') init[key] = !!field.on;
-          else if (field.value !== undefined && field.value !== '') init[key] = field.value;
-        }
-      });
-    });
-    return init;
-  });
-
-  // Snapshot dérivé : toggleStates pour conserver la signature de
-  // getToggleState (catIdx-fieldIdx) sans toucher au rendu.
-  const [toggleStates, setToggleStates] = useState(() => {
-    const out = {};
-    bienCibleCategories.forEach((cat, catIdx) => {
-      (cat.fields || []).forEach((field, fIdx) => {
-        if (field.type !== 'toggle') return;
-        const key = fieldKey(cat, field);
-        const stored = bienDetails[key];
-        out[`${catIdx}-${fIdx}`] = stored !== undefined ? !!stored : !!field.on;
-      });
-    });
-    return out;
-  });
-
-  // Persiste toutes les saisies à chaque modification (rapport y lit).
-  useEffect(() => {
-    mergeReportSection('bienDetails', bienDetails);
-  }, [bienDetails]);
-
-  // Setter générique appelé par les inputs/selects/toggles.
-  const setFieldValue = (cat, field, value) => {
-    const key = fieldKey(cat, field);
-    setBienDetails((prev) => ({ ...prev, [key]: value }));
-  };
-
-  // ---- Points forts / vigilance + avis du vendeur ----------------------
-  // Ces saisies, faites ici à l'étape 1 (fiche du bien cible), remontent
-  // dans le rapport commercial (/report) et étaient auparavant à l'étape 5.
-  // Persistées à la racine du reportStore (pointsForts/pointsVigilance/
-  // avisVendeur) pour respecter le contrat de lecture de CompteRendu.
+  // ---- Points forts / vigilance + avis du vendeur ------------------------
   const hasRealLocation = !!(activeBien && activeBien.adresse && activeBien.adresse.label);
 
-  // Génération auto des points forts/vigilance à partir des caractéristiques
-  // du bien (mode live). Mêmes heuristiques que l'ancienne étape 5 : DPE,
-  // étage/ascenseur, exposition, extérieur, parking, état, année. En mode
-  // démo : listes statiques d'avisValeur. Sert uniquement de valeur initiale
-  // si rien n'est encore persisté ; l'agent édite ensuite librement.
   const buildAutoPoints = () => {
     if (!hasRealLocation) {
       return { forts: avisValeur.pointsForts, vigilance: avisValeur.pointsVigilance };
@@ -1307,7 +1245,6 @@ export default function Step1BienCible() {
     return { forts, vigilance };
   };
 
-  // Hydratation : priorité aux saisies déjà persistées, sinon auto-génération.
   const [pointsForts, setPointsForts] = useState(() => {
     const st = getReportState();
     if (Array.isArray(st.pointsForts)) return st.pointsForts;
@@ -1332,11 +1269,9 @@ export default function Step1BienCible() {
   const removePointFort = (idx) => setPointsForts((prev) => prev.filter((_, i) => i !== idx));
   const removePointVigilance = (idx) => setPointsVigilance((prev) => prev.filter((_, i) => i !== idx));
 
-  // Photos : filtre par type + index lightbox -----------------------------
-  // Par defaut on verrouille sur Salon/Sejour pour n'afficher qu'une seule
-  // photo a l'ouverture de l'etape (catalogue demo : 1 seul item de type salon).
+  // ---- Photos : filtre par type + lightbox -------------------------------
   const [photoFilter, setPhotoFilter] = useState('salon');
-  const [lightboxIndex, setLightboxIndex] = useState(null); // null = ferm\u00e9
+  const [lightboxIndex, setLightboxIndex] = useState(null);
 
   const filteredPhotos = photoFilter === 'all'
     ? photoCatalog
@@ -1352,13 +1287,11 @@ export default function Step1BienCible() {
   const prevPhoto = () => setLightboxIndex((i) => (i - 1 + filteredPhotos.length) % filteredPhotos.length);
   const nextPhoto = () => setLightboxIndex((i) => (i + 1) % filteredPhotos.length);
 
-  // Changement de filtre : ferme aussi le lightbox (les indices ne correspondent plus)
   const handleFilterChange = (value) => {
     setPhotoFilter(value);
     setLightboxIndex(null);
   };
 
-  // Clavier : ESC ferme, fl\u00e8ches naviguent ; bloque le scroll de fond
   useEffect(() => {
     if (lightboxIndex === null) return undefined;
     const total = filteredPhotos.length;
@@ -1376,16 +1309,13 @@ export default function Step1BienCible() {
     };
   }, [lightboxIndex, filteredPhotos.length]);
 
-  // Modale m\u00e9dia g\u00e9n\u00e9rique (Cadastre / Plan de zone) ----------------------
-  const [mediaModal, setMediaModal] = useState(null); // { title, url, caption } ou null
-  const openMediaModal = (data) => setMediaModal(data);
+  // ---- Modale média générique (Cadastre / Plan de zone) ------------------
+  const [mediaModal, setMediaModal] = useState(null);
   const closeMediaModal = () => setMediaModal(null);
 
   useEffect(() => {
     if (!mediaModal) return undefined;
-    const onKey = (e) => {
-      if (e.key === 'Escape') setMediaModal(null);
-    };
+    const onKey = (e) => { if (e.key === 'Escape') setMediaModal(null); };
     window.addEventListener('keydown', onKey);
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -1395,25 +1325,10 @@ export default function Step1BienCible() {
     };
   }, [mediaModal]);
 
-  const toggleSection = (idx) => {
-    setOpenSection((prev) => (prev === idx ? null : idx));
-  };
-
-  const handleToggle = (catIdx, fieldIdx, currentOn) => {
-    const key = `${catIdx}-${fieldIdx}`;
-    setToggleStates((prev) => {
-      const newVal = prev[key] !== undefined ? !prev[key] : !currentOn;
-      // Persiste aussi dans bienDetails (clé sémantique)
-      const cat = bienCibleCategories[catIdx];
-      const field = cat?.fields?.[fieldIdx];
-      if (cat && field) setFieldValue(cat, field, newVal);
-      return { ...prev, [key]: newVal };
-    });
-  };
-
-  const getToggleState = (catIdx, fieldIdx, defaultOn) => {
-    const key = `${catIdx}-${fieldIdx}`;
-    return toggleStates[key] !== undefined ? toggleStates[key] : !!defaultOn;
+  // Grille de styles inline pour les colonnes redimensionnables.
+  const contentStyle = {
+    '--s1-col-main': `${(mainRatio * 100).toFixed(2)}%`,
+    '--s1-col-side': `${((1 - mainRatio) * 100).toFixed(2)}%`,
   };
 
   return (
@@ -1423,85 +1338,109 @@ export default function Step1BienCible() {
         <PropertyCard />
         <Stepper currentStep={1} />
 
-        <div className="step1-content">
-          {/* LEFT COLUMN */}
+        <div className="step1-content" ref={contentRef} style={contentStyle}>
+          {/* LEFT COLUMN : cartes lecture seule */}
           <div className="step1-left">
-            {bienCibleCategories.map((cat, idx) => {
-              const isOpen = openSection === idx;
-              const pct = parseProgress(cat.progress);
+            <div className="step1-section-label">Informations générales</div>
 
+            {sectionsGenerales.map((section) => {
+              const filled = section.fields
+                .map((f) => ({ field: f, value: displayValue(f, bienDetails[sectionFieldKey(section.key, f.key)]) }))
+                .filter((x) => x.value !== null);
               return (
-                <div key={idx} className="accordion-item">
-                  <div
-                    className={`accordion-header${isOpen ? ' open' : ''}`}
-                    onClick={() => toggleSection(idx)}
-                  >
-                    <div className="accordion-title-section">
-                      <span className="accordion-title">{cat.title}</span>
-                      <div className={`accordion-progress${cat.low ? ' low' : ''}`}>
-                        <div className="accordion-progress-bar">
-                          <div
-                            className="accordion-progress-fill"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                        <span className="accordion-progress-text">{cat.progress}</span>
-                      </div>
+                <div key={section.key} className="info-card">
+                  <div className="info-card-head">
+                    <div className="info-card-head-left">
+                      <span className="info-card-icon" aria-hidden="true">{section.icon}</span>
+                      <h3 className="info-card-title">{section.title}</h3>
                     </div>
-                    <span className={`accordion-arrow${isOpen ? ' open' : ''}`}>
-                      &#9660;
-                    </span>
+                    <div className="info-card-actions">
+                      <button
+                        type="button"
+                        className="info-card-btn"
+                        onClick={() => setDrawer({ kind: 'section', sectionKey: section.key })}
+                      >
+                        Modifier
+                      </button>
+                    </div>
                   </div>
-
-                  {isOpen && (
-                    <div className="accordion-body">
-                      <div className="form-grid">
-                        {cat.fields.map((field, fIdx) => (
-                          <div key={fIdx} className="form-group">
-                            <label className="form-label">{field.label}</label>
-                            {field.type === 'toggle' ? (
-                              <div className="toggle-row">
-                                <button
-                                  type="button"
-                                  className={`toggle-switch${getToggleState(idx, fIdx, field.on) ? ' on' : ''}`}
-                                  onClick={() => handleToggle(idx, fIdx, field.on)}
-                                />
-                                <span className="toggle-label">
-                                  {getToggleState(idx, fIdx, field.on) ? 'Oui' : 'Non'}
-                                </span>
-                              </div>
-                            ) : field.type === 'select' ? (
-                              <select
-                                className={`form-select${field.error ? ' error' : ''}`}
-                                value={bienDetails[fieldKey(cat, field)] ?? field.value ?? ''}
-                                onChange={(e) => setFieldValue(cat, field, e.target.value)}
-                              >
-                                <option value="">
-                                  {field.placeholder || '-- Choisir --'}
-                                </option>
-                                {field.options && field.options.map((o, oi) => (
-                                  <option key={oi} value={o}>
-                                    {o}
-                                  </option>
-                                ))}
-                              </select>
-                            ) : (
-                              <input
-                                className={`form-input${field.error ? ' error' : ''}`}
-                                type={field.type || 'text'}
-                                value={bienDetails[fieldKey(cat, field)] ?? field.value ?? ''}
-                                placeholder={field.placeholder || ''}
-                                onChange={(e) => setFieldValue(cat, field, e.target.value)}
-                              />
-                            )}
+                  <div className="info-card-body">
+                    {filled.length > 0 ? (
+                      <div className="info-grid">
+                        {filled.map(({ field, value }) => (
+                          <div
+                            key={field.key}
+                            className={`info-row${field.type === 'textarea' ? ' full' : ''}`}
+                          >
+                            <span className="info-row-label">{field.label}</span>
+                            <span className="info-row-value">{value}</span>
                           </div>
                         ))}
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="info-card-empty">Aucune valeur renseignée</div>
+                    )}
+                  </div>
                 </div>
               );
             })}
+
+            <div className="step1-section-label">Pièces du bien</div>
+
+            {rooms.map((room) => {
+              const filled = roomFieldSchema
+                .map((f) => ({ field: f, value: displayValue(f, room.fields?.[f.key]) }))
+                .filter((x) => x.value !== null);
+              const sub = roomSubtitle(room);
+              return (
+                <div key={room.id} className="info-card">
+                  <div className="info-card-head">
+                    <div className="info-card-head-left">
+                      <h3 className="info-card-title">{room.name || roomTypeLabel(room.type)}</h3>
+                      {sub && <span className="info-card-sub">({sub})</span>}
+                    </div>
+                    <div className="info-card-actions">
+                      <button
+                        type="button"
+                        className="info-card-btn"
+                        onClick={() => setDrawer({ kind: 'room', roomId: room.id })}
+                      >
+                        Modifier
+                      </button>
+                      <button
+                        type="button"
+                        className="info-card-btn danger"
+                        onClick={() => removeRoom(room.id)}
+                        aria-label={`Supprimer ${room.name || roomTypeLabel(room.type)}`}
+                      >
+                        Supprimer
+                      </button>
+                    </div>
+                  </div>
+                  <div className="info-card-body">
+                    {filled.length > 0 ? (
+                      <div className="info-grid">
+                        {filled.map(({ field, value }) => (
+                          <div
+                            key={field.key}
+                            className={`info-row${field.type === 'textarea' ? ' full' : ''}`}
+                          >
+                            <span className="info-row-label">{field.label}</span>
+                            <span className="info-row-value">{value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="info-card-empty">Aucune valeur renseignée</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
+            <button type="button" className="step1-add-room" onClick={addRoom}>
+              + Ajouter une pièce
+            </button>
 
             {/* BUTTONS */}
             <div className="buttons-area">
@@ -1512,6 +1451,17 @@ export default function Step1BienCible() {
             </div>
           </div>
 
+          {/* RESIZER */}
+          <button
+            type="button"
+            className={`step1-resizer${dragging ? ' is-dragging' : ''}`}
+            onMouseDown={startResize}
+            onTouchStart={startResize}
+            onDoubleClick={resetResize}
+            aria-label="Redimensionner les colonnes"
+            title="Glisser pour redimensionner — double-clic pour réinitialiser"
+          />
+
           {/* RIGHT SIDEBAR */}
           <div className="step1-right">
             {/* Photos */}
@@ -1521,7 +1471,6 @@ export default function Step1BienCible() {
                 <span className="photos-count-inline">{photoCatalog.length}</span>
               </div>
 
-              {/* Filtres par type de pi\u00e8ce */}
               <div className="photos-filters" role="tablist" aria-label="Filtrer les photos par pi\u00e8ce">
                 {PHOTO_TYPES.filter((t) => t.value === 'all' || photoCountsByType[t.value]).map((t) => (
                   <button
@@ -1537,7 +1486,6 @@ export default function Step1BienCible() {
                 ))}
               </div>
 
-              {/* Grille de miniatures cliquables */}
               {filteredPhotos.length > 0 ? (
                 <div className="photos-grid">
                   {filteredPhotos.map((p, idx) => (
@@ -1570,7 +1518,7 @@ export default function Step1BienCible() {
                 <div className="photos-empty">Aucune photo dans cette cat\u00e9gorie</div>
               )}
 
-              {/* Uploader : disponible des qu'il y a un bien actif. */}
+              {/* Uploader global : disponible des qu'il y a un bien actif. */}
               {activeBien && (
                 <PhotoUploader
                   key={uploaderKey}
@@ -1770,6 +1718,42 @@ export default function Step1BienCible() {
           </div>
         </div>
       </div>
+
+      {/* DRAWER d'édition : section générale OU pièce */}
+      {openSection && (
+        <Step1EditDrawer
+          open
+          title={openSection.title}
+          subtitle="Informations générales"
+          schema={openSection.fields}
+          values={Object.fromEntries(
+            openSection.fields.map((f) => [f.key, bienDetails[sectionFieldKey(openSection.key, f.key)]])
+          )}
+          onField={(key, value) => setSectionField(openSection.key, key, value)}
+          onClose={closeDrawer}
+        />
+      )}
+
+      {openRoom && (
+        <Step1EditDrawer
+          key={openRoom.id}
+          open
+          title={openRoom.name || roomTypeLabel(openRoom.type)}
+          subtitle="Détails de la pièce"
+          schema={roomFieldSchema}
+          values={openRoom.fields || {}}
+          onField={(key, value) => setRoomField(openRoom.id, key, value)}
+          onClose={closeDrawer}
+          roomNameValue={openRoom.name}
+          onRoomName={(v) => setRoomName(openRoom.id, v)}
+          roomTypeValue={openRoom.type}
+          onRoomType={(v) => setRoomType(openRoom.id, v)}
+          roomTypeOptions={ROOM_TYPES.map((t) => ({ value: t.value, label: t.label }))}
+          photoRoomId={openRoom.id}
+          photoRoomType={roomPhotoType(openRoom.type)}
+          onPhotosChange={refreshUploadedPhotos}
+        />
+      )}
     </>
   );
 }
