@@ -10,7 +10,7 @@ import Step1EditDrawer from '../components/Step1EditDrawer';
 import { avisValeur } from '../data/propertyData';
 import { PROPERTY_PHOTOS } from '../data/propertyPhotos';
 import { getActiveBien } from '../utils/activeBien';
-import { getAllPhotos, deletePhoto } from '../utils/photosStore';
+import { getAllPhotos, deletePhoto, getPhotosByRoom } from '../utils/photosStore';
 import CadastrePLUCards from '../components/CadastrePLUCards';
 import {
   sectionsGenerales,
@@ -135,11 +135,17 @@ const cssStyles = `
 
   .step1-left {
     min-width: 0;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 12px;
+    align-content: start;
     padding-right: 16px;
   }
+  /* Les libellés de groupe occupent toute la largeur des 2 colonnes */
+  .step1-left > .step1-section-label { grid-column: 1 / -1; }
+  /* Le bouton "Ajouter une pièce" et la zone de boutons : pleine largeur */
+  .step1-left > .step1-add-room,
+  .step1-left > .buttons-area { grid-column: 1 / -1; }
 
   .step1-resizer {
     align-self: stretch;
@@ -203,12 +209,21 @@ const cssStyles = `
   .info-card-head-left {
     display: flex;
     align-items: center;
-    gap: 10px;
+    flex-wrap: wrap;
+    gap: 8px;
     min-width: 0;
   }
-  .info-card-icon {
-    font-size: 16px;
-    flex-shrink: 0;
+  .info-card-btn.ghost-photos {
+    padding: 3px 10px;
+    font-size: var(--fs-xs, 11px);
+    color: #4a6cf7;
+    border-color: #dfe4fb;
+    background: #f5f7ff;
+  }
+  .info-card-btn.ghost-photos:hover {
+    color: #3a55d9;
+    border-color: #4a6cf7;
+    background: #eef1ff;
   }
   .info-card-title {
     font-size: var(--fs-md, 14px);
@@ -261,7 +276,7 @@ const cssStyles = `
   }
   .info-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 10px 18px;
   }
   .info-row {
@@ -699,12 +714,98 @@ const cssStyles = `
     background: rgba(255,255,255,0.25);
   }
 
+  /* ROOM PHOTOS POPUP (lecture seule) */
+  .room-photos-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+    animation: fadeIn 0.15s ease-out;
+  }
+  .room-photos-content {
+    position: relative;
+    background: white;
+    border-radius: var(--radius-card, 10px);
+    width: min(880px, 92vw);
+    max-height: 86vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.28);
+  }
+  .room-photos-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border, #eee);
+  }
+  .room-photos-head h3 {
+    margin: 0;
+    font-size: var(--fs-lg, 16px);
+    font-weight: 700;
+    color: var(--text, #222);
+  }
+  .room-photos-close {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--border, #eee);
+    background: #f6f6f6;
+    color: #555;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .room-photos-close:hover { background: #ececec; color: #222; }
+  .room-photos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+    padding: 18px;
+    overflow-y: auto;
+  }
+  .room-photo-cell {
+    border: 1px solid var(--border, #eee);
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fafafa;
+  }
+  .room-photo-cell img {
+    display: block;
+    width: 100%;
+    height: 140px;
+    object-fit: cover;
+  }
+  .room-photo-cell .rp-label {
+    padding: 6px 8px;
+    font-size: var(--fs-xs, 11px);
+    color: #555;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .room-photos-empty {
+    padding: 36px 18px;
+    text-align: center;
+    color: #888;
+    font-size: var(--fs-sm, 12px);
+  }
+
   /* CRITICAL FIELDS */
   .critical-section {
     background: white;
     border: 1px solid #eee;
-    border-left: 3px solid #f5a623;
-    border-radius: 0;
+    border-radius: var(--radius-card);
     padding: 16px;
   }
 
@@ -786,8 +887,6 @@ const cssStyles = `
     border-radius: var(--radius-card);
     padding: 16px;
   }
-  .appraisal-card.strengths { border-left: 3px solid var(--green); }
-  .appraisal-card.weaknesses { border-left: 3px solid #e0a93a; }
   .appraisal-title {
     font-size: 13px;
     font-weight: 600;
@@ -951,7 +1050,7 @@ const cssStyles = `
       display: flex;
       flex-direction: column;
     }
-    .step1-left { padding-right: 0; }
+    .step1-left { padding-right: 0; grid-template-columns: 1fr; }
     .step1-right { padding-left: 0; width: 100%; }
     .step1-resizer { display: none; }
     .info-grid { grid-template-columns: 1fr; }
@@ -1137,6 +1236,37 @@ export default function Step1BienCible() {
     (s) => drawer?.kind === 'section' && s.key === drawer.sectionKey
   );
   const openRoom = rooms.find((r) => drawer?.kind === 'room' && r.id === drawer.roomId);
+
+  // ---- Pop-up galerie photos d'une pièce (lecture seule) -----------------
+  // photoModal = null | { roomName, photos: [{ id, src, label }] }
+  const [photoModal, setPhotoModal] = useState(null);
+  const openRoomPhotos = async (room) => {
+    try {
+      const raw = await getPhotosByRoom(room.id);
+      const photos = raw.map((p) => ({
+        id: p.id,
+        src: URL.createObjectURL(p.blob),
+        label: p.label || '',
+      }));
+      setPhotoModal({ roomName: room.name || roomTypeLabel(room.type), photos });
+    } catch (err) {
+      console.error('[Step1] openRoomPhotos', err);
+      setPhotoModal({ roomName: room.name || roomTypeLabel(room.type), photos: [] });
+    }
+  };
+  const closeRoomPhotos = () => {
+    setPhotoModal((cur) => {
+      if (cur) cur.photos.forEach((p) => { try { URL.revokeObjectURL(p.src); } catch { /* ignore */ } });
+      return null;
+    });
+  };
+  // ESC ferme la pop-up galerie
+  useEffect(() => {
+    if (!photoModal) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') closeRoomPhotos(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [photoModal]);
 
   // ---- Colonnes redimensionnables ----------------------------------------
   const [mainRatio, setMainRatio] = useState(DEFAULT_MAIN_RATIO);
@@ -1351,7 +1481,6 @@ export default function Step1BienCible() {
                 <div key={section.key} className="info-card">
                   <div className="info-card-head">
                     <div className="info-card-head-left">
-                      <span className="info-card-icon" aria-hidden="true">{section.icon}</span>
                       <h3 className="info-card-title">{section.title}</h3>
                     </div>
                     <div className="info-card-actions">
@@ -1398,6 +1527,13 @@ export default function Step1BienCible() {
                     <div className="info-card-head-left">
                       <h3 className="info-card-title">{room.name || roomTypeLabel(room.type)}</h3>
                       {sub && <span className="info-card-sub">({sub})</span>}
+                      <button
+                        type="button"
+                        className="info-card-btn ghost-photos"
+                        onClick={() => openRoomPhotos(room)}
+                      >
+                        Photos
+                      </button>
                     </div>
                     <div className="info-card-actions">
                       <button
@@ -1464,6 +1600,44 @@ export default function Step1BienCible() {
 
           {/* RIGHT SIDEBAR */}
           <div className="step1-right">
+            {/* Panneau d'édition inline (section générale OU pièce) — en tête de colonne */}
+            {openSection && (
+              <Step1EditDrawer
+                inline
+                open
+                title={openSection.title}
+                subtitle="Informations générales"
+                schema={openSection.fields}
+                values={Object.fromEntries(
+                  openSection.fields.map((f) => [f.key, bienDetails[sectionFieldKey(openSection.key, f.key)]])
+                )}
+                onField={(key, value) => setSectionField(openSection.key, key, value)}
+                onClose={closeDrawer}
+              />
+            )}
+
+            {openRoom && (
+              <Step1EditDrawer
+                key={openRoom.id}
+                inline
+                open
+                title={openRoom.name || roomTypeLabel(openRoom.type)}
+                subtitle="Détails de la pièce"
+                schema={roomFieldSchema}
+                values={openRoom.fields || {}}
+                onField={(key, value) => setRoomField(openRoom.id, key, value)}
+                onClose={closeDrawer}
+                roomNameValue={openRoom.name}
+                onRoomName={(v) => setRoomName(openRoom.id, v)}
+                roomTypeValue={openRoom.type}
+                onRoomType={(v) => setRoomType(openRoom.id, v)}
+                roomTypeOptions={ROOM_TYPES.map((t) => ({ value: t.value, label: t.label }))}
+                photoRoomId={openRoom.id}
+                photoRoomType={roomPhotoType(openRoom.type)}
+                onPhotosChange={refreshUploadedPhotos}
+              />
+            )}
+
             {/* Photos */}
             <div className="photos-section">
               <div className="photos-header">
@@ -1598,6 +1772,41 @@ export default function Step1BienCible() {
               </div>
             )}
 
+            {/* Pop-up photos de la pi\u00e8ce (lecture seule) */}
+            {photoModal && (
+              <div
+                className="room-photos-overlay"
+                onClick={closeRoomPhotos}
+                role="dialog"
+                aria-modal="true"
+                aria-label={`Photos ${photoModal.roomName}`}
+              >
+                <div className="room-photos-content" onClick={(e) => e.stopPropagation()}>
+                  <div className="room-photos-head">
+                    <h3>Photos &mdash; {photoModal.roomName}</h3>
+                    <button
+                      type="button"
+                      className="room-photos-close"
+                      onClick={closeRoomPhotos}
+                      aria-label="Fermer"
+                    >&times;</button>
+                  </div>
+                  {photoModal.photos.length === 0 ? (
+                    <div className="room-photos-empty">Aucune photo associée à cette pièce.</div>
+                  ) : (
+                    <div className="room-photos-grid">
+                      {photoModal.photos.map((p) => (
+                        <div className="room-photo-cell" key={p.id}>
+                          <img src={p.src} alt={p.label || photoModal.roomName} />
+                          {p.label && <div className="rp-label">{p.label}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Map */}
             <div className="map-section">
               <MapContainer
@@ -1718,42 +1927,6 @@ export default function Step1BienCible() {
           </div>
         </div>
       </div>
-
-      {/* DRAWER d'édition : section générale OU pièce */}
-      {openSection && (
-        <Step1EditDrawer
-          open
-          title={openSection.title}
-          subtitle="Informations générales"
-          schema={openSection.fields}
-          values={Object.fromEntries(
-            openSection.fields.map((f) => [f.key, bienDetails[sectionFieldKey(openSection.key, f.key)]])
-          )}
-          onField={(key, value) => setSectionField(openSection.key, key, value)}
-          onClose={closeDrawer}
-        />
-      )}
-
-      {openRoom && (
-        <Step1EditDrawer
-          key={openRoom.id}
-          open
-          title={openRoom.name || roomTypeLabel(openRoom.type)}
-          subtitle="Détails de la pièce"
-          schema={roomFieldSchema}
-          values={openRoom.fields || {}}
-          onField={(key, value) => setRoomField(openRoom.id, key, value)}
-          onClose={closeDrawer}
-          roomNameValue={openRoom.name}
-          onRoomName={(v) => setRoomName(openRoom.id, v)}
-          roomTypeValue={openRoom.type}
-          onRoomType={(v) => setRoomType(openRoom.id, v)}
-          roomTypeOptions={ROOM_TYPES.map((t) => ({ value: t.value, label: t.label }))}
-          photoRoomId={openRoom.id}
-          photoRoomType={roomPhotoType(openRoom.type)}
-          onPhotosChange={refreshUploadedPhotos}
-        />
-      )}
     </>
   );
 }

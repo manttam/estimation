@@ -54,6 +54,24 @@ const drawerStyles = `
   }
   @keyframes s1d-slide { to { transform: translateX(0); } }
 
+  /* Variante inline : le panneau s'insère dans le flux (colonne droite),
+     sans overlay ni position fixe. */
+  .s1-drawer-panel.inline {
+    position: static;
+    top: auto;
+    right: auto;
+    bottom: auto;
+    width: 100%;
+    max-width: none;
+    z-index: auto;
+    box-shadow: none;
+    border: 1px solid var(--border, #eee);
+    border-radius: var(--radius-card, 10px);
+    transform: none;
+    animation: none;
+    max-height: calc(100vh - 120px);
+  }
+
   .s1-drawer-head {
     display: flex;
     align-items: flex-start;
@@ -266,6 +284,7 @@ export default function Step1EditDrawer({
   values = {},
   onField,
   onClose,
+  inline = false,
   roomNameValue,
   onRoomName,
   roomTypeValue,
@@ -275,28 +294,33 @@ export default function Step1EditDrawer({
   photoRoomType,
   onPhotosChange,
 }) {
-  // ESC ferme + blocage scroll de fond
+  // ESC ferme + blocage scroll de fond (scroll-lock seulement en overlay).
   useEffect(() => {
     if (!open) return undefined;
     const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
     window.addEventListener('keydown', onKey);
+    if (inline) {
+      return () => window.removeEventListener('keydown', onKey);
+    }
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
       window.removeEventListener('keydown', onKey);
       document.body.style.overflow = prev;
     };
-  }, [open, onClose]);
+  }, [open, onClose, inline]);
 
   if (!open) return null;
 
   const isRoom = typeof onRoomName === 'function';
 
-  return (
-    <>
-      <style>{drawerStyles}</style>
-      <div className="s1-drawer-overlay" onClick={onClose} />
-      <div className="s1-drawer-panel" role="dialog" aria-modal="true" aria-label={title}>
+  const panelInner = (
+    <div
+      className={`s1-drawer-panel${inline ? ' inline' : ''}`}
+      role="dialog"
+      aria-modal={inline ? undefined : 'true'}
+      aria-label={title}
+    >
         <div className="s1-drawer-head">
           <div>
             <h3 className="s1-drawer-title">{title}</h3>
@@ -380,7 +404,25 @@ export default function Step1EditDrawer({
             Terminé
           </button>
         </div>
-      </div>
+    </div>
+  );
+
+  // Mode inline : pas d'overlay, le panneau s'insère dans le flux (colonne droite).
+  if (inline) {
+    return (
+      <>
+        <style>{drawerStyles}</style>
+        {panelInner}
+      </>
+    );
+  }
+
+  // Mode overlay (par défaut) : drawer latéral glissant par-dessus la page.
+  return (
+    <>
+      <style>{drawerStyles}</style>
+      <div className="s1-drawer-overlay" onClick={onClose} />
+      {panelInner}
     </>
   );
 }
