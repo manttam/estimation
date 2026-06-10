@@ -380,15 +380,23 @@ const cssStyles = `
   }
 
   /* RADIUS SLIDER ROW */
-  .radius-row {
+  /* Rayon en overlay flottant par-dessus la carte (haut, centré) */
+  .radius-overlay {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 600;
     display: flex;
     align-items: center;
-    gap: 16px;
-    margin-bottom: 14px;
-    padding: 12px 16px;
-    background: #f9fafb;
-    border-radius: 8px;
-    border: 1px solid #eee;
+    gap: 12px;
+    padding: 8px 14px;
+    width: min(440px, calc(100% - 110px));
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(4px);
+    border-radius: 10px;
+    border: 1px solid #e6e6e6;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
   }
   .radius-label {
     font-size: 12px;
@@ -411,18 +419,12 @@ const cssStyles = `
     flex-direction: column;
     gap: 4px;
   }
-  .radius-slider-labels {
-    display: flex;
-    justify-content: space-between;
-    font-size: 10px;
-    color: #bbb;
-  }
   /* (Ancien .radius-slider remplacé par .cs-slider — voir plus bas) */
   .radius-value {
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 700;
     color: var(--green);
-    min-width: 60px;
+    min-width: 52px;
     text-align: right;
   }
 
@@ -552,9 +554,9 @@ const cssStyles = `
    * ═══════════════════════════════════════════════════════════════ */
   .source-row {
     display: grid;
-    grid-template-columns: 22px 145px 1fr 64px;
+    grid-template-columns: 22px 130px 1fr;
     align-items: center;
-    gap: 10px;
+    gap: 10px 10px;
     padding: 9px 12px;
     background: #fff;
     border: 1.5px solid #ececec;
@@ -720,24 +722,95 @@ const cssStyles = `
   .source-row.disabled .cs-slider { cursor: not-allowed; }
   .source-row.disabled .cs-fill { background: #d4dcdf; }
   .source-row.disabled .cs-thumb { box-shadow: inset 0 0 0 3px #b8c5cf; }
+  /* Deux jauges empilées (ancienneté + prix) dans la colonne droite */
+  .source-gauges {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    min-width: 0;
+  }
+  .source-gauge {
+    display: grid;
+    grid-template-columns: 16px 1fr 58px;
+    align-items: center;
+    gap: 8px;
+  }
+  .source-gauge-icon {
+    font-size: 12px;
+    color: #8a949e;
+    text-align: center;
+    line-height: 1;
+  }
   /* Valeur en pill */
-  .source-delay-value {
+  .source-gauge-value {
     font-size: 11px;
     font-weight: 700;
     color: #2d8856;
     background: #e4f3e8;
-    padding: 4px 10px;
+    padding: 3px 8px;
     border-radius: 12px;
     text-align: center;
     white-space: nowrap;
     border: 1px solid #c8e6cf;
     transition: all 0.15s;
   }
-  .source-row.disabled .source-delay-value {
+  .source-row.disabled .source-gauge-value {
     color: #aaa;
     background: #f0f0f0;
     border-color: #e6e6e6;
   }
+  .source-row.disabled .source-gauge-icon { color: #c2c2c2; }
+  /* Rangée fourchette de prix : pleine largeur de la card (ligne 2 de la grille).
+   * Réutilise le composant .price-dual identique à la section du dessous. */
+  .source-price-row {
+    grid-column: 1 / -1;
+    min-width: 0;
+    padding: 2px 10px 0;
+    box-sizing: border-box;
+  }
+  .source-price-row .price-dual { margin-top: 0; }
+  .source-row.disabled .price-dual-selected { background: transparent; border-color: #c2c2c2; }
+  .source-row.disabled .price-dual input[type="range"]::-webkit-slider-thumb { border-color: #c2c2c2; }
+  .source-row.disabled .price-dual input[type="range"]::-moz-range-thumb { border-color: #c2c2c2; }
+  /* ─── Catégories de diffuseurs repliables (Papiris / Ideeri / DVF / Portails) ─── */
+  .source-cat {
+    border: 1px solid #ececec;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #fafbfc;
+  }
+  .source-cat + .source-cat { margin-top: 8px; }
+  .source-cat-head {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    border: none;
+    background: #f2f5f8;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    transition: background 0.12s;
+  }
+  .source-cat-head:hover { background: #e9eef3; }
+  .source-cat-caret {
+    font-size: 14px;
+    color: #6b7682;
+    transition: transform 0.15s;
+    flex-shrink: 0;
+    line-height: 1;
+  }
+  .source-cat-caret.is-open { transform: rotate(90deg); }
+  .source-cat-title {
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #34404b;
+  }
+  .source-cat .source-row { margin: 6px 8px; }
+  .source-cat .source-row:last-child { margin-bottom: 8px; }
   .source-dot {
     width: 8px;
     height: 8px;
@@ -937,14 +1010,17 @@ const cssStyles = `
   .price-dual {
     position: relative;
     height: 46px;
-    padding: 0 4px;
+    padding: 0;
     margin-top: 4px;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
   }
   .price-dual-track {
     position: absolute;
     top: 18px;
-    left: 4px;
-    right: 4px;
+    left: 12px;
+    right: 12px;
     height: 10px;
     border-radius: 5px;
     /* dégradé = densité de biens par tranche de prix */
@@ -972,11 +1048,15 @@ const cssStyles = `
     pointer-events: none;
     box-sizing: border-box;
   }
+  /* Les inputs sont décalés de 3px (= 12px piste − 9px demi-poignée) pour que,
+   * en butée min/max, le bord de la poignée tombe pile au bord intérieur du
+   * composant sans jamais dépasser. */
   .price-dual input[type="range"] {
     position: absolute;
     top: 18px;
-    left: 0;
-    width: 100%;
+    left: 3px;
+    right: 3px;
+    width: auto;
     height: 10px;
     -webkit-appearance: none;
     appearance: none;
@@ -1016,10 +1096,20 @@ const cssStyles = `
     right: 0;
     display: flex;
     justify-content: space-between;
+    gap: 6px;
     font-size: 10px;
     color: #666;
-    padding: 0 4px;
+    padding: 0 6px;
+    box-sizing: border-box;
+    overflow: hidden;
   }
+  .price-dual-labels > span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+  .price-dual-labels > span:last-child { text-align: right; }
   .price-dual-labels strong {
     color: var(--text);
     font-weight: 700;
@@ -1547,26 +1637,26 @@ const cssStyles = `
     transition: filter 0.12s;
   }
   .pool-section-header:hover { filter: brightness(0.97); }
+  /* Fonds gradient (charte ideeri) : une variante de couleur par catégorie */
   .pool-section-block.theorique .pool-section-header {
-    background: linear-gradient(90deg, #fff8e8 0%, #fffdf6 100%);
-    border-left: 3px solid #f5a623;
+    background: linear-gradient(120deg, #FFCF30 0%, #FFDB66 45%, #FFF6CB 100%);
   }
   .pool-section-block.reel .pool-section-header {
-    background: linear-gradient(90deg, #effaf2 0%, #f7fbf8 100%);
-    border-left: 3px solid #46B962;
+    background: linear-gradient(120deg, #27AA66 0%, #50BD77 45%, #A8E2C0 100%);
   }
   .pool-section-block.invendus .pool-section-header {
-    background: linear-gradient(90deg, #fbeee6 0%, #fdf6f1 100%);
-    border-left: 3px solid #b86e3a;
+    background: linear-gradient(120deg, #FD3F17 0%, #FF8A3C 50%, #FFD06A 100%);
   }
   /* Caret indiquant l'état ouvert/fermé du dropdown */
   .pool-section-caret {
-    font-size: 10px;
-    color: #999;
+    font-size: 18px;
     transition: transform 0.15s;
     flex-shrink: 0;
     line-height: 1;
   }
+  .pool-section-block.theorique .pool-section-caret { color: #8a5a10; }
+  .pool-section-block.reel .pool-section-caret { color: #15633a; }
+  .pool-section-block.invendus .pool-section-caret { color: #8c2408; }
   .pool-section-caret.is-open { transform: rotate(90deg); }
   .pool-section-title {
     font-size: 11px;
@@ -1576,22 +1666,26 @@ const cssStyles = `
     line-height: 1.1;
     margin-right: auto;
   }
-  .pool-section-block.theorique .pool-section-title { color: #8a5a30; }
-  .pool-section-block.reel .pool-section-title { color: #2d8856; }
-  .pool-section-block.invendus .pool-section-title { color: #8a4d23; }
+  .pool-section-block.theorique .pool-section-title { color: #5c3d08; }
+  .pool-section-block.reel .pool-section-title { color: #0e4a2b; }
+  .pool-section-block.invendus .pool-section-title { color: #7a1e06; }
   .pool-section-count {
-    background: #fff;
-    border: 1px solid #e0e0e0;
+    background: rgba(255, 255, 255, 0.85);
     padding: 3px 9px;
     border-radius: 11px;
     font-size: 11px;
     font-weight: 700;
-    color: #555;
     flex-shrink: 0;
   }
-  .pool-section-block.theorique .pool-section-count { color: #b07800; border-color: #ffe082; }
-  .pool-section-block.reel .pool-section-count { color: #2d8856; border-color: #d4ead8; }
-  .pool-section-block.invendus .pool-section-count { color: #8a4d23; border-color: #e4c4ad; }
+  .pool-section-block.theorique .pool-section-count {
+    color: #5c3d08; border: 1px solid rgba(140, 90, 16, 0.25);
+  }
+  .pool-section-block.reel .pool-section-count {
+    color: #0e4a2b; border: 1px solid rgba(14, 74, 43, 0.22);
+  }
+  .pool-section-block.invendus .pool-section-count {
+    color: #7a1e06; border: 1px solid rgba(122, 30, 6, 0.22);
+  }
   /* Quand replié : pas de bordure 3px séparatrice résiduelle gênante */
   .pool-section-block.is-collapsed .pool-section-header { border-bottom: none; }
 
@@ -2811,17 +2905,44 @@ const cssStyles = `
     to { background: rgba(0, 0, 0, 0.42); }
   }
   .filters-drawer-panel {
+    position: relative;
     width: 460px;
     max-width: 95vw;
     height: 100vh;
     background: #fff;
     overflow-y: auto;
+    overflow-x: hidden;
     animation: filters-drawer-slide 0.25s ease;
     box-shadow: 4px 0 20px rgba(0, 0, 0, 0.12);
     font-family: var(--font);
     display: flex;
     flex-direction: column;
   }
+  .filters-drawer-resize {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 8px;
+    height: 100%;
+    cursor: ew-resize;
+    z-index: 20;
+    background: transparent;
+    transition: background 0.15s;
+  }
+  .filters-drawer-resize::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: 2px;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 44px;
+    border-radius: 3px;
+    background: #d8d8d8;
+    transition: background 0.15s;
+  }
+  .filters-drawer-resize:hover { background: rgba(70, 185, 98, 0.06); }
+  .filters-drawer-resize:hover::after { background: var(--green); }
   @keyframes filters-drawer-slide {
     from { transform: translateX(-100%); }
     to { transform: translateX(0); }
@@ -3951,8 +4072,23 @@ function TypeMultiSelect({ selected, onChange }) {
  * Card cliquable (toggle au clic sur toute la zone sauf le slider et la
  * pill de valeur), checkbox custom carrée arrondie, slider épais avec fill
  * vert progressif, valeur en pill verte à droite. */
-function SourceRow({ dotClass, label, checked, onToggle, delay, setDelay, maxMonths = 36 }) {
+function SourceRow({
+  dotClass, label, checked, onToggle, delay, setDelay, maxMonths = 36,
+  priceMin, priceMax, setPriceMin, setPriceMax, priceFloor = 50000, priceCeil = 1500000,
+  prices = [],
+}) {
   const pct = ((delay - 1) / (maxMonths - 1)) * 100;
+  // Même échelle que la section "Fourchette de prix" du dessous.
+  const PRICE_MIN_SCALE = priceFloor;
+  const PRICE_MAX_SCALE = priceCeil;
+  const PRICE_STEP = 5000;
+  const leftPct = ((priceMin - PRICE_MIN_SCALE) / (PRICE_MAX_SCALE - PRICE_MIN_SCALE)) * 100;
+  const rightPct = ((priceMax - PRICE_MIN_SCALE) / (PRICE_MAX_SCALE - PRICE_MIN_SCALE)) * 100;
+  // Comptage MONOTONE : nb de biens (de cette source) dont le prix <= borne.
+  const biensUpTo = (p) => prices.filter((v) => v <= p).length;
+  const biensInRange = prices.filter((v) => v >= priceMin && v <= priceMax).length;
+  const nBelow = biensUpTo(priceMin);
+  const nUpToMax = biensUpTo(priceMax);
   const stopProp = (e) => e.stopPropagation();
   return (
     <div
@@ -3979,31 +4115,77 @@ function SourceRow({ dotClass, label, checked, onToggle, delay, setDelay, maxMon
         <span className={`source-dot ${dotClass}`} />
         {label}
       </span>
-      {/* Slider 100% custom — track/fill/thumb sont des div HTML normaux,
+      {/* Jauge ancienneté (mois) — ligne 1, dans la 3e colonne.
+       * Slider 100% custom — track/fill/thumb sont des div HTML normaux,
        * l'input range est invisible (opacity 0) et gère uniquement
-       * l'interaction drag/clavier. Zéro pseudo-element navigateur
-       * → zéro contour gris natif possible. */}
-      <div
-        className="cs-slider"
-        onClick={stopProp}
-        onMouseDown={stopProp}
-        style={{ '--cs-pct': pct }}
-      >
-        <div className="cs-track" />
-        <div className="cs-fill" />
-        <div className="cs-thumb" />
-        <input
-          type="range"
-          className="cs-input"
-          min="1"
-          max={maxMonths}
-          value={delay}
-          disabled={!checked}
-          onChange={(e) => setDelay(Number(e.target.value))}
-          aria-label={`Ancienneté max ${label}`}
-        />
+       * l'interaction drag/clavier. */}
+      <div className="source-gauges" onClick={stopProp} onMouseDown={stopProp}>
+        <div className="source-gauge">
+          <span className="source-gauge-icon" title="Ancienneté max">⏱</span>
+          <div className="cs-slider" style={{ '--cs-pct': pct }}>
+            <div className="cs-track" />
+            <div className="cs-fill" />
+            <div className="cs-thumb" />
+            <input
+              type="range"
+              className="cs-input"
+              min="1"
+              max={maxMonths}
+              value={delay}
+              disabled={!checked}
+              onChange={(e) => setDelay(Number(e.target.value))}
+              aria-label={`Ancienneté max ${label}`}
+            />
+          </div>
+          <span className="source-gauge-value">{delay} mois</span>
+        </div>
       </div>
-      <span className="source-delay-value" onClick={stopProp}>{delay} mois</span>
+      {/* Fourchette de prix — ligne 2, pleine largeur de la card.
+       * Markup identique à la section "Fourchette de prix" du dessous
+       * (track dégradé, 2 poignées, labels avec nb de biens + hint). */}
+      <div className="source-price-row" onClick={stopProp} onMouseDown={stopProp}>
+        <div className="price-dual">
+          <div className="price-dual-track" />
+          <div
+            className="price-dual-selected"
+            style={{
+              left: `calc(12px + ${(Math.max(0, Math.min(100, leftPct)) / 100).toFixed(4)} * (100% - 24px))`,
+              width: `calc(${((Math.max(0, Math.min(100, rightPct)) - Math.max(0, Math.min(100, leftPct))) / 100).toFixed(4)} * (100% - 24px))`,
+            }}
+          />
+          <input
+            type="range"
+            min={PRICE_MIN_SCALE}
+            max={PRICE_MAX_SCALE}
+            step={PRICE_STEP}
+            value={priceMin}
+            disabled={!checked}
+            onChange={(e) => setPriceMin(Math.min(Number(e.target.value), priceMax - PRICE_STEP))}
+            aria-label={`Prix minimum ${label}`}
+          />
+          <input
+            type="range"
+            min={PRICE_MIN_SCALE}
+            max={PRICE_MAX_SCALE}
+            step={PRICE_STEP}
+            value={priceMax}
+            disabled={!checked}
+            onChange={(e) => setPriceMax(Math.max(Number(e.target.value), priceMin + PRICE_STEP))}
+            aria-label={`Prix maximum ${label}`}
+          />
+          <div className="price-dual-labels">
+            <span>
+              <strong>{(priceMin / 1000).toFixed(0)} k€</strong> · <span className="count">{nBelow} en dessous</span>
+            </span>
+            <span>
+              <strong>{(priceMax / 1000).toFixed(0)} k€</strong> · <span className="count">{nUpToMax} jusqu'ici</span>
+            </span>
+          </div>
+        </div>
+        <div className="filter-hint" style={{ marginTop: 10 }}>
+          <strong style={{ color: '#46B962' }}>{biensInRange} biens</strong> dans la fourchette
+        </div>
+      </div>
     </div>
   );
 }
@@ -4367,6 +4549,12 @@ export default function Step3Comparables() {
   const [delayEstimation, setDelayEstimation] = useState(12);
   const [delayMandatClos, setDelayMandatClos] = useState(24);
   const [delayAutreAgence, setDelayAutreAgence] = useState(24);
+  // Catégories diffuseurs repliables dans le drawer filtres
+  const [openSourceCats, setOpenSourceCats] = useState({
+    papiris: true, ideeri: true, dvf: true, portails: true,
+  });
+  const toggleSourceCat = (key) =>
+    setOpenSourceCats((prev) => ({ ...prev, [key]: !prev[key] }));
   const [drawMode, setDrawMode] = useState(false);
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -4812,6 +5000,25 @@ export default function Step3Comparables() {
   const [piecesMax, setPiecesMax] = useState(persistedFiltres.piecesMax ?? 4);
   const [prixMin, setPrixMin] = useState(persistedFiltres.prixMin ?? 200000);
   const [prixMax, setPrixMax] = useState(persistedFiltres.prixMax ?? 400000);
+  // Fourchette de prix (€) par source — filtre le prix total des comparables
+  // de la source sur [min, max]. Échelle identique à la section "Fourchette
+  // de prix" du dessous (100k–600k). Défaut : plage complète (= pas de coupe).
+  const PRICE_FLOOR = 100000;
+  const PRICE_MAX = 600000;
+  const [priceMinDvf, setPriceMinDvf] = useState(persistedFiltres.priceMinDvf ?? PRICE_FLOOR);
+  const [priceMaxDvf, setPriceMaxDvf] = useState(persistedFiltres.priceMaxDvf ?? PRICE_MAX);
+  const [priceMinIdeeri, setPriceMinIdeeri] = useState(persistedFiltres.priceMinIdeeri ?? PRICE_FLOOR);
+  const [priceMaxIdeeri, setPriceMaxIdeeri] = useState(persistedFiltres.priceMaxIdeeri ?? PRICE_MAX);
+  const [priceMinEncours, setPriceMinEncours] = useState(persistedFiltres.priceMinEncours ?? PRICE_FLOOR);
+  const [priceMaxEncours, setPriceMaxEncours] = useState(persistedFiltres.priceMaxEncours ?? PRICE_MAX);
+  const [priceMinEstimation, setPriceMinEstimation] = useState(persistedFiltres.priceMinEstimation ?? PRICE_FLOOR);
+  const [priceMaxEstimation, setPriceMaxEstimation] = useState(persistedFiltres.priceMaxEstimation ?? PRICE_MAX);
+  const [priceMinMandatClos, setPriceMinMandatClos] = useState(persistedFiltres.priceMinMandatClos ?? PRICE_FLOOR);
+  const [priceMaxMandatClos, setPriceMaxMandatClos] = useState(persistedFiltres.priceMaxMandatClos ?? PRICE_MAX);
+  const [priceMinAutreAgence, setPriceMinAutreAgence] = useState(persistedFiltres.priceMinAutreAgence ?? PRICE_FLOOR);
+  const [priceMaxAutreAgence, setPriceMaxAutreAgence] = useState(persistedFiltres.priceMaxAutreAgence ?? PRICE_MAX);
+  const [priceMinPortail, setPriceMinPortail] = useState(persistedFiltres.priceMinPortail ?? PRICE_FLOOR);
+  const [priceMaxPortail, setPriceMaxPortail] = useState(persistedFiltres.priceMaxPortail ?? PRICE_MAX);
   /* typeFilters : array de values TYPES_BIEN. Si [] ou contient tout → "Tous types".
    * Migration depuis l'ancien format string (typeFilter) pour les rapports
    * sauvegardés avant l'introduction du multiselect. */
@@ -4832,6 +5039,28 @@ export default function Step3Comparables() {
   const [sourceAutreAgence, setSourceAutreAgence] = useState(persistedFiltres.sourceAutreAgence ?? true);
   // Drawer filtres : ouvert/fermé. Le bouton "Configurer les filtres" l'ouvre.
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [drawerWidth, setDrawerWidth] = useState(460);
+  const drawerResizeRef = useRef(null);
+  const startDrawerResize = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startW = drawerWidth;
+    const onMove = (ev) => {
+      const next = Math.max(400, Math.min(window.innerWidth * 0.95, startW + (ev.clientX - startX)));
+      setDrawerWidth(next);
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    };
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'ew-resize';
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
   const [sourcePortail, setSourcePortail] = useState(persistedFiltres.sourcePortail ?? true);
 
   // Persiste les filtres dans le reportStore
@@ -4846,6 +5075,11 @@ export default function Step3Comparables() {
         sourceEstimation, sourceMandatClos, sourceAutreAgence,
         radius, delayDvf, delayIdeeri, delayEncours, delayPortail,
         delayEstimation, delayMandatClos, delayAutreAgence,
+        priceMinDvf, priceMaxDvf, priceMinIdeeri, priceMaxIdeeri,
+        priceMinEncours, priceMaxEncours, priceMinPortail, priceMaxPortail,
+        priceMinEstimation, priceMaxEstimation,
+        priceMinMandatClos, priceMaxMandatClos,
+        priceMinAutreAgence, priceMaxAutreAgence,
       },
     });
   }, [
@@ -4855,6 +5089,11 @@ export default function Step3Comparables() {
     sourceEstimation, sourceMandatClos, sourceAutreAgence,
     radius, delayDvf, delayIdeeri, delayEncours, delayPortail,
     delayEstimation, delayMandatClos, delayAutreAgence,
+    priceMinDvf, priceMaxDvf, priceMinIdeeri, priceMaxIdeeri,
+    priceMinEncours, priceMaxEncours, priceMinPortail, priceMaxPortail,
+    priceMinEstimation, priceMaxEstimation,
+    priceMinMandatClos, priceMaxMandatClos,
+    priceMinAutreAgence, priceMaxAutreAgence,
   ]);
 
   // Additional optional filters
@@ -4887,6 +5126,23 @@ export default function Step3Comparables() {
     if (c.source === 'estimation' && !sourceEstimation) return false;
     if (c.source === 'mandat_clos' && !sourceMandatClos) return false;
     if (c.source === 'autre_agence' && !sourceAutreAgence) return false;
+    // Fourchette de prix [min, max] (€) par source (slider de chaque diffuseur)
+    const srcRange = {
+      dvf: [priceMinDvf, priceMaxDvf],
+      portail: [priceMinPortail, priceMaxPortail],
+      ideeri: [priceMinIdeeri, priceMaxIdeeri],
+      encours: [priceMinEncours, priceMaxEncours],
+      estimation: [priceMinEstimation, priceMaxEstimation],
+      mandat_clos: [priceMinMandatClos, priceMaxMandatClos],
+      autre_agence: [priceMinAutreAgence, priceMaxAutreAgence],
+    }[c.source];
+    if (srcRange) {
+      const [lo, hi] = srcRange;
+      if (lo > PRICE_FLOOR || hi < PRICE_MAX) {
+        const p = c.fields?.prix ?? c._dvfRaw?.prix;
+        if (typeof p === 'number' && (p < lo || p > hi)) return false;
+      }
+    }
     // Filtre type (multiselect)
     // - typeFilters vide ou contient tous les types → "Tous types" (pas de filtre)
     // - sinon : on garde si le type du comp matche l'une des values cochées
@@ -4979,6 +5235,18 @@ export default function Step3Comparables() {
   };
   const filteredCount = computeFilteredCount();
 
+  /* Prix des biens disponibles regroupés par source (pour alimenter le
+   * comptage de biens dans la fourchette de prix de chaque diffuseur). */
+  const pricesBySource = useMemo(() => {
+    const acc = {};
+    for (const c of others) {
+      const p = c.fields?.prix ?? c._dvfRaw?.prix;
+      if (typeof p !== 'number') continue;
+      (acc[c.source] = acc[c.source] || []).push(p);
+    }
+    return acc;
+  }, [others]);
+
   /* Communes / quartiers réellement couverts par le rayon courant.
    * Dérivé des comparables `others` dont la distance au target <= radius,
    * sans appliquer les autres filtres (on veut voir toute la zone, même si
@@ -5048,7 +5316,20 @@ export default function Step3Comparables() {
     if (mapInstanceRef.current) return;
     if (!L || !mapRef.current) return;
 
-    const map = L.map(mapRef.current, { zoomControl: false, attributionControl: false }).setView(targetCoords, 15);
+    // dragging: false → la carte ne se déplace pas au glisser-déposer souris.
+    // scrollWheelZoom: false → la molette ne zoome plus (le zoom molette ancre
+    // sur le pointeur et déplace la vue). Navigation uniquement via les boutons
+    // +/- de zoom (qui zooment toujours sur le centre).
+    const map = L.map(mapRef.current, {
+      zoomControl: false,
+      attributionControl: false,
+      dragging: false,
+      scrollWheelZoom: false,
+      doubleClickZoom: false,
+      boxZoom: false,
+      touchZoom: false,
+      keyboard: false,
+    }).setView(targetCoords, 15);
     const tile = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
     tileLayerRef.current = tile;
     L.control.zoom({ position: 'topleft' }).addTo(map);
@@ -5106,7 +5387,8 @@ export default function Step3Comparables() {
     };
     const onMouseUp = () => {
       if (!isDrawingRef.current || !freehandLineRef.current) return;
-      map.dragging.enable();
+      // Note : le drag de la carte reste désactivé en permanence (navigation
+      // uniquement via zoom). On ne réactive donc pas map.dragging ici.
       // Remove temp polyline, create filled polygon
       map.removeLayer(freehandLineRef.current);
       freehandLineRef.current = null;
@@ -5280,7 +5562,7 @@ export default function Step3Comparables() {
         map.getContainer().style.cursor = 'crosshair';
       } else {
         map.getContainer().style.cursor = '';
-        map.dragging.enable();
+        // drag carte volontairement laissé désactivé (navigation par zoom only)
       }
     }
   };
@@ -5299,7 +5581,7 @@ export default function Step3Comparables() {
     setDrawMode(false);
     if (map) {
       map.getContainer().style.cursor = '';
-      map.dragging.enable();
+      // drag carte volontairement laissé désactivé (navigation par zoom only)
     }
   };
 
@@ -5335,38 +5617,8 @@ export default function Step3Comparables() {
           <button type="button" className="btn-reset-compact">Réinitialiser</button>
         </div>
 
-        {/* Radius Slider — reste dans la barre principale car contextuel à la carte */}
-        <div className="radius-row">
-          <div className="radius-label">Rayon</div>
-          <span className="commune-badge">{targetCityShort}</span>
-          <div className="radius-slider-wrap">
-            {/* Slider custom (identique aux sources) — track + fill + thumb en
-             * div HTML, input range invisible pour gérer drag/clavier. */}
-            <div className="cs-slider" style={{ '--cs-pct': sliderPct }}>
-              <div className="cs-track" />
-              <div className="cs-fill" />
-              <div className="cs-thumb" />
-              <input
-                type="range"
-                className="cs-input"
-                min="100"
-                max="10000"
-                step="100"
-                value={radius}
-                onChange={(e) => setRadius(Number(e.target.value))}
-                aria-label="Rayon de recherche"
-              />
-            </div>
-            <div className="radius-slider-labels">
-              <span>100m</span>
-              <span>2km</span>
-              <span>4km</span>
-              <span>6km</span>
-              <span>10km</span>
-            </div>
-          </div>
-          <div className="radius-value">{formatRadius(radius)}</div>
-        </div>
+        {/* Le rayon a été déplacé en overlay sur la carte (cf. radius-overlay
+         * dans la colonne carte du workspace). */}
 
         {/* Zones couvertes par le rayon — mini-tags communes/quartiers.
          * Dérivés des comparables réellement dans le rayon. Croix = exclure
@@ -5433,7 +5685,18 @@ export default function Step3Comparables() {
           onClick={() => setFiltersOpen(false)}
           onKeyDown={(e) => { if (e.key === 'Escape') setFiltersOpen(false); }}
         >
-          <aside className="filters-drawer-panel" onClick={(e) => e.stopPropagation()}>
+          <aside
+            className="filters-drawer-panel"
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: drawerWidth }}
+          >
+            <div
+              className="filters-drawer-resize"
+              onMouseDown={startDrawerResize}
+              role="separator"
+              aria-label="Redimensionner le panneau"
+              title="Glisser pour agrandir"
+            />
             <header className="filters-drawer-header">
               <h2>Filtres</h2>
               <span className="filters-drawer-results">{filteredCount} résultats</span>
@@ -5450,79 +5713,96 @@ export default function Step3Comparables() {
               {/* SECTION 1 — Source & ancienneté max */}
               <section className="filters-drawer-section">
                 <h3 className="filters-drawer-section-title">
-                  Source &amp; ancienneté max
-                  <span className="filters-drawer-section-hint">7 sources · ancienneté par source</span>
+                  Diffuseurs de biens
+                  <span className="filters-drawer-section-hint">ancienneté + tranche de prix par diffuseur</span>
                 </h3>
                 <div className="filters-drawer-section-body">
                   <div className="source-checkboxes">
-                    <div className="source-subgroup-label">Officiel</div>
-                    <SourceRow
-                      dotClass="dot-dvf"
-                      label="DVF"
-                      checked={sourceDvf}
-                      onToggle={() => setSourceDvf(!sourceDvf)}
-                      delay={delayDvf}
-                      setDelay={setDelayDvf}
-                      maxMonths={96}
-                    />
+                    {/* CATÉGORIE PAPIRIS — estimation / mandats actifs / biens vendus */}
+                    <div className={`source-cat${openSourceCats.papiris ? '' : ' is-collapsed'}`}>
+                      <button type="button" className="source-cat-head" onClick={() => toggleSourceCat('papiris')} aria-expanded={openSourceCats.papiris}>
+                        <span className={`source-cat-caret${openSourceCats.papiris ? ' is-open' : ''}`}>{'\u25b8'}</span>
+                        <span className="source-cat-title">Papiris</span>
+                      </button>
+                      {openSourceCats.papiris && (
+                        <>
+                          <SourceRow dotClass="dot-estimation" label="Estimation"
+                            checked={sourceEstimation} onToggle={() => setSourceEstimation(!sourceEstimation)}
+                            delay={delayEstimation} setDelay={setDelayEstimation} maxMonths={36}
+                            priceMin={priceMinEstimation} priceMax={priceMaxEstimation}
+                            setPriceMin={setPriceMinEstimation} setPriceMax={setPriceMaxEstimation}
+                            priceFloor={PRICE_FLOOR} priceCeil={PRICE_MAX} prices={pricesBySource.estimation} />
+                          <SourceRow dotClass="dot-encours" label="Mandats actifs"
+                            checked={sourceEncours} onToggle={() => setSourceEncours(!sourceEncours)}
+                            delay={delayEncours} setDelay={setDelayEncours} maxMonths={36}
+                            priceMin={priceMinEncours} priceMax={priceMaxEncours}
+                            setPriceMin={setPriceMinEncours} setPriceMax={setPriceMaxEncours}
+                            priceFloor={PRICE_FLOOR} priceCeil={PRICE_MAX} prices={pricesBySource.encours} />
+                          <SourceRow dotClass="dot-ideeri" label="Biens vendus"
+                            checked={sourceIdeeri} onToggle={() => setSourceIdeeri(!sourceIdeeri)}
+                            delay={delayIdeeri} setDelay={setDelayIdeeri} maxMonths={96}
+                            priceMin={priceMinIdeeri} priceMax={priceMaxIdeeri}
+                            setPriceMin={setPriceMinIdeeri} setPriceMax={setPriceMaxIdeeri}
+                            priceFloor={PRICE_FLOOR} priceCeil={PRICE_MAX} prices={pricesBySource.ideeri} />
+                        </>
+                      )}
+                    </div>
 
-                    <div className="source-subgroup-label">Papiris</div>
-                    <SourceRow
-                      dotClass="dot-ideeri"
-                      label="Biens vendus"
-                      checked={sourceIdeeri}
-                      onToggle={() => setSourceIdeeri(!sourceIdeeri)}
-                      delay={delayIdeeri}
-                      setDelay={setDelayIdeeri}
-                      maxMonths={96}
-                    />
-                    <SourceRow
-                      dotClass="dot-encours"
-                      label="En cours"
-                      checked={sourceEncours}
-                      onToggle={() => setSourceEncours(!sourceEncours)}
-                      delay={delayEncours}
-                      setDelay={setDelayEncours}
-                      maxMonths={36}
-                    />
-                    <SourceRow
-                      dotClass="dot-estimation"
-                      label="Estimation"
-                      checked={sourceEstimation}
-                      onToggle={() => setSourceEstimation(!sourceEstimation)}
-                      delay={delayEstimation}
-                      setDelay={setDelayEstimation}
-                      maxMonths={36}
-                    />
-                    <SourceRow
-                      dotClass="dot-mandat-clos"
-                      label="Mandat clos"
-                      checked={sourceMandatClos}
-                      onToggle={() => setSourceMandatClos(!sourceMandatClos)}
-                      delay={delayMandatClos}
-                      setDelay={setDelayMandatClos}
-                      maxMonths={36}
-                    />
-                    <SourceRow
-                      dotClass="dot-autre-agence"
-                      label="Vendu autre agence"
-                      checked={sourceAutreAgence}
-                      onToggle={() => setSourceAutreAgence(!sourceAutreAgence)}
-                      delay={delayAutreAgence}
-                      setDelay={setDelayAutreAgence}
-                      maxMonths={36}
-                    />
+                    {/* CATÉGORIE IDEERI — mandats actifs / biens vendus */}
+                    <div className={`source-cat${openSourceCats.ideeri ? '' : ' is-collapsed'}`}>
+                      <button type="button" className="source-cat-head" onClick={() => toggleSourceCat('ideeri')} aria-expanded={openSourceCats.ideeri}>
+                        <span className={`source-cat-caret${openSourceCats.ideeri ? ' is-open' : ''}`}>{'\u25b8'}</span>
+                        <span className="source-cat-title">Ideeri</span>
+                      </button>
+                      {openSourceCats.ideeri && (
+                        <>
+                          <SourceRow dotClass="dot-mandat-clos" label="Mandats actifs"
+                            checked={sourceMandatClos} onToggle={() => setSourceMandatClos(!sourceMandatClos)}
+                            delay={delayMandatClos} setDelay={setDelayMandatClos} maxMonths={36}
+                            priceMin={priceMinMandatClos} priceMax={priceMaxMandatClos}
+                            setPriceMin={setPriceMinMandatClos} setPriceMax={setPriceMaxMandatClos}
+                            priceFloor={PRICE_FLOOR} priceCeil={PRICE_MAX} prices={pricesBySource.mandat_clos} />
+                          <SourceRow dotClass="dot-autre-agence" label="Biens vendus"
+                            checked={sourceAutreAgence} onToggle={() => setSourceAutreAgence(!sourceAutreAgence)}
+                            delay={delayAutreAgence} setDelay={setDelayAutreAgence} maxMonths={36}
+                            priceMin={priceMinAutreAgence} priceMax={priceMaxAutreAgence}
+                            setPriceMin={setPriceMinAutreAgence} setPriceMax={setPriceMaxAutreAgence}
+                            priceFloor={PRICE_FLOOR} priceCeil={PRICE_MAX} prices={pricesBySource.autre_agence} />
+                        </>
+                      )}
+                    </div>
 
-                    <div className="source-subgroup-label">Annonces</div>
-                    <SourceRow
-                      dotClass="dot-portail"
-                      label="Portails"
-                      checked={sourcePortail}
-                      onToggle={() => setSourcePortail(!sourcePortail)}
-                      delay={delayPortail}
-                      setDelay={setDelayPortail}
-                      maxMonths={36}
-                    />
+                    {/* CATÉGORIE DVF */}
+                    <div className={`source-cat${openSourceCats.dvf ? '' : ' is-collapsed'}`}>
+                      <button type="button" className="source-cat-head" onClick={() => toggleSourceCat('dvf')} aria-expanded={openSourceCats.dvf}>
+                        <span className={`source-cat-caret${openSourceCats.dvf ? ' is-open' : ''}`}>{'\u25b8'}</span>
+                        <span className="source-cat-title">DVF</span>
+                      </button>
+                      {openSourceCats.dvf && (
+                        <SourceRow dotClass="dot-dvf" label="Transactions DVF"
+                          checked={sourceDvf} onToggle={() => setSourceDvf(!sourceDvf)}
+                          delay={delayDvf} setDelay={setDelayDvf} maxMonths={96}
+                          priceMin={priceMinDvf} priceMax={priceMaxDvf}
+                          setPriceMin={setPriceMinDvf} setPriceMax={setPriceMaxDvf}
+                          priceFloor={PRICE_FLOOR} priceCeil={PRICE_MAX} prices={pricesBySource.dvf} />
+                      )}
+                    </div>
+
+                    {/* CATÉGORIE PORTAILS */}
+                    <div className={`source-cat${openSourceCats.portails ? '' : ' is-collapsed'}`}>
+                      <button type="button" className="source-cat-head" onClick={() => toggleSourceCat('portails')} aria-expanded={openSourceCats.portails}>
+                        <span className={`source-cat-caret${openSourceCats.portails ? ' is-open' : ''}`}>{'\u25b8'}</span>
+                        <span className="source-cat-title">Portails</span>
+                      </button>
+                      {openSourceCats.portails && (
+                        <SourceRow dotClass="dot-portail" label="Annonces portails"
+                          checked={sourcePortail} onToggle={() => setSourcePortail(!sourcePortail)}
+                          delay={delayPortail} setDelay={setDelayPortail} maxMonths={36}
+                          priceMin={priceMinPortail} priceMax={priceMaxPortail}
+                          setPriceMin={setPriceMinPortail} setPriceMax={setPriceMaxPortail}
+                          priceFloor={PRICE_FLOOR} priceCeil={PRICE_MAX} prices={pricesBySource.portail} />
+                      )}
+                    </div>
                   </div>
                 </div>
               </section>
@@ -5574,17 +5854,19 @@ export default function Step3Comparables() {
                   {(() => {
                     const PRICE_MIN_SCALE = 100000;
                     const PRICE_MAX_SCALE = 600000;
-                    const biensAtPrice = (p) => {
-                      const center = 300000;
-                      const sigma = 70000;
-                      const peak = 43;
-                      const val = peak * Math.exp(-Math.pow(p - center, 2) / (2 * sigma * sigma));
-                      return Math.max(2, Math.round(val));
-                    };
+                    // Prix de chaque bien réel disponible (mode live).
+                    const allPrices = others
+                      .map((c) => c.fields?.prix ?? c._dvfRaw?.prix)
+                      .filter((p) => typeof p === 'number');
+                    // Comptage MONOTONE : nb de biens dont le prix est <= borne.
+                    // Plus la borne haute monte, plus le cumul augmente.
+                    const biensUpTo = (p) => allPrices.filter((v) => v <= p).length;
+                    // Nb de biens réellement DANS la fourchette [prixMin, prixMax].
+                    const biensInRange = allPrices.filter((v) => v >= prixMin && v <= prixMax).length;
                     const leftPct = ((prixMin - PRICE_MIN_SCALE) / (PRICE_MAX_SCALE - PRICE_MIN_SCALE)) * 100;
                     const rightPct = ((prixMax - PRICE_MIN_SCALE) / (PRICE_MAX_SCALE - PRICE_MIN_SCALE)) * 100;
-                    const nMin = biensAtPrice(prixMin);
-                    const nMax = biensAtPrice(prixMax);
+                    const nBelow = biensUpTo(prixMin);
+                    const nUpToMax = biensUpTo(prixMax);
                     return (
                       <>
                         <div className="price-dual">
@@ -5592,24 +5874,24 @@ export default function Step3Comparables() {
                           <div
                             className="price-dual-selected"
                             style={{
-                              left: `calc(${Math.max(0, Math.min(100, leftPct))}% + 4px)`,
-                              width: `calc(${Math.max(0, rightPct - leftPct)}% - 0px)`,
+                              left: `calc(12px + ${(Math.max(0, Math.min(100, leftPct)) / 100).toFixed(4)} * (100% - 24px))`,
+                              width: `calc(${((Math.max(0, Math.min(100, rightPct)) - Math.max(0, Math.min(100, leftPct))) / 100).toFixed(4)} * (100% - 24px))`,
                             }}
                           />
                           <input type="range" min={PRICE_MIN_SCALE} max={PRICE_MAX_SCALE} step={5000} value={prixMin} onChange={(e) => { const v = Number(e.target.value); setPrixMin(Math.min(v, prixMax - 5000)); }} aria-label="Prix minimum" />
                           <input type="range" min={PRICE_MIN_SCALE} max={PRICE_MAX_SCALE} step={5000} value={prixMax} onChange={(e) => { const v = Number(e.target.value); setPrixMax(Math.max(v, prixMin + 5000)); }} aria-label="Prix maximum" />
                           <div className="price-dual-labels">
                             <span>
-                              <strong>{(prixMin / 1000).toFixed(0)} k€</strong> · <span className="count">{nMin} biens</span>
+                              <strong>{(prixMin / 1000).toFixed(0)} k€</strong> · <span className="count">{nBelow} en dessous</span>
                             </span>
                             <span>
-                              <strong>{(prixMax / 1000).toFixed(0)} k€</strong> · <span className="count">{nMax} biens</span>
+                              <strong>{(prixMax / 1000).toFixed(0)} k€</strong> · <span className="count">{nUpToMax} jusqu'ici</span>
                             </span>
                           </div>
                         </div>
                         <div className="filter-hint" style={{ marginTop: 14 }}>
                           Soit {Math.round(prixMin / 72.5).toLocaleString('fr-FR')} — {Math.round(prixMax / 72.5).toLocaleString('fr-FR')} €/m² —{' '}
-                          <strong style={{ color: '#46B962' }}>{filteredCount} biens</strong> dans la fourchette
+                          <strong style={{ color: '#46B962' }}>{biensInRange} biens</strong> dans la fourchette
                         </div>
                       </>
                     );
@@ -5869,6 +6151,29 @@ export default function Step3Comparables() {
           >
             {/* COL 1 — CARTE */}
             <div className="map-card-comp workspace-col">
+              {/* Rayon de recherche — overlay flottant en haut de la carte */}
+              <div className="radius-overlay">
+                <div className="radius-label">Rayon</div>
+                <span className="commune-badge">{targetCityShort}</span>
+                <div className="radius-slider-wrap">
+                  <div className="cs-slider" style={{ '--cs-pct': sliderPct }}>
+                    <div className="cs-track" />
+                    <div className="cs-fill" />
+                    <div className="cs-thumb" />
+                    <input
+                      type="range"
+                      className="cs-input"
+                      min="100"
+                      max="10000"
+                      step="100"
+                      value={radius}
+                      onChange={(e) => setRadius(Number(e.target.value))}
+                      aria-label="Rayon de recherche"
+                    />
+                  </div>
+                </div>
+                <div className="radius-value">{formatRadius(radius)}</div>
+              </div>
               <div ref={mapRef} className="map-container" />
               {/* Draw controls — top left, below zoom */}
               <div className="map-draw-controls" style={{ top: 80, left: 12 }}>
