@@ -1172,14 +1172,12 @@ const cssStyles = `
   }
   .target-tags-clear:hover { background: #f5f5f5; border-color: #ccc; color: #1a1a1a; }
 
-  .workspace-3col {
+  .workspace-2col {
     display: grid;
     grid-template-columns:
-      minmax(0, var(--col-map, 30%))
+      minmax(0, var(--col-map, 38%))
       8px
-      minmax(0, var(--col-pool, 40%))
-      8px
-      minmax(0, var(--col-cart, 30%));
+      minmax(0, var(--col-pool, 62%));
     gap: 0;
     margin-bottom: 14px;
     height: 75vh;
@@ -1230,13 +1228,12 @@ const cssStyles = `
     background: var(--blue);
     height: 96px;
   }
-  .workspace-3col.is-resizing {
+  .workspace-2col.is-resizing {
     cursor: col-resize;
     user-select: none;
   }
-  .workspace-3col.is-resizing .map-container,
-  .workspace-3col.is-resizing .pool-grid,
-  .workspace-3col.is-resizing .cart-list {
+  .workspace-2col.is-resizing .map-container,
+  .workspace-2col.is-resizing .pool-grid {
     pointer-events: none;
   }
 
@@ -1474,8 +1471,7 @@ const cssStyles = `
     display: flex;
     flex-direction: column;
   }
-  .pool-header,
-  .cart-header {
+  .pool-header {
     padding: 11px 14px 9px;
     border-bottom: 1px solid #eee;
     display: flex;
@@ -1485,16 +1481,14 @@ const cssStyles = `
     background: #fafbfc;
     flex-shrink: 0;
   }
-  .pool-header-title,
-  .cart-header-title {
+  .pool-header-title {
     font-size: 12px;
     font-weight: 700;
     color: #2c3e50;
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
-  .pool-header-count,
-  .cart-header-count {
+  .pool-header-count {
     font-size: 11px;
     font-weight: 600;
     color: #777;
@@ -1535,18 +1529,24 @@ const cssStyles = `
   .pool-section-block:not(:last-child) {
     border-bottom: 3px solid #ececec;
   }
-  /* Header de section compact (sticky pour rester visible au scroll) */
+  /* Header de section = bouton repliable (dropdown), sticky au scroll. */
   .pool-section-header {
     position: sticky;
     top: 0;
     z-index: 5;
-    padding: 7px 12px;
+    width: 100%;
+    padding: 9px 12px;
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 8px;
+    border: none;
     border-bottom: 1px solid #eee;
+    cursor: pointer;
+    text-align: left;
+    font-family: inherit;
+    transition: filter 0.12s;
   }
+  .pool-section-header:hover { filter: brightness(0.97); }
   .pool-section-block.theorique .pool-section-header {
     background: linear-gradient(90deg, #fff8e8 0%, #fffdf6 100%);
     border-left: 3px solid #f5a623;
@@ -1555,15 +1555,30 @@ const cssStyles = `
     background: linear-gradient(90deg, #effaf2 0%, #f7fbf8 100%);
     border-left: 3px solid #46B962;
   }
+  .pool-section-block.invendus .pool-section-header {
+    background: linear-gradient(90deg, #fbeee6 0%, #fdf6f1 100%);
+    border-left: 3px solid #b86e3a;
+  }
+  /* Caret indiquant l'état ouvert/fermé du dropdown */
+  .pool-section-caret {
+    font-size: 10px;
+    color: #999;
+    transition: transform 0.15s;
+    flex-shrink: 0;
+    line-height: 1;
+  }
+  .pool-section-caret.is-open { transform: rotate(90deg); }
   .pool-section-title {
     font-size: 11px;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.6px;
     line-height: 1.1;
+    margin-right: auto;
   }
   .pool-section-block.theorique .pool-section-title { color: #8a5a30; }
   .pool-section-block.reel .pool-section-title { color: #2d8856; }
+  .pool-section-block.invendus .pool-section-title { color: #8a4d23; }
   .pool-section-count {
     background: #fff;
     border: 1px solid #e0e0e0;
@@ -1576,6 +1591,9 @@ const cssStyles = `
   }
   .pool-section-block.theorique .pool-section-count { color: #b07800; border-color: #ffe082; }
   .pool-section-block.reel .pool-section-count { color: #2d8856; border-color: #d4ead8; }
+  .pool-section-block.invendus .pool-section-count { color: #8a4d23; border-color: #e4c4ad; }
+  /* Quand replié : pas de bordure 3px séparatrice résiduelle gênante */
+  .pool-section-block.is-collapsed .pool-section-header { border-bottom: none; }
 
   /* Sous-section par source (En cours, DVF, etc.) */
   .pool-subsection {
@@ -1806,8 +1824,7 @@ const cssStyles = `
   /* Badge V1 — biens qui étaient dans l'étude précédente.
    * Position : coin haut-gauche de la card (sur la photo).
    * Couleur fond = statut d'évolution (vendu, encore en vente, etc.) */
-  .pool-card-v1-badge,
-  .mini-comp-v1-badge {
+  .pool-card-v1-badge {
     position: absolute;
     top: 6px;
     left: 6px;
@@ -1829,22 +1846,14 @@ const cssStyles = `
     pointer-events: auto;
     cursor: help;
   }
-  .pool-card-v1-badge .v1-dot,
-  .mini-comp-v1-badge .v1-dot {
+  .pool-card-v1-badge .v1-dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
   }
-  .pool-card-v1-badge .v1-delta,
-  .mini-comp-v1-badge .v1-delta {
+  .pool-card-v1-badge .v1-delta {
     font-weight: 600;
     color: inherit;
-  }
-  /* Position du badge sur la mini card du panier (pas de photo) */
-  .mini-comp-v1-badge {
-    position: static;
-    margin-right: 6px;
-    box-shadow: none;
   }
   /* Toggle on/off de la comparaison V1 */
   .v1-toggle-bar {
@@ -1982,14 +1991,25 @@ const cssStyles = `
     color: #8a5a30;
     font-weight: 600;
   }
-  .pool-card-drag-hint {
-    font-size: 9px;
-    color: #b0b0b0;
-    text-align: center;
-    padding: 4px 0;
-    border-top: 1px dashed #eee;
-    user-select: none;
+  /* Bouton "Sélectionner" en pied de carte du pool : ajoute le bien
+   * à la sélection (le retire du pool, le fait apparaître dans le récap). */
+  .pool-card-select-btn {
+    width: 100%;
+    padding: 6px 0;
+    border: none;
+    border-top: 1px solid #eee;
+    background: #f6faf7;
+    color: #2d8856;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: var(--font);
+    cursor: pointer;
     flex-shrink: 0;
+    transition: background 0.12s, color 0.12s;
+  }
+  .pool-card-select-btn:hover {
+    background: var(--green);
+    color: #fff;
   }
 
   /* Bouton "ajouter manuel" en tête du pool */
@@ -2010,66 +2030,6 @@ const cssStyles = `
     background: #f0f8f5;
   }
 
-  /* ─── CART (colonne 3 — panier sélection) ─── */
-  .cart-panel {
-    display: flex;
-    flex-direction: column;
-  }
-  .cart-list {
-    flex: 1;
-    overflow-y: auto;
-    padding: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    transition: background 0.2s;
-  }
-  .cart-list::-webkit-scrollbar { width: 6px; }
-  .cart-list::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
-  .cart-list.is-drag-over {
-    background: rgba(70, 185, 98, 0.05);
-  }
-  .cart-dropzone {
-    border: 2px dashed #d4d4d4;
-    border-radius: 10px;
-    padding: 18px 14px;
-    text-align: center;
-    color: #888;
-    font-size: 12px;
-    font-weight: 500;
-    transition: all 0.2s;
-    background: #fafbfc;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-  }
-  .cart-dropzone .icon {
-    font-size: 22px;
-    opacity: 0.5;
-    transition: opacity 0.2s;
-  }
-  .cart-dropzone .hint {
-    font-size: 10.5px;
-    color: #aaa;
-  }
-  .cart-list.is-drag-over .cart-dropzone {
-    border-color: var(--green);
-    color: #2d8856;
-    background: rgba(70, 185, 98, 0.08);
-    transform: scale(1.02);
-  }
-  .cart-list.is-drag-over .cart-dropzone .icon {
-    opacity: 1;
-  }
-  .cart-dropzone.compact {
-    padding: 12px 10px;
-    font-size: 11px;
-    margin-top: 4px;
-  }
-  .cart-dropzone.compact .icon {
-    font-size: 16px;
-  }
   .section-label {
     font-size: 12px;
     font-weight: 500;
@@ -2646,108 +2606,6 @@ const cssStyles = `
   .comp-card-photo.no-photo span {
     font-size: 10px;
     color: #bbb;
-  }
-
-  /* MINI SELECTED CARD (split 70/30 layout) */
-  .mini-comp-card {
-    background: #fff;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 10px 12px;
-    cursor: pointer;
-    transition: all 0.15s;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .mini-comp-card:hover {
-    border-color: var(--green);
-    box-shadow: 0 2px 8px rgba(70, 185, 98, 0.12);
-  }
-  .mini-comp-card:focus-visible {
-    outline: 2px solid var(--green);
-    outline-offset: 1px;
-  }
-  .mini-comp-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .mini-comp-main {
-    flex: 1;
-    min-width: 0;
-  }
-  .mini-comp-title {
-    font-size: 12px;
-    font-weight: 600;
-    color: #333;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .mini-comp-sub {
-    font-size: 10.5px;
-    color: #888;
-    margin-top: 2px;
-  }
-  .mini-comp-score {
-    font-size: 11px;
-    font-weight: 700;
-    padding: 3px 7px;
-    border-radius: 10px;
-    background: #f5f5f5;
-    color: #555;
-    flex-shrink: 0;
-  }
-  .mini-comp-score.score-high { background: #e3f5ea; color: #2d8856; }
-  .mini-comp-score.score-mid  { background: #fef4e6; color: #d97706; }
-  .mini-comp-score.score-low  { background: #fdebea; color: #c0392b; }
-  .mini-comp-remove {
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    border: 1px solid var(--border);
-    background: #fff;
-    cursor: pointer;
-    color: #888;
-    font-size: 14px;
-    line-height: 1;
-    padding: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.15s;
-    flex-shrink: 0;
-    font-family: var(--font);
-  }
-  .mini-comp-remove:hover {
-    border-color: var(--red);
-    color: var(--red);
-    background: #fef2f2;
-  }
-  .mini-comp-weight {
-    background: #fafbfd;
-    padding: 6px 9px;
-    border-radius: 6px;
-    border: 1px solid #f0f0f0;
-  }
-  .mini-comp-weight-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    font-size: 10px;
-    color: #888;
-    margin-bottom: 4px;
-  }
-  .mini-comp-weight-header strong {
-    color: var(--green);
-    font-size: 11px;
-    font-weight: 700;
-  }
-  .mini-comp-weight .weight-slider {
-    width: 100%;
-    height: 4px;
-    margin: 0;
   }
 
   /* COMPACT CARD */
@@ -3799,63 +3657,6 @@ function SelectedCompCard({ comp, onRemove, onOpenDrawer, weight, onWeightChange
   );
 }
 
-/* MiniSelectedCompCard — vue compacte pour la colonne « Panier » du workspace
- * 3 colonnes. Affiche l'essentiel (titre, source, prix/m², distance, score
- * de pertinence) et ouvre le drawer détail au clic. Le slider de poids
- * dans l'estimation est désormais dans le drawer détail, pas sur cette
- * carte (pour garder l'aperçu épuré). */
-function MiniSelectedCompCard({ comp, onRemove, onOpenDrawer, v1Status }) {
-  const dotClass = comp.source === 'dvf'
-    ? 'dot-dvf'
-    : comp.source === 'ideeri'
-    ? 'dot-ideeri'
-    : comp.source === 'encours'
-    ? 'dot-encours'
-    : 'dot-portail';
-  const pertinence = Math.round((comp.similarite || 0) * 0.6 + (comp.donnees || 0) * 0.4);
-  const pertClass = pertinence >= 80 ? 'score-high' : pertinence >= 60 ? 'score-mid' : 'score-low';
-  const openDrawer = () => onOpenDrawer && onOpenDrawer(comp);
-  return (
-    <div
-      className="mini-comp-card"
-      onClick={openDrawer}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDrawer(); } }}
-    >
-      <div className="mini-comp-row">
-        <span className={`source-dot ${dotClass}`} />
-        <div className="mini-comp-main">
-          <div className="mini-comp-title">
-            {v1Status && (
-              <span
-                className="mini-comp-v1-badge"
-                style={{ borderColor: v1Status.color, color: v1Status.color, marginRight: 6 }}
-                title={`V1 · ${v1Status.label}${v1Status.delta != null ? ` · ${v1Status.delta > 0 ? '+' : ''}${v1Status.delta}%` : ''}`}
-              >
-                <span className="v1-dot" style={{ background: v1Status.color }} />
-                V1
-              </span>
-            )}
-            {comp.title}
-          </div>
-          <div className="mini-comp-sub">{comp.prix} &euro; &middot; {comp.prixM2} &euro;/m&sup2; &middot; {comp.distance}</div>
-        </div>
-        <span className={`mini-comp-score ${pertClass}`}>{pertinence}%</span>
-        <button
-          type="button"
-          className="mini-comp-remove"
-          onClick={(e) => { e.stopPropagation(); onRemove && onRemove(comp.id); }}
-          title="Retirer ce comparable"
-          aria-label="Retirer"
-        >
-          &times;
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function CompactCompCard({ comp, onAdd, onOpenEdit }) {
   const dotClass = comp.source === 'dvf' ? 'dot-dvf' : comp.source === 'ideeri' ? 'dot-ideeri' : comp.source === 'encours' ? 'dot-encours' : 'dot-portail';
   const handleCardClick = () => { if (onOpenEdit) onOpenEdit(comp); };
@@ -3922,14 +3723,12 @@ function PoolCardCarousel({ photos, children }) {
   );
 }
 
-/* PoolCompCard — carte miniature draggable d'un bien disponible (colonne 2
- * du workspace 3 colonnes). Affiche une vignette photo (ou gradient fallback
- * par source pour DVF/Ideeri), un badge source, un badge score de similarité,
- * le prix et un bouton "+ Ajouter" pour fallback non-drag.
- *
- * Le drag & drop natif HTML5 : onDragStart pose l'id dans dataTransfer ;
- * la colonne Panier (cart-list) déclenche addToSelected sur onDrop. */
-function PoolCompCard({ comp, onOpenEdit, onFocusOnMap, onDragStart, onDragEnd, v1Status }) {
+/* PoolCompCard — carte miniature d'un bien disponible (colonne Pool du
+ * workspace). Affiche une vignette photo (ou gradient fallback par source
+ * pour DVF/Ideeri), un badge source, un badge score de similarité, le prix.
+ * Le clic ouvre le détail ; le bouton « Sélectionner » (onSelect) ajoute le
+ * bien à la sélection (le retire du pool, le fait remonter dans le récap). */
+function PoolCompCard({ comp, onOpenEdit, onFocusOnMap, onSelect, v1Status }) {
   // Extrait un score numérique 0-100 depuis "85% sim." pour le badge.
   const simNum = parseInt(String(comp.simScore || '').replace(/\D/g, ''), 10) || 0;
   const scoreClass = simNum >= 80 ? 'score-high' : simNum >= 60 ? 'score-mid' : 'score-low';
@@ -3973,20 +3772,6 @@ function PoolCompCard({ comp, onOpenEdit, onFocusOnMap, onDragStart, onDragEnd, 
     }
   };
 
-  // Drag & drop natif HTML5 : on stocke l'id du comp dans dataTransfer
-  // pour permettre au panier de retrouver le bien dropé.
-  const handleDragStart = (e) => {
-    try {
-      e.dataTransfer.setData('text/plain', String(comp.id));
-      e.dataTransfer.setData('application/x-ideeri-comp-id', String(comp.id));
-      e.dataTransfer.effectAllowed = 'copy';
-    } catch {
-      /* navigateurs anciens (sans dataTransfer.setData) : fallback silencieux */
-    }
-    if (onDragStart) onDragStart(comp.id);
-  };
-  const handleDragEnd = () => { if (onDragEnd) onDragEnd(comp.id); };
-
   // Badge V1 si le bien était dans l'étude précédente (calque visuel)
   const v1Badge = v1Status ? (
     <span
@@ -4007,12 +3792,9 @@ function PoolCompCard({ comp, onOpenEdit, onFocusOnMap, onDragStart, onDragEnd, 
       className="pool-card"
       role="button"
       tabIndex={0}
-      draggable
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
       onClick={handleCardClick}
       onKeyDown={handleKeyDown}
-      title="Glissez vers le panier ou cliquez pour le détail"
+      title="Cliquez pour le détail"
       style={{ position: 'relative' }}
     >
       {v1Badge}
@@ -4042,7 +3824,14 @@ function PoolCompCard({ comp, onOpenEdit, onFocusOnMap, onDragStart, onDragEnd, 
           </div>
         )}
       </div>
-      <div className="pool-card-drag-hint">&#8942;&#8942; Glissez vers le panier</div>
+      <button
+        type="button"
+        className="pool-card-select-btn"
+        onClick={(e) => { e.stopPropagation(); if (onSelect) onSelect(comp.id); }}
+        title="Ajouter ce bien à la sélection"
+      >
+        + Sélectionner
+      </button>
     </div>
   );
 }
@@ -4686,6 +4475,16 @@ export default function Step3Comparables() {
   // ou clic sur un comparable dans la liste "Autres")
   const [drawerComp, setDrawerComp] = useState(null);
 
+  // Sections repliables du pool (Marché théorique / réel / Invendus).
+  // Ouvertes par défaut. Permet de gagner de l'espace vertical.
+  const [openPoolSections, setOpenPoolSections] = useState({
+    theorique: true,
+    reel: true,
+    invendus: true,
+  });
+  const togglePoolSection = (key) =>
+    setOpenPoolSections((prev) => ({ ...prev, [key]: !prev[key] }));
+
   // Overrides de similarit\u00e9 par comparable (id \u2192 valeur 0-100).
   // Chargement initial depuis localStorage (cl\u00e9 ideeri_sim_overrides).
   const [simOverrides, setSimOverrides] = useState(() => loadSimOverrides());
@@ -4716,24 +4515,20 @@ export default function Step3Comparables() {
     []
   );
   const [colWidths, setColWidths] = useState(() => ({
-    map: persistedCols?.map ?? 30,
-    pool: persistedCols?.pool ?? 40,
-    cart: persistedCols?.cart ?? 30,
+    map: persistedCols?.map ?? 38,
+    pool: persistedCols?.pool ?? 62,
+    cart: 0,
   }));
-  // Poignée active en cours de drag (1 = entre map/pool, 2 = entre pool/cart)
+  // Poignée active en cours de drag (1 = entre carte et pool)
   const [activeHandle, setActiveHandle] = useState(null);
-  const [isDragOverCart, setIsDragOverCart] = useState(false);
   const workspaceRef = useRef(null);
-  // dragCounter gère le fait que dragenter/dragleave fire pour chaque enfant
-  const dragCounterRef = useRef(0);
 
   /* Bornes min/max (en %) pour chaque colonne — évite qu'une colonne soit
    * trop écrasée et donc inutilisable. Réglées pour rester lisibles : la
    * carte garde au moins 15%, le pool 22%, le panier 18%. */
   const COL_BOUNDS = useMemo(() => ({
-    map: [15, 60],
-    pool: [22, 65],
-    cart: [18, 55],
+    map: [20, 65],
+    pool: [35, 80],
   }), []);
 
   const clampPct = (v, [lo, hi]) => Math.max(lo, Math.min(hi, v));
@@ -4765,17 +4560,10 @@ export default function Step3Comparables() {
       if (!rect.width) return;
       const ratio = ((mv.clientX - rect.left) / rect.width) * 100;
       setColWidths((prev) => {
-        if (idx === 1) {
-          // Handle entre map et pool : ratio = bord droit de la carte
-          const newMap = clampPct(ratio, COL_BOUNDS.map);
-          const newPool = clampPct(100 - newMap - prev.cart, COL_BOUNDS.pool);
-          // Si pool a été clampé, on rétablit map pour conserver 100% total
-          return { map: 100 - newPool - prev.cart, pool: newPool, cart: prev.cart };
-        }
-        // idx === 2 — Handle entre pool et panier : ratio = bord droit de pool
-        const newCart = clampPct(100 - ratio, COL_BOUNDS.cart);
-        const newPool = clampPct(100 - prev.map - newCart, COL_BOUNDS.pool);
-        return { map: prev.map, pool: newPool, cart: 100 - prev.map - newPool };
+        // Une seule poignée (idx 1) entre Carte et Pool : ratio = bord droit
+        // de la carte. Le pool prend le reste (100 - map) côté rendu.
+        const newMap = clampPct(ratio, COL_BOUNDS.map);
+        return { ...prev, map: newMap, pool: 100 - newMap };
       });
       requestMapInvalidate();
     };
@@ -4794,8 +4582,8 @@ export default function Step3Comparables() {
     window.addEventListener('mouseup', handleUp);
   };
 
-  /* Reset des largeurs (double-clic sur une poignée → retour à 30/40/30) */
-  const resetCols = () => setColWidths({ map: 30, pool: 40, cart: 30 });
+  /* Reset des largeurs (double-clic sur une poignée → retour à 38/62) */
+  const resetCols = () => setColWidths({ map: 38, pool: 62, cart: 0 });
 
   // Persiste les largeurs dans reportStore (debounced naturel via useEffect)
   // + invalide la taille de la map pour les changements via reset / state load
@@ -4809,38 +4597,6 @@ export default function Step3Comparables() {
     }, 60);
     return () => clearTimeout(t);
   }, [colWidths]);
-
-  /* Drag & drop natif HTML5 du pool vers le panier.
-   * Le PoolCompCard pose son id dans dataTransfer ; ici on l'extrait au drop
-   * et on appelle addToSelected pour promouvoir le bien dans selected. */
-  const handleCartDragOver = (e) => {
-    // Accepte seulement nos drags (avec custom type ou fallback text/plain)
-    const types = e.dataTransfer?.types || [];
-    if (!Array.from(types).some((t) => t === 'application/x-ideeri-comp-id' || t === 'text/plain')) {
-      return;
-    }
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'copy';
-  };
-  const handleCartDragEnter = (e) => {
-    e.preventDefault();
-    dragCounterRef.current += 1;
-    setIsDragOverCart(true);
-  };
-  const handleCartDragLeave = () => {
-    dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
-    if (dragCounterRef.current === 0) setIsDragOverCart(false);
-  };
-  const handleCartDrop = (e) => {
-    e.preventDefault();
-    dragCounterRef.current = 0;
-    setIsDragOverCart(false);
-    const id = e.dataTransfer.getData('application/x-ideeri-comp-id')
-      || e.dataTransfer.getData('text/plain');
-    if (!id) return;
-    // addToSelected gère la promotion (others → selected) + cleanup
-    addToSelected(id);
-  };
 
   // Met \u00e0 jour ou supprime l'override pour un id donn\u00e9.
   const setSimOverrideFor = (id, value) => {
@@ -6105,11 +5861,10 @@ export default function Step3Comparables() {
         return (
           <div
             ref={workspaceRef}
-            className={`workspace-3col${activeHandle !== null ? ' is-resizing' : ''}`}
+            className={`workspace-2col${activeHandle !== null ? ' is-resizing' : ''}`}
             style={{
               '--col-map': `${colWidths.map}%`,
-              '--col-pool': `${colWidths.pool}%`,
-              '--col-cart': `${colWidths.cart}%`,
+              '--col-pool': `${100 - colWidths.map}%`,
             }}
           >
             {/* COL 1 — CARTE */}
@@ -6228,6 +5983,22 @@ export default function Step3Comparables() {
              *     — transactions réellement effectuées
              * Chaque section a un header coloré + sous-sections par source. */}
             <div className="workspace-col pool-panel">
+              {drawerComp ? (
+                /* MODE DÉTAIL — remplace toute la liste des biens par le
+                 * détail du comparable cliqué. Bouton « Retour » pour
+                 * revenir à la liste complète. */
+                <ComparableDrawer
+                  comp={drawerComp}
+                  inline
+                  onClose={() => { setDrawerComp(null); setFocusedComp(null); }}
+                  isSelected={selected.some((c) => c.id === drawerComp.id)}
+                  weight={selected.some((c) => c.id === drawerComp.id) ? effectiveWeight(drawerComp) : undefined}
+                  onWeightChange={selected.some((c) => c.id === drawerComp.id) ? handleWeightChange : undefined}
+                  onAdd={(id) => addToSelected(id)}
+                  onRemove={(id) => handleRemoveComparable(id)}
+                />
+              ) : (
+              <>
               <div className="pool-header">
                 <span className="pool-header-title">Disponibles</span>
                 <span className="pool-header-count">{visibleOthers.length} bien{visibleOthers.length > 1 ? 's' : ''}</span>
@@ -6263,13 +6034,17 @@ export default function Step3Comparables() {
                   const key = String(c.source);
                   if (groups[key]) groups[key].items.push(c);
                 });
-                // Invendu en DERNIER de Marché théorique : signal négatif
-                // fort (biens qui ne trouvent pas preneur → indique souvent
-                // un prix demandé trop haut, info précieuse pour l'estimation).
-                const theoriqueKeys = ['encours', 'estimation', 'portail', 'mandat_clos', 'invendu_3m'];
+                // 3 catégories principales (dropdowns repliables) :
+                //   • Marché théorique : prix affichés / estimations / portails / mandats clos
+                //   • Marché réel : DVF / biens vendus / vendu autre agence
+                //   • Invendus : biens en commercialisation depuis ≥ 90 jours
+                //     (signal négatif fort = prix demandé souvent trop haut).
+                const theoriqueKeys = ['encours', 'estimation', 'portail', 'mandat_clos'];
                 const reelKeys      = ['dvf', 'ideeri', 'autre_agence'];
+                const invendusKeys  = ['invendu_3m'];
                 const theoriqueTotal = theoriqueKeys.reduce((s, k) => s + groups[k].items.length, 0);
                 const reelTotal      = reelKeys.reduce((s, k) => s + groups[k].items.length, 0);
+                const invendusTotal  = invendusKeys.reduce((s, k) => s + groups[k].items.length, 0);
 
                 const renderSubsection = (key) => {
                   const g = groups[key];
@@ -6295,6 +6070,7 @@ export default function Step3Comparables() {
                                 comp={c}
                                 onOpenEdit={setDrawerComp}
                                 onFocusOnMap={focusCompOnMap}
+                                onSelect={addToSelected}
                                 v1Status={v1Status}
                               />
                             );
@@ -6305,25 +6081,31 @@ export default function Step3Comparables() {
                   );
                 };
 
+                // Rend une catégorie principale sous forme de dropdown repliable.
+                const renderSectionBlock = (sectionKey, variant, title, total, subKeys) => {
+                  const isOpen = openPoolSections[sectionKey];
+                  return (
+                    <div className={`pool-section-block ${variant}${isOpen ? '' : ' is-collapsed'}`}>
+                      <button
+                        type="button"
+                        className="pool-section-header"
+                        onClick={() => togglePoolSection(sectionKey)}
+                        aria-expanded={isOpen}
+                      >
+                        <span className={`pool-section-caret${isOpen ? ' is-open' : ''}`}>{'\u25b8'}</span>
+                        <div className="pool-section-title">{title}</div>
+                        <span className="pool-section-count">{total}</span>
+                      </button>
+                      {isOpen && subKeys.map(renderSubsection)}
+                    </div>
+                  );
+                };
+
                 return (
                   <div className="pool-sections">
-                    {/* SECTION HAUT — MARCHÉ THÉORIQUE */}
-                    <div className="pool-section-block theorique">
-                      <div className="pool-section-header">
-                        <div className="pool-section-title">Marché théorique</div>
-                        <span className="pool-section-count">{theoriqueTotal}</span>
-                      </div>
-                      {theoriqueKeys.map(renderSubsection)}
-                    </div>
-
-                    {/* SECTION BAS — MARCHÉ RÉEL */}
-                    <div className="pool-section-block reel">
-                      <div className="pool-section-header">
-                        <div className="pool-section-title">Marché réel</div>
-                        <span className="pool-section-count">{reelTotal}</span>
-                      </div>
-                      {reelKeys.map(renderSubsection)}
-                    </div>
+                    {renderSectionBlock('theorique', 'theorique', 'Marché théorique', theoriqueTotal, theoriqueKeys)}
+                    {renderSectionBlock('reel', 'reel', 'Marché réel', reelTotal, reelKeys)}
+                    {renderSectionBlock('invendus', 'invendus', 'Invendus', invendusTotal, invendusKeys)}
 
                     {visibleOthers.length === 0 && (
                       <div style={{ textAlign: 'center', color: '#999', padding: '30px 14px', fontSize: 12, fontStyle: 'italic' }}>
@@ -6345,75 +6127,7 @@ export default function Step3Comparables() {
                   + Ajouter un comparable manuel
                 </button>
               </div>
-            </div>
-
-            {/* Poign\u00e9e 2 \u2014 entre Pool et Panier */}
-            <div
-              className={`col-resize-handle${activeHandle === 2 ? ' is-dragging' : ''}`}
-              onMouseDown={(e) => startResize(e, 2)}
-              onDoubleClick={resetCols}
-              role="separator"
-              aria-orientation="vertical"
-              aria-label="Redimensionner Pool / Panier — double-clic pour réinitialiser"
-              title="Glissez pour redimensionner · Double-clic pour reset"
-            />
-
-            {/* COL 3 — bascule entre PANIER (default) et DÉTAIL d'un comparable
-             * Quand drawerComp est défini, on remplace la vue panier par le
-             * détail du bien cliqué. Bouton "← Retour" pour revenir au panier. */}
-            <div className="workspace-col cart-panel">
-              {drawerComp ? (
-                <ComparableDrawer
-                  comp={drawerComp}
-                  inline
-                  onClose={() => { setDrawerComp(null); setFocusedComp(null); }}
-                  isSelected={selected.some((c) => c.id === drawerComp.id)}
-                  weight={selected.some((c) => c.id === drawerComp.id) ? effectiveWeight(drawerComp) : undefined}
-                  onWeightChange={selected.some((c) => c.id === drawerComp.id) ? handleWeightChange : undefined}
-                  onAdd={(id) => addToSelected(id)}
-                  onRemove={(id) => handleRemoveComparable(id)}
-                />
-              ) : (
-                <>
-                  <div className="cart-header">
-                    <span className="cart-header-title">{'\ud83d\uded2'} Panier sélection</span>
-                    <span className="cart-header-count">{selected.length} bien{selected.length > 1 ? 's' : ''}</span>
-                  </div>
-                  <div
-                    className={`cart-list${isDragOverCart ? ' is-drag-over' : ''}`}
-                    onDragOver={handleCartDragOver}
-                    onDragEnter={handleCartDragEnter}
-                    onDragLeave={handleCartDragLeave}
-                    onDrop={handleCartDrop}
-                  >
-                    {selected.length === 0 && (
-                      <div className="cart-dropzone">
-                        <div className="icon">{'\ud83d\uded2'}</div>
-                        <div>Glissez des biens ici</div>
-                        <div className="hint">depuis la colonne &laquo;&nbsp;Disponibles&nbsp;&raquo;</div>
-                      </div>
-                    )}
-                    {selected.map((c) => applySimOverride(c, simOverrides)).map((c) => {
-                      const prev = showV1 ? previousById[c.id] : null;
-                      const v1Status = prev ? getPreviousStatus(c, prev) : null;
-                      return (
-                        <MiniSelectedCompCard
-                          key={c.id}
-                          comp={c}
-                          onRemove={handleRemoveComparable}
-                          onOpenDrawer={(cc) => { setFocusedComp(cc); setDrawerComp(cc); }}
-                          v1Status={v1Status}
-                        />
-                      );
-                    })}
-                    {selected.length > 0 && (
-                      <div className="cart-dropzone compact">
-                        <div className="icon">+</div>
-                        <div>Glissez d&rsquo;autres biens ici</div>
-                      </div>
-                    )}
-                  </div>
-                </>
+              </>
               )}
             </div>
           </div>
