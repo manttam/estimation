@@ -5,7 +5,6 @@ import 'leaflet/dist/leaflet.css';
 import PropertyCard from '../components/PropertyCard';
 import Stepper from '../components/Stepper';
 import ComparableDrawer from '../components/ComparableDrawer';
-import ManualComparableDrawer from '../components/ManualComparableDrawer';
 import { getActiveBien, buildBienCibleCategories } from '../utils/activeBien';
 import { bienCibleCategories as bienCibleCategoriesBase } from '../data/propertyData';
 import {
@@ -94,14 +93,6 @@ function loadManualComps() {
     return Array.isArray(arr) ? arr : [];
   } catch {
     return [];
-  }
-}
-
-function saveManualComps(list) {
-  try {
-    localStorage.setItem(MANUAL_COMPS_KEY, JSON.stringify(list));
-  } catch {
-    /* quota / mode privé : silencieux */
   }
 }
 
@@ -1605,7 +1596,11 @@ const cssStyles = `
    * et contient des sous-sections par source (DVF, En cours, etc.)
    * ═══════════════════════════════════════════════════════════════ */
   .pool-sections {
-    flex: 1;
+    /* Se dimensionne à son contenu (drops fermés = court), peut rétrécir et
+     * scroller quand un drop est ouvert. Le panier ci-dessous absorbe la
+     * hauteur restante. */
+    flex: 0 1 auto;
+    min-height: 0;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -1735,14 +1730,6 @@ const cssStyles = `
     color: #c0c0c0;
     font-style: italic;
     padding: 2px 0 0 16px;
-  }
-
-  /* Bouton "Ajouter un comparable manuel" en bas des sections */
-  .pool-manual-add-wrap {
-    padding: 12px;
-    border-top: 1px solid #eee;
-    background: #fafafa;
-    flex-shrink: 0;
   }
 
   /* Carte miniature draggable d'un bien du pool */
@@ -2106,22 +2093,155 @@ const cssStyles = `
     color: #fff;
   }
 
-  /* Bouton "ajouter manuel" en tête du pool */
-  .pool-manual-add {
-    grid-column: 1 / -1;
+  /* ─── Panier de sélection (bas de la colonne pool) ───
+   * flex:1 → absorbe la hauteur restante : prend toute la place quand les
+   * drops sont fermés, rétrécit quand un drop s'ouvre. */
+  .pool-basket {
+    flex: 1 1 auto;
+    min-height: 120px;
+    margin: 10px;
+    border: 1px solid #d4ead8;
+    border-radius: 10px;
+    background: #f7fcf9;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .pool-basket-head {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     padding: 10px 14px;
-    background: #fff;
-    border: 1px dashed var(--green);
-    color: #2d8856;
-    border-radius: 8px;
-    font-size: 12.5px;
+    background: #ecf7f0;
+    border-bottom: 1px solid #d4ead8;
+  }
+  .pool-basket-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #1f6e44;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .pool-basket-count {
+    font-size: 11px;
     font-weight: 600;
+    color: var(--green);
+    background: #fff;
+    padding: 2px 9px;
+    border-radius: 11px;
+    border: 1px solid #d4ead8;
+  }
+  .pool-basket-empty {
+    padding: 16px 14px;
+    text-align: center;
+    font-size: 12px;
+    font-style: italic;
+    color: #9aa;
+  }
+  /* Liste = grille de mini-vignettes ; scroll interne quand ça déborde. */
+  .pool-basket-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+    gap: 8px;
+    padding: 8px;
+    align-content: start;
+  }
+  .pool-basket-item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border: 1px solid #e8efe9;
+    border-radius: 8px;
+    overflow: hidden;
     cursor: pointer;
-    font-family: var(--font);
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .pool-basket-item:hover {
+    border-color: var(--green);
+    box-shadow: 0 2px 6px rgba(70,185,98,0.16);
+  }
+  .pool-basket-thumb {
+    width: 100%;
+    height: 58px;
+    background-size: cover;
+    background-position: center;
+    background-color: #f3f4f6;
+    position: relative;
+  }
+  .pool-basket-thumb.no-photo {
+    background: linear-gradient(135deg, #e6e9ef 0%, #cfd5e0 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #94a3b8;
+    font-size: 20px;
+  }
+  .pool-basket-thumb.source-dvf.no-photo {
+    background: linear-gradient(135deg, #d8e3f4 0%, #b8c8e6 100%);
+    color: var(--blue);
+  }
+  .pool-basket-thumb.source-ideeri.no-photo {
+    background: linear-gradient(135deg, #d6efdf 0%, #a8d8b8 100%);
+    color: #2d8856;
+  }
+  .pool-basket-item-body {
+    padding: 6px 7px 7px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .pool-basket-item-title {
+    font-size: 11px;
+    color: var(--text);
+    line-height: 1.25;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .pool-basket-item-m2 {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #2d8856;
+    white-space: nowrap;
+  }
+  .pool-basket-item-remove {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
+    border: none;
+    background: rgba(255,255,255,0.92);
+    color: #888;
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
     transition: all 0.15s;
   }
-  .pool-manual-add:hover {
-    background: #f0f8f5;
+  .pool-basket-item-remove:hover {
+    background: #fde8e8;
+    color: #d9534f;
+  }
+  .pool-basket-dot {
+    position: absolute;
+    bottom: 4px;
+    left: 4px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    border: 1.5px solid #fff;
+    box-shadow: 0 0 2px rgba(0,0,0,0.25);
   }
 
   .section-label {
@@ -4583,12 +4703,10 @@ export default function Step3Comparables() {
     return INITIAL_NON_DVF_MOCKS.map((m, i) => projectMockNearTarget(m, targetCoords, i));
   });
 
-  // Comparables saisis manuellement (persistés dans localStorage).
-  // Source unique de vérité — re-mergés dans `others` à chaque changement.
-  const [manualComps, setManualComps] = useState(() => loadManualComps());
-
-  // Drawer de saisie manuelle (Ajouter un comparable manuel)
-  const [manualDrawerOpen, setManualDrawerOpen] = useState(false);
+  // Comparables saisis manuellement précédemment (persistés en localStorage).
+  // Lecture seule : la saisie manuelle a été retirée, mais d'éventuels
+  // comparables déjà enregistrés restent re-mergés dans `others`.
+  const [manualComps] = useState(() => loadManualComps());
 
   /* ─── Fetch DVF live → peuple "others" avec transactions réelles ──────
    * Pattern Step2 : appel /api/dvf?citycode=XXX&type=YYY (proxy Vercel),
@@ -4665,10 +4783,12 @@ export default function Step3Comparables() {
 
   // Sections repliables du pool (Marché théorique / réel / Invendus).
   // Ouvertes par défaut. Permet de gagner de l'espace vertical.
+  // Tous les dropdowns du pool sont fermés par défaut : on voit d'emblée
+  // les 3 catégories repliées + le panier de sélection en bas de colonne.
   const [openPoolSections, setOpenPoolSections] = useState({
-    theorique: true,
-    reel: true,
-    invendus: true,
+    theorique: false,
+    reel: false,
+    invendus: false,
   });
   const togglePoolSection = (key) =>
     setOpenPoolSections((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -4968,19 +5088,6 @@ export default function Step3Comparables() {
 
   // Alias utilis\u00e9 par la card et le tableau r\u00e9cap pour la suppression
   const handleRemoveComparable = removeFromSelected;
-
-  /* Handler de sauvegarde d'un comparable saisi manuellement.
-   * Appelé par <ManualComparableDrawer onSave={...}>. Ajoute le comparable
-   * à la liste des manuels (qui re-merge automatiquement dans `others` via
-   * le useEffect DVF) et persiste en localStorage. */
-  const handleSaveManualComparable = (richManual) => {
-    setManualComps((prev) => {
-      const next = [...prev, richManual];
-      saveManualComps(next);
-      return next;
-    });
-    setManualDrawerOpen(false);
-  };
 
   // Expose addToSelected for Leaflet popups
   addCompRef.current = addToSelected;
@@ -6421,17 +6528,78 @@ export default function Step3Comparables() {
                 );
               })()}
 
-              {/* Bouton "Ajouter un comparable manuel" en pied de pool */}
-              <div className="pool-manual-add-wrap">
-                <button
-                  type="button"
-                  className="pool-manual-add"
-                  onClick={() => setManualDrawerOpen(true)}
-                  style={{ width: '100%' }}
-                >
-                  + Ajouter un comparable manuel
-                </button>
+              {/* ─── PANIER DE SÉLECTION ─────────────────────────────────
+               * Liste compacte des comparables retenus, en bas de la colonne
+               * pool (dans la même zone de travail que les biens). Toujours
+               * visible ; le détail du calcul reste dans le récap en dessous. */}
+              <div className="pool-basket">
+                <div className="pool-basket-head">
+                  <span className="pool-basket-title">Panier de sélection</span>
+                  <span className="pool-basket-count">
+                    {selected.length} bien{selected.length > 1 ? 's' : ''}
+                  </span>
+                </div>
+                {selected.length === 0 ? (
+                  <div className="pool-basket-empty">
+                    Cliquez sur un bien pour l'ajouter au panier
+                  </div>
+                ) : (
+                  <div className="pool-basket-list">
+                    {selected.map((c) => {
+                      const dotCls = c.source === 'dvf' ? 'dot-dvf'
+                        : c.source === 'ideeri' ? 'dot-ideeri'
+                        : c.source === 'encours' ? 'dot-encours'
+                        : c.source === 'estimation' ? 'dot-estimation'
+                        : c.source === 'mandat_clos' ? 'dot-mandat-clos'
+                        : c.source === 'autre_agence' ? 'dot-autre-agence'
+                        : 'dot-portail';
+                      const m2 = c.fields?.prixM2 ?? c._dvfRaw?.prixM2;
+                      const m2Label = typeof m2 === 'number'
+                        ? `${m2.toLocaleString('fr-FR')} €/m²`
+                        : (typeof m2 === 'string' && m2 !== '—' ? `${m2} €/m²` : '—');
+                      const photos = getCompPhotos(c);
+                      const photo = photos && photos.length ? photos[0] : null;
+                      const photoIcon = c.source === 'dvf' ? '\ud83d\udcca' : '\ud83c\udfe0';
+                      return (
+                        <div
+                          key={c.id}
+                          className="pool-basket-item"
+                          onClick={() => setDrawerComp(c)}
+                          role="button"
+                          tabIndex={0}
+                          title={c.title}
+                        >
+                          {photo ? (
+                            <div
+                              className="pool-basket-thumb"
+                              style={{ backgroundImage: `url(${photo})` }}
+                            >
+                              <span className={`pool-basket-dot ${dotCls}`} />
+                            </div>
+                          ) : (
+                            <div className={`pool-basket-thumb no-photo source-${c.source}`}>
+                              {photoIcon}
+                              <span className={`pool-basket-dot ${dotCls}`} />
+                            </div>
+                          )}
+                          <button
+                            type="button"
+                            className="pool-basket-item-remove"
+                            onClick={(e) => { e.stopPropagation(); handleRemoveComparable(c.id); }}
+                            aria-label={`Retirer ${c.title} du panier`}
+                            title="Retirer du panier"
+                          >×</button>
+                          <div className="pool-basket-item-body">
+                            <span className="pool-basket-item-title">{c.title}</span>
+                            <span className="pool-basket-item-m2">{m2Label}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
+
               </>
               )}
             </div>
@@ -6545,13 +6713,6 @@ export default function Step3Comparables() {
           et le poids dans l'estimation s'ajuste via le slider exposé
           dans le drawer détail (uniquement pour les biens sélectionnés). */}
 
-      {/* Drawer de saisie manuelle d'un comparable */}
-      <ManualComparableDrawer
-        open={manualDrawerOpen}
-        onClose={() => setManualDrawerOpen(false)}
-        onSave={handleSaveManualComparable}
-        targetCoords={targetCoords}
-      />
     </div>
   );
 }

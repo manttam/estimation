@@ -156,6 +156,54 @@ const drawerCss = `
     margin-top: 6px;
     line-height: 1.4;
   }
+  /* Barre d'action compacte (mode inline) : retrait + poids sur une ligne */
+  .drawer-actionbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .drawer-add-btn {
+    width: 100%;
+    margin-bottom: 16px;
+    padding: 9px 14px;
+    border-radius: 8px;
+    border: none;
+    background: var(--green, #46B962);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .drawer-weight-inline {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f7f9ff;
+    border: 1px solid #dde5ff;
+    border-radius: 8px;
+    padding: 6px 12px;
+  }
+  .drawer-weight-inline-label {
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 600;
+    color: #2a3f8a;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .drawer-weight-inline .drawer-weight-slider { flex: 1; min-width: 0; }
+  .drawer-weight-inline-value {
+    flex-shrink: 0;
+    font-size: 13px;
+    font-weight: 700;
+    color: #2a3f8a;
+    min-width: 38px;
+    text-align: right;
+  }
   .drawer-section-title {
     font-size: 11px;
     font-weight: 600;
@@ -1140,53 +1188,31 @@ export default function ComparableDrawer({ comp, onClose, isSelected = false, we
           </div>
         </header>
         <div className="drawer-body">
-          {/* Action ajouter / retirer du panier */}
-          <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
-            {isSelected ? (
-              <button
-                type="button"
-                onClick={() => onRemove && onRemove(comp.id)}
-                style={{
-                  flex: 1, padding: '9px 14px', borderRadius: 8,
-                  border: '1px solid var(--red, #e74c3c)', background: '#fff',
-                  color: 'var(--red, #e74c3c)', fontSize: 12, fontWeight: 600,
-                  cursor: 'pointer', fontFamily: 'inherit',
-                }}
-              >
-                − Retirer du panier
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => onAdd && onAdd(comp.id)}
-                style={{
-                  flex: 1, padding: '9px 14px', borderRadius: 8,
-                  border: 'none', background: 'var(--green, #46B962)',
-                  color: '#fff', fontSize: 12, fontWeight: 700,
-                  cursor: 'pointer', fontFamily: 'inherit',
-                }}
-              >
-                + Ajouter au panier
-              </button>
-            )}
-          </div>
-
-          {/* Poids dans l'estimation (uniquement si dans le panier) */}
-          {showWeight && (
-            <div className="drawer-weight-block">
-              <div className="drawer-weight-header">
-                <span className="drawer-weight-label">Poids dans l&rsquo;estimation</span>
-                <span className="drawer-weight-value">{weight}%</span>
+          {/* Barre d'action compacte : poids inline si le bien est dans le
+           * panier, sinon bouton d'ajout. Le retrait du panier se fait
+           * ailleurs (panier / carte), pas ici. */}
+          {isSelected ? (
+            showWeight && (
+              <div className="drawer-actionbar">
+                <div className="drawer-weight-inline">
+                  <span className="drawer-weight-inline-label">Poids</span>
+                  <input
+                    type="range" min="0" max="100" step="1" value={weight}
+                    onChange={(e) => onWeightChange(comp.id, Number(e.target.value))}
+                    className="drawer-weight-slider"
+                  />
+                  <span className="drawer-weight-inline-value">{weight}%</span>
+                </div>
               </div>
-              <input
-                type="range" min="0" max="100" step="1" value={weight}
-                onChange={(e) => onWeightChange(comp.id, Number(e.target.value))}
-                className="drawer-weight-slider"
-              />
-              <div className="drawer-weight-hint">
-                Ajustez l&rsquo;influence de ce comparable dans le calcul du prix final.
-              </div>
-            </div>
+            )
+          ) : (
+            <button
+              type="button"
+              className="drawer-add-btn"
+              onClick={() => onAdd && onAdd(comp.id)}
+            >
+              + Ajouter au panier
+            </button>
           )}
 
           {/* Photos / vue cadastrale / no-photo */}
