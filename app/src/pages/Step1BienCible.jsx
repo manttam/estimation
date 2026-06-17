@@ -21,6 +21,7 @@ import {
   buildRoomsFromActiveBien,
   createEmptyRoom,
   buildInitialBienDetails,
+  DEFAULT_BIEN_DETAILS,
 } from '../data/step1Schema';
 import {
   mergeReportSection,
@@ -1178,12 +1179,16 @@ export default function Step1BienCible() {
 
   // ---- bienDetails (sections générales) persisté dans reportStore -------
   // Clé d'un champ section : `${section.key}__${field.key}`.
-  // On hydrate depuis reportStore (saisies précédentes) en complétant avec
-  // le pré-remplissage dérivé du bien actif (priorité aux saisies stockées).
+  // Ordre de priorité (du moins prioritaire au plus prioritaire) :
+  //   1. DEFAULT_BIEN_DETAILS : valeurs fictives complètes du bien démo
+  //      Lyon 3 (couvre toutes les sections : DPE, chauffage, fenêtres, etc.)
+  //   2. buildInitialBienDetails(activeBien) : pré-remplissage dérivé du
+  //      bien actif (si saisi via /nouveau-bien)
+  //   3. stored : saisies réelles persistées dans reportStore (priorité max)
   const [bienDetails, setBienDetails] = useState(() => {
     const stored = getReportSection('bienDetails', {});
     const prefill = buildInitialBienDetails(activeBien);
-    return { ...prefill, ...stored };
+    return { ...DEFAULT_BIEN_DETAILS, ...prefill, ...stored };
   });
 
   useEffect(() => {

@@ -396,6 +396,76 @@ function etageToLabel(e) {
  * @param {object|null} active - résultat de getActiveBien()
  * @returns {Record<string, string|boolean>}
  */
+/**
+ * Set complet de valeurs fictives par défaut pour le bien démo Lyon 3 (12 rue
+ * des Lilas, T3 72.5 m², année 1972). Utilisé comme pré-remplissage de Step1
+ * au tout premier chargement (avant toute saisie utilisateur ou bien actif).
+ *
+ * Format : clé = `${sectionKey}__${fieldKey}` (cf. sectionsGenerales). Les
+ * saisies réelles de l'utilisateur ont la priorité (cf. Step1BienCible.jsx
+ * qui merge `{ ...DEFAULTS, ...stored, ...buildInitialBienDetails(active) }`).
+ */
+export const DEFAULT_BIEN_DETAILS = {
+  // Informations principales
+  'informations_principales__type_de_bien': 'Appartement',
+  'informations_principales__statut': 'En estimation',
+  'informations_principales__categories': 'Résidence principale',
+  'informations_principales__adresse': '12 rue des Lilas, 69003 Lyon',
+  'informations_principales__annee_de_construction': '1972',
+  'informations_principales__nombre_de_pieces': '3',
+  'informations_principales__nombre_de_chambres': '2',
+  'informations_principales__commentaire': 'T3 lumineux, double exposition Sud-Est, calme sur cour intérieure.',
+  // Surfaces
+  'surfaces__surface_habitable_m': '70.1',
+  'surfaces__surface_carrez_m': '72.5',
+  'surfaces__surface_exterieure': 'Balcon',
+  'surfaces__surface_cadastrale_m': '75',
+  'surfaces__references_cadastrales': 'AB 0042 — Lot 42',
+  // DPE
+  'dpe__dpe_vierge': false,
+  'dpe__non_soumis_au_dpe': false,
+  'dpe__date_de_realisation': '2024-09-15',
+  'dpe__consommation_energetique_valeur': '210',
+  'dpe__classe_dpe': 'D',
+  'dpe__gaz_effet_de_serre_valeur': '38',
+  'dpe__classe_ges': 'D',
+  'dpe__cout_annuel_min': '1450',
+  'dpe__cout_annuel_max': '1980',
+  'dpe__annee_de_reference': '2024',
+  // Informations
+  'informations__etat_general': 'Bon état',
+  'informations__etage_du_bien': '4ème étage',
+  'informations__ascenseur': 'Oui',
+  'informations__style': 'Contemporain',
+  'informations__environnement': 'Centre-ville',
+  'informations__construction': 'Béton armé / Enduit',
+  'informations__couverture': 'Membrane EPDM',
+  'informations__charpente': 'Béton',
+  'informations__taxe_fonciere': '1240',
+  'informations__mitoyennete': 'En bande',
+  'informations__acces_pmr': 'Partiel',
+  'informations__ventilation': 'VMC simple flux',
+  'informations__equipements': 'Interphone, Fibre optique, Digicode',
+  // Chauffage
+  'chauffage__type_de_chauffage': 'Individuel',
+  'chauffage__energie': 'Gaz',
+  'chauffage__diffusion_et_production': 'Chaudière condensation Frisquet + radiateurs acier',
+  // Fenêtres
+  'fenetres__fenetres': 'Oscillo-battantes',
+  'fenetres__materiaux_fenetres': 'PVC',
+  'fenetres__vitrages_fenetres': 'Double vitrage',
+  // Volets
+  'volets__volets': 'Roulants',
+  'volets__materiaux_volets': 'Aluminium (électriques)',
+  // ECS
+  'ecs__chauffe_eau': 'Ballon électrique',
+  'ecs__energie_ecs': 'Électrique',
+  // Assainissement
+  'assainissement__type_assainissement': 'Tout à l\'égout',
+  'assainissement__conformite': 'Conforme',
+  'assainissement__date_du_diagnostic': '2023-05-12',
+};
+
 export function buildInitialBienDetails(active) {
   const out = {};
   if (!active || !active.bien) return out;

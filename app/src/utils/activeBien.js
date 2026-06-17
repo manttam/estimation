@@ -280,20 +280,16 @@ export function buildBienCibleCategories(base, active) {
     return cats;
   }
 
-  // Bien actif : on vide TOUS les champs du releve d'information avant
-  // d'appliquer les overrides. Manon saisira elle-meme les champs non
-  // pre-remplis depuis /nouveau-bien.
+  // Bien actif : on CONSERVE les valeurs par défaut de propertyData comme
+  // base de référence, et on n'écrase que les champs explicitement saisis
+  // sur /nouveau-bien (adresse, type, surface, pièces, chambres, étage,
+  // exposition, ascenseur, extérieur, parking, année). Les autres champs
+  // restent à leur valeur démo réaliste (utile pour le pre-remplissage,
+  // l'aperçu visuel de Step3 et la cohérence des sections).
+  // On retire juste les flags d'erreur statiques du démo.
   cats.forEach((cat) => {
     cat.fields.forEach((f) => {
-      if (f.type === 'toggle') {
-        f.on = false;
-      } else {
-        // text / number / select : valeur vide
-        f.value = '';
-      }
-      // On preserve volontairement : label, type, options, placeholder,
-      // isImpact... seules `value` et `on` sont remises a zero.
-      if (f.error) delete f.error; // on enleve les flags d'erreur statiques du demo
+      if (f.error) delete f.error;
     });
   });
 
