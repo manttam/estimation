@@ -3576,6 +3576,47 @@ const INITIAL_OTHERS = [
       prix: 215000, prixM2: 4479,
     },
   },
+  /* Invendus (mandats actifs / annonces > 90 jours en commercialisation).
+   * joursEnCommercialisation est lu à la racine par isInvendu() → ces biens
+   * sont automatiquement reclassés dans la section "Invendus" du pool. */
+  {
+    id: 'moncey', title: 'T3 72m\u00b2 \u2014 28 rue de la Part-Dieu, Lyon 3',
+    source: 'encours', meta: 'En cours \u00b7 312k\u20ac \u00b7 4 333\u20ac/m\u00b2 \u00b7 610m',
+    simScore: '80% sim.', simClass: 'high',
+    joursEnCommercialisation: 118,
+    fields: {
+      type: 'appartement', surface: 72, pieces: 3, chambres: 2, sdb: 1, wc: 1,
+      etage: 3, etagesTotal: 6, orientation: 'Ouest', ascenseur: true,
+      cave: 4, anneeConstruction: 1978, epoqueConstruction: 'Ann\u00e9es 70',
+      vitrage: 'Double vitrage', chauffageType: 'Individuel', chauffageEnergie: 'Gaz',
+      dpe: 'D', ges: 'D', cuisineEquipee: true,
+      prix: 312000, prixM2: 4333,
+    },
+  },
+  {
+    id: 'bonnel', title: 'T4 88m\u00b2 \u2014 12 rue Bonnel, Lyon 3',
+    source: 'encours', meta: 'En cours \u00b7 398k\u20ac \u00b7 4 522\u20ac/m\u00b2 \u00b7 480m',
+    simScore: '67% sim.', simClass: 'mid',
+    joursEnCommercialisation: 142,
+    fields: {
+      type: 'appartement', surface: 88, pieces: 4, chambres: 3, sdb: 1, wc: 2,
+      etage: 5, etagesTotal: 5, orientation: 'Est', ascenseur: true,
+      balcon: 6, anneeConstruction: 1962, chauffageType: 'Collectif', chauffageEnergie: 'Gaz',
+      dpe: 'E', ges: 'E', cuisineEquipee: false,
+      prix: 398000, prixM2: 4522,
+    },
+  },
+  {
+    id: 'servient', title: 'T2 51m\u00b2 \u2014 47 rue Servient, Lyon 3',
+    source: 'portail', portalName: 'SeLoger',
+    meta: 'SeLoger \u00b7 239k\u20ac \u00b7 4 686\u20ac/m\u00b2 \u00b7 730m',
+    simScore: '60% sim.', simClass: 'mid',
+    joursEnCommercialisation: 96,
+    fields: {
+      type: 'appartement', surface: 51, pieces: 2, chambres: 1,
+      etage: 2, dpe: 'E', prix: 239000, prixM2: 4686,
+    },
+  },
   /* Portails (SeLoger, Leboncoin, Bien'ici) — données partielles, public. */
   {
     id: 'lafayette', title: 'T4 85m\u00b2 \u2014 18 cours Lafayette, Lyon 3',
