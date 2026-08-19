@@ -117,9 +117,11 @@ export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // /report est un document commercial : on masque le chrome de l'app (sidebar + topbar)
-  // et on laisse le rapport prendre toute la largeur.
-  const isReport = location.pathname.startsWith('/report');
+  // /report et /avis-valeur sont des documents commerciaux : on masque le chrome
+  // de l'app (sidebar + topbar) et on laisse le document prendre toute la largeur.
+  const isReport =
+    location.pathname.startsWith('/report') ||
+    location.pathname.startsWith('/avis-valeur');
 
   if (isReport) {
     return (

@@ -153,9 +153,25 @@ export const property = {
   pieces: 3,
   chambres: 2,
   etage: 4,
+  etagesTotal: 6,
+  ascenseur: true,
+  balcon: 5.2,
+  cave: true,
+  parking: false,
   dpe: "D",
   annee: 1972,
   prix_m2_estime: 4138,
+
+  // --- Avis de valeur (document mandant) -----------------------------
+  dateAvisValeur: "31 mars 2026",
+
+  // Descriptif rédigé, un paragraphe par entrée. Saisi par le
+  // collaborateur ; ce contenu est repris tel quel dans l'avis de valeur.
+  descriptif: [
+    "Appartement de type T3 d'une surface Carrez de 72,5 m², situé au 4ᵉ étage avec ascenseur d'une copropriété de 1972 bien entretenue, dans le quartier de la Part-Dieu à Lyon 3ᵉ.",
+    "Il se compose d'une entrée desservant un séjour lumineux ouvrant sur un balcon de 5,2 m² sans vis-à-vis, d'une cuisine séparée, de deux chambres, d'une salle de bain et d'un WC indépendant. L'ensemble bénéficie d'une double exposition et d'une bonne luminosité en journée.",
+    "Le bien dispose d'une cave en sous-sol. Emplacement de stationnement non inclus. Des travaux de ravalement de façade ont été votés en assemblée générale, pour une quote-part de 15 000 € à la charge du lot.",
+  ],
 };
 
 export const contexteZone = {
@@ -617,6 +633,9 @@ export const avisValeur = {
   prixMedian: 300000,
   prixHaut: 315000,
   prixM2: 4138,
+  // Prix médian pondéré des comparables retenus — seul poste du détail
+  // affiché dans l'avis de valeur remis au mandant.
+  prixM2Comparables: 4172,
   amplitude: 5.7,
   confiance: 78,
 
