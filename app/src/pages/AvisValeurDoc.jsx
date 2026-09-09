@@ -661,7 +661,7 @@ export default function AvisValeurDoc() {
             <button className="av-btn av-btn-primary" onClick={() => window.print()}>
               Imprimer / PDF
             </button>
-            <button className="av-btn av-btn-secondary" onClick={() => navigate('/step/5')}>
+            <button className="av-btn av-btn-secondary" onClick={() => navigate('/step/6')}>
               Retour à l'estimation
             </button>
           </div>

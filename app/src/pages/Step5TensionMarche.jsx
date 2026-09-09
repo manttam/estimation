@@ -785,7 +785,7 @@ function ProjectModal({ name, onClose }) {
   );
 }
 
-export default function Step4TensionMarche() {
+export default function Step5TensionMarche() {
   const [activePersona, setActivePersona] = useState('familles');
   const [openedProject, setOpenedProject] = useState(null);
 
@@ -935,7 +935,7 @@ export default function Step4TensionMarche() {
     <div className="step4-page">
       <style>{cssStyles}</style>
       <PropertyCard />
-      <Stepper currentStep={4} />
+      <Stepper currentStep={5} />
 
       {/* ═══ MES ACQUÉREURS (saisie d'un nouveau bien uniquement) ═══ */}
       {hasRealLocation && isNewFlow && (
@@ -1364,8 +1364,8 @@ export default function Step4TensionMarche() {
 
       {/* FOOTER */}
       <div className="footer-buttons">
-        <Link to="/step/3" className="btn btn-ghost">← Étape précédente : Comparables</Link>
-        <Link to="/step/5" className="btn btn-primary">Étape suivante : Avis de valeur →</Link>
+        <Link to="/step/4" className="btn btn-ghost">← Étape précédente : Comparables</Link>
+        <Link to="/step/6" className="btn btn-primary">Étape suivante : Avis de valeur →</Link>
       </div>
 
       <ProjectModal name={openedProject} onClose={() => setOpenedProject(null)} />

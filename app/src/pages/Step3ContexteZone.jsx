@@ -1151,7 +1151,7 @@ const POI_STYLES = {
   sante:      { color: '#DC2626', icon: '🏥', label: 'Santé' },
 };
 
-export default function Step2ContexteZone() {
+export default function Step3ContexteZone() {
   const navigate = useNavigate();
   // Hydratation depuis reportStore (persistance inter-pages)
   const persistedContexte = useMemo(() => getReportSection('contexteMarche', {}), []);
@@ -1605,7 +1605,7 @@ export default function Step2ContexteZone() {
       <style>{cssStyles}</style>
 
       <PropertyCard />
-      <Stepper currentStep={2} />
+      <Stepper currentStep={3} />
 
       {/* Info Banner */}
       <div className="info-banner">
@@ -1839,10 +1839,10 @@ export default function Step2ContexteZone() {
 
       {/* Footer */}
       <div className="footer-buttons">
-        <button className="btn btn-ghost" onClick={() => navigate('/step/1')}>
+        <button className="btn btn-ghost" onClick={() => navigate('/step/2')}>
           &larr; Relev&eacute; d&rsquo;informations
         </button>
-        <button className="btn btn-primary" onClick={() => navigate('/step/3')}>
+        <button className="btn btn-primary" onClick={() => navigate('/step/4')}>
           Comparables &rarr;
         </button>
       </div>
