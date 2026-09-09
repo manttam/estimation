@@ -35,105 +35,62 @@ export const mandant = {
 // Personas d'acquéreurs (utilisés dans Step4 ET dans la section détaillée
 // du rapport mandant V2). Dataset partagé pour cohérence.
 // ---------------------------------------------------------------------------
+/**
+ * Profils d'acquéreurs — taxonomie par composition du foyer.
+ *
+ * Les cinq catégories sont exhaustives et mutuellement exclusives : tout
+ * projet d'achat entre dans l'une d'elles, « Autre » servant de réceptacle
+ * (colocation, pied-à-terre, société non investisseuse…).
+ *
+ * ⚠️ Données de démonstration entièrement fictives : aucune donnée réelle
+ * d'acquéreur n'apparaît ici. En mode live, la section liste les acquéreurs
+ * du fichier de l'agence à la place de ces profils.
+ */
 export const personasAcquereurs = {
-  familles: {
-    key: "familles",
-    name: "Familles",
-    sub: "couple + enfants",
+  personneSeule: {
+    key: "personneSeule",
+    name: "Personne seule",
+    sub: "1 occupant",
+    count: 4,
+    budget: "262 k€",
+    delai: "4 mois",
+    compat: "0,66",
+  },
+  famille: {
+    key: "famille",
+    name: "Famille",
+    sub: "couple + enfant(s)",
     count: 8,
     budget: "295 k€",
     delai: "3 mois",
     compat: "0,74",
-    needs: [
-      { txt: "École primaire < 500 m", match: true, tag: "École Lamartine 320 m" },
-      { txt: "Espace extérieur (balcon/terrasse)", match: true, tag: "6 m² de balcon" },
-      { txt: "T3 minimum, 2 chambres séparées", match: true, tag: "T3 / 2 ch." },
-      { txt: "Quartier calme le soir", match: true, tag: "Rue peu passante" },
-      { txt: "Parking ou place de stationnement", match: false, tag: "Non disponible" },
-      { txt: "Ascenseur (poussette)", match: false, tag: "3ème sans ascenseur" },
-    ],
-    buyers: [
-      { rank: 1, name: "Famille #F047", budget: "305 k€", score: "0,88" },
-      { rank: 2, name: "Famille #F112", budget: "290 k€", score: "0,81" },
-      { rank: 3, name: "Famille #F203", budget: "310 k€", score: "0,76" },
-    ],
   },
-  investisseurs: {
-    key: "investisseurs",
-    name: "Investisseurs",
+  couple: {
+    key: "couple",
+    name: "Couple",
+    sub: "2 occupants, sans enfant",
+    count: 5,
+    budget: "288 k€",
+    delai: "3 mois",
+    compat: "0,71",
+  },
+  investisseur: {
+    key: "investisseur",
+    name: "Investisseur",
     sub: "locatif / rendement",
     count: 5,
     budget: "280 k€",
     delai: "1 mois",
     compat: "0,68",
-    needs: [
-      { txt: "Rendement brut > 4,5%", match: true, tag: "Estimé 4,7%" },
-      { txt: "Quartier étudiant / cadre", match: true, tag: "Lyon 3ème" },
-      { txt: "Bien déjà loué ou meublé possible", match: false, tag: "Vide" },
-      { txt: "DPE E ou mieux (loi climat)", match: true, tag: "DPE D" },
-      { txt: "Charges copropriété < 2 000 €/an", match: true, tag: "1 850 €/an" },
-      { txt: "Travaux récents ou aucun à prévoir", match: false, tag: "Rafraîchissement à prévoir" },
-    ],
-    buyers: [
-      { rank: 1, name: "Invest. #I021", budget: "285 k€", score: "0,79" },
-      { rank: 2, name: "Invest. #I044", budget: "270 k€", score: "0,72" },
-    ],
   },
-  primo: {
-    key: "primo",
-    name: "Primo-accédants",
-    sub: "1ère acquisition",
-    count: 4,
-    budget: "268 k€",
-    delai: "4 mois",
-    compat: "0,65",
-    needs: [
-      { txt: "Budget serré, prêt PTZ éligible", match: true, tag: "Zone B1 → PTZ possible" },
-      { txt: "Proximité transports publics", match: true, tag: "Métro Part-Dieu 450 m" },
-      { txt: "Charges copropriété faibles", match: true, tag: "1 850 €/an" },
-      { txt: "Pas de gros travaux", match: true, tag: "État correct" },
-      { txt: "DPE C ou mieux (éviter passoire)", match: false, tag: "DPE D" },
-    ],
-    buyers: [
-      { rank: 1, name: "Primo #P008", budget: "275 k€", score: "0,71" },
-      { rank: 2, name: "Primo #P031", budget: "265 k€", score: "0,63" },
-    ],
-  },
-  retraites: {
-    key: "retraites",
-    name: "Retraités",
-    sub: "pied-à-terre / downsizing",
-    count: 3,
-    budget: "340 k€",
+  autre: {
+    key: "autre",
+    name: "Autre",
+    sub: "colocation, pied-à-terre",
+    count: 1,
+    budget: "310 k€",
     delai: "6 mois",
-    compat: "0,61",
-    needs: [
-      { txt: "Ascenseur obligatoire", match: false, tag: "3ème sans ascenseur" },
-      { txt: "Pied-à-terre / résidence secondaire", match: true, tag: "T3 cohérent" },
-      { txt: "Commerces de proximité", match: true, tag: "Rue commerçante" },
-      { txt: "Quartier calme et sécurisé", match: true, tag: "Quartier résidentiel" },
-      { txt: "Terrasse ou balcon spacieux", match: true, tag: "6 m² balcon" },
-    ],
-    buyers: [{ rank: 1, name: "Retraité #R014", budget: "350 k€", score: "0,67" }],
-  },
-  mono: {
-    key: "mono",
-    name: "Mono-parentaux",
-    sub: "parent + enfant(s)",
-    count: 3,
-    budget: "278 k€",
-    delai: "2 mois",
-    compat: "0,69",
-    needs: [
-      { txt: "École primaire proche", match: true, tag: "Lamartine 320 m" },
-      { txt: "2 chambres séparées", match: true, tag: "T3 adapté" },
-      { txt: "Quartier sécurisé", match: true, tag: "Lyon 3ème résidentiel" },
-      { txt: "Place de parking sécurisée", match: false, tag: "Non disponible" },
-    ],
-    buyers: [
-      { rank: 1, name: "Mono #M019", budget: "285 k€", score: "0,74" },
-      { rank: 2, name: "Mono #M027", budget: "270 k€", score: "0,68" },
-    ],
+    compat: "0,58",
   },
 };
 
@@ -181,7 +138,7 @@ export const contexteZone = {
   tensionScore: 7,
   market: {
     prixM2: "4 280",
-    evolution: "+2.3%",
+    evolution: "+2,3 %",
     transactions: 156,
     delai: "68 j",
     fourchette: "3 850 – 4 720",
@@ -646,7 +603,7 @@ export const avisValeur = {
   lettre: {
     dateRDV: "18 mars 2026",
     introParagraphe:
-      "Suite à notre rencontre du 18 mars 2026 concernant le bien sis au 12 rue des Lilas à Lyon 3ᵉ, j'ai le plaisir de vous transmettre notre avis de valeur détaillé.",
+      "Suite à notre récente rencontre concernant le bien sis au 12 rue des Lilas à Lyon 3ᵉ, j'ai le plaisir de vous transmettre notre étude de marché.",
     cloture:
       "Je reste à votre entière disposition pour échanger sur ce document et définir ensemble la stratégie de commercialisation la plus adaptée à votre projet.",
   },
@@ -713,9 +670,9 @@ export const avisValeur = {
 
   // --- V2 : mentions légales du rapport --------------------------------
   mentionsLegales: [
-    "Le présent avis de valeur a pour objet d'estimer la valeur vénale du bien. Il ne constitue pas une expertise judiciaire au sens de l'article 1592 du Code civil.",
+    "La présente étude de marché a pour objet d'estimer la valeur vénale du bien. Elle ne constitue pas une expertise judiciaire au sens de l'article 1592 du Code civil.",
     "Cette estimation est valable 3 mois à compter de la date d'édition.",
-    "L'estimation repose sur les informations collectées lors de notre visite, les données de marché publiques (DVF) et notre base interne de comparables.",
+    "L'estimation repose sur les informations collectées lors de notre visite, les données de marché publiques (DVF) et les ventes signées relevées par notre réseau.",
     "Le propriétaire reste seul décideur du prix de mise en vente.",
   ],
 
@@ -728,20 +685,18 @@ export const avisValeur = {
     { source: "Portail", adresse: "Montesquieu", surface: "70m²", prixM2: "3 700 €", ajust: "0%", poids: "10%" },
   ],
   pointsForts: [
-    "5 acquéreurs actifs à forte compatibilité (score > 0.80)",
-    "Localisation premium : métro Garibaldi à 350m, bus à 120m, commerces de proximité (boulangerie 50m, pharmacie 180m, Monoprix 200m)",
-    "Ascenseur + balcon 5.2m² — critères très recherchés",
-    "DPE D avec potentiel C post-travaux",
-    "Quartier en hausse : +2.3% sur 12 mois",
-    "2 comparables Ideeri ultra-détaillés (fiabilité > 88%)",
-    "Ratio demande/offre favorable : 3.2x",
+    "Localisation recherchée : métro Sans Souci à 280 m, bus C13 à 120 m, commerces de proximité (boulangerie 90 m, pharmacie 310 m, Monoprix 380 m)",
+    "Ascenseur et balcon de 5,2 m² exposé Sud-Est — critères très recherchés",
+    "Traversant, cuisine ouverte sur séjour lumineux",
+    "DPE D avec potentiel C après travaux d'isolation",
+    "Quartier en hausse : +2,3 % sur 12 mois",
   ],
   pointsVigilance: [
-    "Travaux de ravalement votés : 15 000€ quote-part",
-    "8 biens concurrents en vente, 37.5% ont baissé",
-    "Copropriété avec 3.2% d'impayés",
+    "Travaux de ravalement votés : 15 000 € de quote-part",
+    "Concurrence active dans le secteur — voir « Notre activité dans votre secteur »",
+    "Copropriété avec 3,2 % d'impayés",
     "DPE D — sensibilité croissante des acquéreurs",
-    "Bruit routier 65dB — classement 3",
+    "Bruit routier 65 dB — classement 3",
   ],
   strategies: [
     {
