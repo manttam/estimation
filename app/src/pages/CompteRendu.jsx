@@ -3,62 +3,611 @@ import { useNavigate } from 'react-router-dom';
 import {
   property,
   contexteZone,
-  comparables,
   avisValeur,
   agence,
   agent,
   mandant,
   personasAcquereurs,
 } from '../data/propertyData';
-import ReliabilityBadge from '../components/ReliabilityBadge';
 import { getActiveBien } from '../utils/activeBien';
 import { getAcquereurs } from '../utils/acquereursStore';
 import { getPhotosForCarousel, revokePhotoUrls } from '../utils/photosStore';
 import { getReportState } from '../utils/reportStore';
+import CarteCommodites from '../components/CarteCommodites';
+import {
+  buildMarcheLocal,
+  STATUTS,
+} from '../data/marcheLocalIdeeri';
+import { POI_DEMO } from '../data/poiCategories';
+import { PROPERTY_PHOTOS } from '../data/propertyPhotos';
+import { pickDocumentPhotos } from '../utils/photosDocument';
+import BlocAppIdeeri from '../components/BlocAppIdeeri';
+import {
+  MARCHE_FINANCEMENT_DEMO,
+  mensualite,
+  fetchMarcheFinancement,
+} from '../data/marcheFinancement';
+import { getCompPhotos } from '../utils/compPhotos';
 
-/* Charge les comparables manuels saisis dans Step3 (clé `ideeri_manual_comps`). */
-function loadManualComparables() {
-  try {
-    if (typeof window === 'undefined') return [];
-    const raw = window.localStorage.getItem('ideeri_manual_comps');
-    if (!raw) return [];
-    const arr = JSON.parse(raw);
-    return Array.isArray(arr) ? arr : [];
-  } catch {
-    return [];
-  }
+/* ───── Marché local Ideeri ─────────────────────────────────────────────
+ * Périmètre figé dans le document : le mandant doit lire un cadre stable,
+ * pas les filtres que l'agent a fait bouger à l'écran en Step1.
+ */
+const MARCHE_LOCAL_RAYON_KM = 5;
+const MARCHE_LOCAL_PERIODE_MOIS = 24;
+
+/* Concurrence : un acquéreur élargit sa recherche bien au-delà de la rue, on
+ * regarde donc plus large que le périmètre d'analyse des ventes signées. */
+const CONCURRENCE_RAYON_KM = 10;
+/* Lien de téléchargement de l'app, encodé dans le QR code de la section
+ * « Votre bien ». Idéalement un lien intelligent qui redirige vers l'App
+ * Store ou Google Play selon le téléphone : un seul QR à imprimer.
+ * Surchargeable par agence via reportStore.agence.lienApp.
+ * ⚠️ Valeur par défaut à remplacer par le vrai lien de production. */
+const LIEN_APP_DEFAUT = 'https://ideeri.fr';
+
+/* Marge appliquée à la borne haute de l'estimation : au-delà, un bien ne vise
+ * plus les mêmes acquéreurs et ne concurrence donc pas celui-ci. */
+const CONCURRENCE_MARGE_PRIX = 1.1;
+/* Bande de surface acceptée autour de celle du bien : au-delà, on ne parle
+ * plus du même produit. */
+const CONCURRENCE_BANDE_SURFACE = 0.25;
+
+/* Bien de démonstration (12 rue des Lilas, Lyon 3e) : centre du marché local
+ * quand aucun bien n'a été saisi via /nouveau-bien. */
+const DEMO_COORDS = [45.758, 4.859];
+const DEMO_VILLE = 'Lyon 3e';
+
+/* Plan de commercialisation type — utilisé tant que l'agent n'a pas posé ses
+ * propres jalons dans le RdvPlanner (reportStore.rdvPlanner.jalons).
+ * `jours` = décalage depuis la date d'édition du document. */
+const PLAN_COMMERCIALISATION_DEFAUT = [
+  {
+    jours: 0,
+    titre: 'Signature du mandat',
+    detail: "Validation du prix de présentation, des modalités de visite et des supports de diffusion.",
+  },
+  {
+    jours: 2,
+    titre: 'Reportage photo et rédaction de l\u2019annonce',
+    detail: 'Photos professionnelles, plan coté, descriptif rédigé puis validé avec vous avant publication.',
+  },
+  {
+    jours: 4,
+    titre: 'Mise en ligne et diffusion',
+    detail: 'Publication sur les portails nationaux, notre site, nos réseaux sociaux et diffusion aux agences du réseau.',
+  },
+  {
+    jours: 7,
+    titre: 'Activation de notre fichier acquéreurs',
+    detail: 'Appel des projets d\u2019achat déjà qualifiés dont les critères correspondent à votre bien.',
+  },
+  {
+    jours: 21,
+    titre: 'Premier point d\u2019étape',
+    detail: 'Bilan des contacts et des visites réalisées, retours qualitatifs des acquéreurs, compte rendu écrit.',
+  },
+  {
+    jours: 45,
+    titre: 'Bilan à six semaines',
+    detail: 'Analyse des statistiques de diffusion. Ajustement du prix ou de la stratégie si les indicateurs le justifient.',
+  },
+  {
+    jours: 90,
+    titre: 'Point trimestriel',
+    detail: 'Révision complète : positionnement prix, qualité des supports, périmètre de diffusion.',
+  },
+];
+
+/* Engagements de suivi affichés sous la timeline. */
+const ENGAGEMENTS_COMMERCIALISATION = [
+  'Un compte rendu écrit après chaque visite, sous 24 heures.',
+  'Un point téléphonique programmé toutes les deux semaines.',
+  'Les statistiques de diffusion (vues, contacts, visites) communiquées à chaque point d\u2019étape.',
+  'Aucune visite sans acquéreur préalablement qualifié : capacité de financement vérifiée en amont.',
+  'Une proposition d\u2019ajustement toujours argumentée par des faits de marché, jamais une baisse subie.',
+];
+
+/* Pluriel simple pour les libellés générés. */
+const plural = (n) => (Number(n) > 1 ? 's' : '');
+
+/* Un point fort / de vigilance arrive soit comme une chaîne (saisie de
+ * l'agent en étape 1) soit comme un objet valorisé { label, montant }.
+ * `montant` à null signifie « non chiffré ». */
+const normPoint = (pt) =>
+  typeof pt === 'string'
+    ? { label: pt, montant: null }
+    : { label: pt?.label || '', montant: Number.isFinite(pt?.montant) ? pt.montant : null };
+
+/* Montant signé, format français : « +7 000 € », « −15 000 € ». Le signe
+ * moins est un vrai signe moins typographique, pas un trait d'union. */
+const fmtMontant = (n) =>
+  `${n > 0 ? '+' : '−'}${Math.abs(n).toLocaleString('fr-FR')} €`;
+
+/* Nombre au format français (virgule décimale). Les valeurs déjà textuelles
+ * ou absentes passent telles quelles. */
+const fmtNb = (v) => (typeof v === 'number' ? v.toLocaleString('fr-FR') : v);
+
+/* Distance en km, format français : « 800 m » sous le kilomètre. */
+const fmtKm = (km) =>
+  km < 1
+    ? `${Math.round(km * 1000)} m`
+    : `${km.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} km`;
+
+/* PRNG déterministe (mulberry32) : la trame de rues du plan doit être
+ * identique d'un tirage du document à l'autre pour un même bien. */
+function prngDepuis(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/* Palette du plan de secteur.
+ *
+ * Le fond était noir : ça se tenait seul, mais le noir n'apparaissait nulle
+ * part ailleurs dans le document, et un aplat sombre pleine largeur coûte
+ * cher à l'impression. On reprend donc les gris du document — même famille
+ * que les cartes, les filets et les libellés — et l'accent reste la couleur
+ * d'agence, qui n'est plus figée en vert.
+ */
+const CARTE = {
+  fond: '#fbfbfb',
+  bloc: '#eceeef',
+  route: '#dfe2e4',
+  pastilleFond: '#ffffff',
+  pastilleBord: '#d8dcde',
+  texte: '#33383d',
+  voie: '#8a9096',
+  legende: '#6b7075',
+  echelle: '#9aa0a6',
+  accent: 'var(--primary)',
+};
+
+const CARTE_W = 1000;
+const CARTE_H = 620;
+
+/**
+ * HistogrammeConcurrence — répartition des biens concurrents par distance.
+ *
+ * Un simple décompte par tranche d'un kilomètre : c'est la pression
+ * concurrentielle qui parle au mandant, pas le détail des annonces adverses.
+ * Rendu en SVG inline, sans librairie : ça sort tel quel à l'impression.
+ */
+function HistogrammeConcurrence({ tranches, vignettes = [], trancheProche }) {
+  const W = 980;
+  const H = 380;
+  const M = { haut: 46, bas: 46, gauche: 42, droite: 18 };
+
+  const maxCount = Math.max(1, ...tranches.map((t) => t.count));
+  // Deux crans d'air au-dessus de la plus haute barre : les vignettes photo
+  // se posent dans cet espace sans chevaucher la grille.
+  const yMax = Math.max(3, maxCount + 2);
+
+  const x0 = M.gauche;
+  const x1 = W - M.droite;
+  const yBase = H - M.bas;
+  const yTop = M.haut;
+
+  const slot = (x1 - x0) / tranches.length;
+  const largeurBarre = slot * 0.62;
+  const centreDe = (i) => x0 + slot * i + slot / 2;
+  const yDe = (v) => yBase - (v / yMax) * (yBase - yTop);
+
+  const graduations = Array.from({ length: yMax + 1 }, (_, i) => i);
+
+  return (
+    <svg
+      className="conc-svg"
+      viewBox={`0 0 ${W} ${H}`}
+      role="img"
+      aria-label={`Nombre de biens concurrents par tranche de distance, de 1 à ${tranches.length} kilomètres.`}
+    >
+      {/* Grille horizontale */}
+      {graduations.map((v) => (
+        <g key={v}>
+          <line
+            x1={x0}
+            y1={yDe(v)}
+            x2={x1}
+            y2={yDe(v)}
+            stroke={v === 0 ? '#9aa0a6' : '#e2e5e8'}
+            strokeWidth={v === 0 ? 1.4 : 1}
+            strokeDasharray={v === 0 ? undefined : '5 5'}
+          />
+          <text x={x0 - 10} y={yDe(v) + 4} textAnchor="end" fontSize="13" fill="#9aa0a6">
+            {v}
+          </text>
+        </g>
+      ))}
+
+      {/* Repère de la tranche la plus proche */}
+      {trancheProche && (
+        <line
+          x1={centreDe(trancheProche - 1)}
+          y1={yTop - 10}
+          x2={centreDe(trancheProche - 1)}
+          y2={yBase}
+          stroke="#c3c8cd"
+          strokeWidth="1"
+          strokeDasharray="5 5"
+        />
+      )}
+
+      {/* Barres */}
+      {tranches.map((t, i) => {
+        if (t.count === 0) return null;
+        const proche = t.km === trancheProche;
+        return (
+          <rect
+            key={t.km}
+            x={centreDe(i) - largeurBarre / 2}
+            y={yDe(t.count)}
+            width={largeurBarre}
+            height={yBase - yDe(t.count)}
+            fill="var(--primary)"
+            opacity={proche ? 1 : 0.35}
+          />
+        );
+      })}
+
+      {/* Vignettes photo des concurrents les plus proches */}
+      <defs>
+        {vignettes.map((v) => (
+          <clipPath id={`conc-clip-${v.id}`} key={v.id}>
+            <circle cx={centreDe(v.km - 1)} cy={yDe(tranches[v.km - 1]?.count || 0) - 30} r="21" />
+          </clipPath>
+        ))}
+      </defs>
+      {vignettes.map((v) => {
+        const cx = centreDe(v.km - 1);
+        const cy = yDe(tranches[v.km - 1]?.count || 0) - 30;
+        return (
+          <g key={v.id}>
+            <image
+              href={v.src}
+              x={cx - 21}
+              y={cy - 21}
+              width="42"
+              height="42"
+              preserveAspectRatio="xMidYMid slice"
+              clipPath={`url(#conc-clip-${v.id})`}
+            />
+            <circle cx={cx} cy={cy} r="21" fill="none" stroke="var(--primary)" strokeWidth="2.5" />
+          </g>
+        );
+      })}
+
+      {/* Axe des distances */}
+      {tranches.map((t, i) => (
+        <text
+          key={t.km}
+          x={centreDe(i)}
+          y={yBase + 24}
+          textAnchor="middle"
+          fontSize="14"
+          fill="#6b7075"
+        >
+          {t.km}
+        </text>
+      ))}
+      <text x={x1} y={yBase + 42} textAnchor="end" fontSize="13" fill="#9aa0a6">
+        distance (km)
+      </text>
+    </svg>
+  );
 }
 
 /**
- * Icônes Lucide inlinées (ISC license).
- * Utilisées par la section Méthodologie via `iconeLucide` du mock.
+ * CarteSecteur — plan du secteur autour du bien estimé.
+ *
+ * Les points sont placés d'après les coordonnées réelles des biens
+ * (projection équirectangulaire locale, fidèle à cette échelle). La trame de
+ * rues et les îlots bâtis sont en revanche DÉCORATIFS : ils donnent la
+ * lisibilité d'un plan sans prétendre reproduire la voirie réelle. C'est
+ * pourquoi aucun nom n'est porté par les rues — les libellés de voie sont
+ * attachés aux points, donc à la donnée.
  */
-const LUCIDE_ICONS = {
-  SearchCheck: (
-    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="m8 11 2 2 4-4" />
-      <circle cx="11" cy="11" r="8" />
-      <path d="m21 21-4.3-4.3" />
+function CarteSecteur({ carte, libelleBien = 'Votre bien' }) {
+  const { points = [], rayonKm = 1, seed = 1 } = carte || {};
+
+  const CX = CARTE_W / 2;
+  const CY = CARTE_H / 2;
+  // Le cercle occupe presque toute la hauteur : plus le rayon est grand en
+  // pixels, plus les points s'écartent et plus les étiquettes trouvent place.
+  const R = 290;
+  const pxParKm = R / rayonKm;
+  const rnd = prngDepuis(seed);
+
+  const fmtDistance = (km) =>
+    km < 1
+      ? `${Math.round(km * 1000)} M`
+      : `${km.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} KM`;
+
+  // ── Trame de rues (décorative) ──────────────────────────────────────
+  const xsRoutes = [0.16, 0.47, 0.73].map((f) => Math.round(CARTE_W * f + (rnd() - 0.5) * 40));
+  const ysRoutes = [0.2, 0.45, 0.7].map((f) => Math.round(CARTE_H * f + (rnd() - 0.5) * 30));
+
+  // ── Îlots bâtis : on pave chaque cellule délimitée par les rues ─────
+  const blocs = [];
+  const bordsX = [0, ...xsRoutes, CARTE_W];
+  const bordsY = [0, ...ysRoutes, CARTE_H];
+  const MARGE = 17;
+  for (let i = 0; i < bordsX.length - 1; i += 1) {
+    for (let j = 0; j < bordsY.length - 1; j += 1) {
+      const x0 = bordsX[i] + (i === 0 ? 12 : MARGE);
+      const x1 = bordsX[i + 1] - (i === bordsX.length - 2 ? 12 : MARGE);
+      const y0 = bordsY[j] + (j === 0 ? 12 : MARGE);
+      const y1 = bordsY[j + 1] - (j === bordsY.length - 2 ? 12 : MARGE);
+      const pasX = 47;
+      const pasY = 42;
+      const cols = Math.floor((x1 - x0 + 9) / pasX);
+      const rows = Math.floor((y1 - y0 + 9) / pasY);
+      for (let c = 0; c < cols; c += 1) {
+        for (let l = 0; l < rows; l += 1) {
+          // Dents creuses : un tissu urbain parfaitement régulier fait faux.
+          if (rnd() < 0.16) continue;
+          blocs.push({
+            x: x0 + c * pasX,
+            y: y0 + l * pasY,
+            w: 38 + Math.round(rnd() * 6),
+            h: 30 + Math.round(rnd() * 5),
+          });
+        }
+      }
+    }
+  }
+
+  // ── Points : projection km → pixels ─────────────────────────────────
+  const pts = points.map((pt) => ({
+    ...pt,
+    cx: CX + pt.dxKm * pxParKm,
+    cy: CY - pt.dyKm * pxParKm,
+  }));
+
+  /* ── Placement des étiquettes ──────────────────────────────────────
+   * Glouton : on essaie une série d'ancrages autour du point et on retient
+   * le premier qui ne chevauche rien. Une étiquette qui ne trouve pas de
+   * place est simplement omise — mieux vaut un point nu qu'un plan illisible.
+   */
+  // Emprise réservée au marqueur du bien : l'épingle monte au-dessus du point,
+  // sa pointe seule occupe l'emplacement exact — les biens très proches du
+  // bien estimé restent ainsi visibles.
+  const occupes = [
+    { x: CX - 78, y: CY - 112, w: 156, h: 124 },
+    // Libellé « RAYON … », désormais à l'intérieur du cercle.
+    { x: CX + 8, y: CY - R + 12, w: 190, h: 26 },
+  ];
+  const libre = (b) =>
+    b.x >= 12 &&
+    b.y >= 12 &&
+    b.x + b.w <= CARTE_W - 12 &&
+    b.y + b.h <= CARTE_H - 12 &&
+    !occupes.some(
+      (o) =>
+        b.x < o.x + o.w + 6 &&
+        b.x + b.w + 6 > o.x &&
+        b.y < o.y + o.h + 6 &&
+        b.y + b.h + 6 > o.y
+    );
+  const placer = (cx, cy, w, h, ancrages) => {
+    for (const [dx, dy] of ancrages) {
+      const b = { x: cx + dx - w / 2, y: cy + dy - h / 2, w, h };
+      if (libre(b)) {
+        occupes.push(b);
+        return b;
+      }
+    }
+    return null;
+  };
+
+  // Deux ventes sur la même voie donneraient deux libellés identiques côte à
+  // côte : ça se lit comme un bug. On ne nomme la voie qu'une fois.
+  const voiesNommees = new Set();
+
+  const etiquettes = pts.map((pt) => {
+    if (!pt.labellise) return { ...pt, pastille: null, voieBoite: null };
+
+    const texte = `${(pt.prixM2 || 0).toLocaleString('fr-FR')} €/m²`;
+    const w = texte.length * 8.4 + 22;
+    const pastille = placer(pt.cx, pt.cy, w, 30, [
+      [0, -32], [0, 34], [-w / 2 - 22, 0], [w / 2 + 22, 0],
+      [0, -66], [0, 68], [-w / 2 - 22, -36], [w / 2 + 22, -36],
+    ]);
+
+    // Nom de voie : accroché à la pastille (elle a déjà trouvé sa place, donc
+    // le dessous est presque toujours libre) et, à défaut, autour du point.
+    const voieTexte = voiesNommees.has(pt.voie) ? '' : pt.voie || '';
+    if (voieTexte) voiesNommees.add(voieTexte);
+    const wv = voieTexte.length * 6.1 + 8;
+    let voieBoite = null;
+    if (voieTexte && pastille) {
+      voieBoite = placer(pastille.x + pastille.w / 2, pastille.y + pastille.h / 2, wv, 17, [
+        [0, 24], [0, -24],
+      ]);
+    }
+    if (voieTexte && !voieBoite) {
+      voieBoite = placer(pt.cx, pt.cy, wv, 17, [
+        [wv / 2 + 16, 5], [-wv / 2 - 16, 5], [0, 28], [0, -28],
+      ]);
+    }
+
+    return { ...pt, texte, pastille, voieTexte, voieBoite };
+  });
+
+  // ── Échelle : on cherche une distance ronde qui tienne en 90–210 px ──
+  const PALIERS = [0.1, 0.2, 0.25, 0.5, 1, 2, 5];
+  const dEchelle =
+    PALIERS.find((d) => d * pxParKm >= 90 && d * pxParKm <= 210) ||
+    PALIERS.reduce(
+      (best, d) => (Math.abs(d * pxParKm - 140) < Math.abs(best * pxParKm - 140) ? d : best),
+      PALIERS[0]
+    );
+  const largeurEchelle = Math.round(dEchelle * pxParKm);
+  const labelEchelle =
+    dEchelle < 1
+      ? `${Math.round(dEchelle * 1000)} m`
+      : `${dEchelle.toLocaleString('fr-FR')} km`;
+
+  return (
+    <svg
+      className="carte-svg"
+      viewBox={`0 0 ${CARTE_W} ${CARTE_H}`}
+      role="img"
+      aria-label={`Plan du secteur : ${pts.length} biens situés dans un rayon de ${fmtDistance(rayonKm).toLowerCase()} autour du bien estimé.`}
+    >
+      <rect x="0" y="0" width={CARTE_W} height={CARTE_H} rx="10" fill={CARTE.fond} />
+
+      {/* Îlots bâtis (décoratifs) */}
+      <g>
+        {blocs.map((b, i) => (
+          <rect key={i} x={b.x} y={b.y} width={b.w} height={b.h} rx="3" fill={CARTE.bloc} />
+        ))}
+      </g>
+
+      {/* Rues (décoratives, volontairement sans nom) */}
+      <g stroke={CARTE.route} strokeWidth="15" strokeLinecap="square">
+        {ysRoutes.map((y, i) => (
+          <line key={`h${i}`} x1="0" y1={y} x2={CARTE_W} y2={y} />
+        ))}
+        {xsRoutes.map((x, i) => (
+          <line key={`v${i}`} x1={x} y1="0" x2={x} y2={CARTE_H} />
+        ))}
+      </g>
+
+      {/* Périmètre analysé */}
+      <circle
+        cx={CX}
+        cy={CY}
+        r={R}
+        fill="none"
+        stroke={CARTE.accent}
+        strokeWidth="1.5"
+        strokeDasharray="7 7"
+        opacity="0.5"
+      />
+      <text
+        x={CX + 14}
+        y={CY - R + 30}
+        fill={CARTE.accent}
+        fontSize="15"
+        letterSpacing="2.5"
+        fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
+      >
+        {`RAYON ${fmtDistance(rayonKm)}`}
+      </text>
+
+      {/* Biens du secteur */}
+      {etiquettes.map((pt) => (
+        <g key={pt.id}>
+          <circle
+            cx={pt.cx}
+            cy={pt.cy}
+            r={pt.labellise ? 10 : 8}
+            fill={STATUTS[pt.statut]?.color || '#46B962'}
+            stroke={pt.mine ? '#33383d' : CARTE.fond}
+            strokeWidth={pt.mine ? 2.5 : 2}
+          />
+          {pt.voieBoite && (
+            <text
+              x={pt.voieBoite.x + pt.voieBoite.w / 2}
+              y={pt.voieBoite.y + 13}
+              textAnchor="middle"
+              fill={CARTE.voie}
+              fontSize="12.5"
+            >
+              {pt.voieTexte}
+            </text>
+          )}
+          {pt.pastille && (
+            <g>
+              <rect
+                x={pt.pastille.x}
+                y={pt.pastille.y}
+                width={pt.pastille.w}
+                height={pt.pastille.h}
+                rx="7"
+                fill={CARTE.pastilleFond}
+                stroke={CARTE.pastilleBord}
+                strokeWidth="1"
+              />
+              <text
+                x={pt.pastille.x + pt.pastille.w / 2}
+                y={pt.pastille.y + 20}
+                textAnchor="middle"
+                fill={CARTE.texte}
+                fontSize="15"
+                fontWeight="700"
+              >
+                {pt.texte}
+              </text>
+            </g>
+          )}
+        </g>
+      ))}
+
+      {/* Marqueur du bien estimé — dessiné en dernier pour rester au-dessus */}
+      <g>
+        <line x1={CX} y1={CY - 6} x2={CX} y2={CY - 26} stroke={CARTE.accent} strokeWidth="2.5" />
+        <rect x={CX - 23} y={CY - 71} width="46" height="46" rx="12" fill={CARTE.accent} />
+        <path
+          d="M12 3.4 20.6 10.2 20.6 20.4 3.4 20.4 3.4 10.2 Z"
+          fill="#ffffff"
+          transform={`translate(${CX - 12}, ${CY - 60})`}
+        />
+        <rect x={CX - 74} y={CY - 108} width="148" height="31" rx="7" fill={CARTE.accent} />
+        <text x={CX} y={CY - 87} textAnchor="middle" fill="#ffffff" fontSize="15" fontWeight="700">
+          {libelleBien}
+        </text>
+        {/* Pointe : l'emplacement exact du bien */}
+        <circle cx={CX} cy={CY} r="5.5" fill={CARTE.accent} stroke={CARTE.fond} strokeWidth="2" />
+      </g>
+
+      {/* Légende */}
+      <g>
+        {['vendu', 'compromis', 'en_vente'].map((k, i) => (
+          <g key={k} transform={`translate(30, ${CARTE_H - 76 + i * 23})`}>
+            <circle cx="7" cy="0" r="6.5" fill={STATUTS[k].color} />
+            <text x="22" y="5" fill={CARTE.legende} fontSize="13">
+              {STATUTS[k].label}
+            </text>
+          </g>
+        ))}
+      </g>
+
+      {/* Échelle */}
+      <g>
+        <text
+          x={CARTE_W - 30}
+          y={CARTE_H - 44}
+          textAnchor="end"
+          fill={CARTE.echelle}
+          fontSize="13"
+        >
+          {labelEchelle}
+        </text>
+        <g stroke={CARTE.echelle} strokeWidth="2">
+          <line
+            x1={CARTE_W - 30 - largeurEchelle}
+            y1={CARTE_H - 32}
+            x2={CARTE_W - 30}
+            y2={CARTE_H - 32}
+          />
+          <line
+            x1={CARTE_W - 30 - largeurEchelle}
+            y1={CARTE_H - 38}
+            x2={CARTE_W - 30 - largeurEchelle}
+            y2={CARTE_H - 26}
+          />
+          <line x1={CARTE_W - 30} y1={CARTE_H - 38} x2={CARTE_W - 30} y2={CARTE_H - 26} />
+        </g>
+      </g>
     </svg>
-  ),
-  TrendingUp: (
-    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
-      <polyline points="16 7 22 7 22 13" />
-    </svg>
-  ),
-  Building2: (
-    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z" />
-      <path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2" />
-      <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" />
-      <path d="M10 6h4" />
-      <path d="M10 10h4" />
-      <path d="M10 14h4" />
-      <path d="M10 18h4" />
-    </svg>
-  ),
-};
+  );
+}
 
 /**
  * CompteRendu — V2
@@ -84,8 +633,6 @@ export default function CompteRendu() {
   // État persisté par Step3/Step5 (points forts/vigilance édités, prix retenu,
   // stratégie sélectionnée, comparables sélectionnés en Top 3).
   const reportState = useMemo(() => (isLive ? getReportState() : {}), [isLive]);
-  // Comparables ajoutés à la main par l'agent dans Step3.
-  const manualComps = useMemo(() => (isLive ? loadManualComparables() : []), [isLive]);
 
   // Photos IndexedDB (mode live uniquement) : chargement async + revoke au démontage
   const [livePhotos, setLivePhotos] = useState([]);
@@ -183,201 +730,11 @@ export default function CompteRendu() {
         delai: ctx.delaiMoyen || dvf.delaiMoyen || '—',
         fourchette: ctx.fourchette || fourchetteFromDvf(dvf),
       },
-      tensionLabel: dvf.tensionLabel || ctx.tensionLabel || '—',
-      tensionScore: dvf.tensionScore ?? ctx.tensionScore ?? '—',
       commodites: [], // POI rendus dans une section dédiée plus bas
       poi: ctx.poi || null,
       risques: ctx.risques || null,
     };
   }, [isLive, activeBien, reportState]);
-
-  // effComparables : priorité à ce que l'agent a sélectionné en Step3
-  // (reportState.comparablesSelectionnes) + comparables saisis à la main
-  // (manualComps) ; sinon fallback sur dvfTopComparables.
-  //
-  // Les comparables Step3 ont des formes hétérogènes (DVF promu, manual,
-  // legacy avant patch d'enrichissement). On extrait donc agressivement
-  // depuis tous les containers possibles : champs racine, c.fields,
-  // c._dvfRaw, c.meta string, c.title string.
-  const effComparables = useMemo(() => {
-    if (!isLive) return comparables;
-    const sel = Array.isArray(reportState.comparablesSelectionnes)
-      ? reportState.comparablesSelectionnes
-      : [];
-    const dvfTop = Array.isArray(activeBien.dvfTopComparables) ? activeBien.dvfTopComparables : [];
-
-    // ─── Helpers d'extraction tolérants ─────────────────────────────────
-    const toNum = (v) => {
-      if (v === null || v === undefined || v === '') return 0;
-      if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
-      const s = String(v);
-      // Gère "295k€" → 295000
-      const kMatch = s.match(/(\d+(?:[.,]\d+)?)\s*k/i);
-      if (kMatch) return Math.round(parseFloat(kMatch[1].replace(',', '.')) * 1000);
-      const cleaned = s.replace(/[^\d,.]/g, '').replace(/\s/g, '').replace(',', '.');
-      const n = parseFloat(cleaned);
-      return Number.isFinite(n) ? n : 0;
-    };
-    // Extrait surface / pieces / type d'un titre type "T3 65m² — adresse".
-    const parseTitle = (title) => {
-      if (!title || typeof title !== 'string') return {};
-      const out = {};
-      const surfMatch = title.match(/(\d+(?:[.,]\d+)?)\s*m²/i);
-      if (surfMatch) out.surface = toNum(surfMatch[1]);
-      const piecesMatch = title.match(/T\s*(\d+)/i);
-      if (piecesMatch) out.pieces = Number(piecesMatch[1]);
-      if (/maison/i.test(title)) out.type = 'maison';
-      else if (/appartement|^T\s*\d/i.test(title)) out.type = 'appartement';
-      return out;
-    };
-    // Extrait prix, prixM2, distance, date depuis la string meta type
-    // "DVF · 295k€ · 4 214€/m² · 750m · Mar. 2025".
-    const parseMeta = (meta) => {
-      if (!meta || typeof meta !== 'string') return {};
-      const parts = meta.split(/\s+·\s+/);
-      const out = {};
-      parts.forEach((p) => {
-        const s = p.trim();
-        // prix/m²
-        if (/€\/m²|€ ?\/m²/i.test(s)) {
-          out.prixM2 = toNum(s);
-        } else if (/€/.test(s)) {
-          out.prix = toNum(s);
-        } else if (/^\d+(?:[.,]\d+)?\s*(?:km|m)$/i.test(s)) {
-          // distance "750m" ou "1.2km"
-          const km = /km/i.test(s);
-          const n = parseFloat(s.replace(',', '.').replace(/[^\d.]/g, ''));
-          out.distance = km ? Math.round(n * 1000) : Math.round(n);
-        } else if (/^(Janv|Févr|Mars|Avr|Mai|Juin|Juil|Août|Sept|Oct|Nov|Déc)/i.test(s)) {
-          out.dateLabel = s;
-        }
-      });
-      return out;
-    };
-    const formatDate = (d) => {
-      if (!d) return '';
-      if (typeof d === 'string' && d.includes('-')) {
-        try {
-          return new Date(d).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
-        } catch {
-          return d;
-        }
-      }
-      return String(d);
-    };
-    const formatDistance = (raw) => {
-      if (raw === null || raw === undefined || raw === '') return '';
-      if (typeof raw === 'number') return raw >= 1000 ? `${(raw / 1000).toFixed(1)} km` : `${raw} m`;
-      const s = String(raw);
-      // Si déjà formatée ("750m" / "1.2km" / "1,2 km")
-      if (/m|km/i.test(s)) return s.replace(/(\d)(km|m)/i, '$1 $2');
-      const n = parseFloat(s.replace(',', '.'));
-      return Number.isFinite(n) ? (n >= 1000 ? `${(n / 1000).toFixed(1)} km` : `${Math.round(n)} m`) : '';
-    };
-
-    // ─── Normalisation d'un comparable hétérogène ────────────────────────
-    const normalize = (c, idx, fallbackSource = 'dvf') => {
-      const src = c.source || fallbackSource;
-      const raw = c._dvfRaw || {};
-      const f = c.fields || {};
-      const parsedT = parseTitle(c.title);
-      const parsedM = parseMeta(c.meta);
-
-      const surfaceN = toNum(c.surface ?? f.surface ?? raw.surface ?? parsedT.surface);
-      const piecesN = toNum(c.pieces ?? f.pieces ?? raw.pieces ?? parsedT.pieces);
-      const typeStr = c.type || f.type || raw.type || parsedT.type || 'appartement';
-      const prixN = toNum(c.prixRaw ?? f.prix ?? raw.prix ?? c.prix ?? parsedM.prix);
-      const prixM2N = toNum(c.prixM2Raw ?? f.prixM2 ?? raw.prixM2 ?? c.prixM2 ?? parsedM.prixM2)
-        || (surfaceN && prixN ? Math.round(prixN / surfaceN) : 0);
-      const adresseStr = c.addr || c.adresse || raw.adresse
-        || (raw.commune ? `${raw.cp || ''} ${raw.commune}`.trim() : '')
-        || '';
-      const dateStr = c.dateLabel || parsedM.dateLabel || formatDate(c.date || raw.date || raw.date_mutation);
-      const distanceN = c.distance ?? parsedM.distance ?? raw.distance;
-      const distanceLabel = formatDistance(distanceN);
-
-      const typeLabel = typeStr === 'maison' ? 'Maison'
-        : typeStr === 'appartement' ? 'Appartement'
-        : typeStr.charAt(0).toUpperCase() + typeStr.slice(1);
-
-      const etageVal = c.etage ?? f.etage ?? raw.etage;
-      const etageMaxVal = c.etagesTotal ?? c.etageMax ?? f.etageMax ?? raw.etagesTotal;
-      const dpeVal = c.dpe || f.dpe || raw.dpe || '';
-      const etatVal = c.etat || c.infosGenerales?.etatGeneral || f.etat || '';
-      const expoVal = c.exposition || c.orientation || f.exposition || f.orientation || '';
-      const anneeVal = c.anneeConstruction || c.annee || f.anneeConstruction
-        || f.annee || raw.anneeConstruction || raw.annee || '';
-
-      return {
-        id: c.id || `${src}-${idx}`,
-        source: src,
-        sourceLabel: c.sourceLabel || (src === 'dvf' ? 'DVF' : src === 'ideeri' ? 'Ideeri' : src === 'encours' ? 'En cours' : 'Portail'),
-        type: typeLabel,
-        typeRaw: typeStr,
-        surface: surfaceN || 0,
-        pieces: piecesN || 0,
-        adresse: adresseStr || '—',
-        prix: prixN || 0,
-        prixM2: prixM2N || 0,
-        prixM2Raw: prixM2N || 0,
-        date: dateStr || '',
-        distance: distanceLabel || '—',
-        etage: (etageVal === 0 || etageVal) ? etageVal : '—',
-        etageMax: (etageMaxVal === 0 || etageMaxVal) ? etageMaxVal : '—',
-        selected: true,
-        dpe: dpeVal || '—',
-        etat: etatVal || '—',
-        atouts: c.atoutsQualitatifs || c.atouts || [],
-        exposition: expoVal || '—',
-        anneeConstruction: anneeVal || '—',
-        // Photo : priorité au tableau saisi par l'agent, puis photoUrl
-        // unique, sinon null (la card affiche un placeholder texte).
-        photoUrl: (Array.isArray(c.photos) && c.photos[0])
-          || c.photoUrl
-          || null,
-        photos: Array.isArray(c.photos) ? c.photos : (c.photoUrl ? [c.photoUrl] : []),
-        urlAnnonce: c.urlAnnonce || c.urlSource || null,
-        commentairePertinence: c.commentairePertinence || (c.manual
-          ? 'Comparable saisi manuellement par l\'agent.'
-          : src === 'dvf'
-            ? 'Comparable issu de la base DVF (transaction confirmée).'
-            : 'Comparable de référence.'),
-        raisonEcart: c.raisonEcart || '',
-        donneesCroisees: c.donneesCroisees || { fiabilite: src === 'dvf' || src === 'ideeri' ? 'haute' : 'moyenne' },
-      };
-    };
-
-    // Agrège tous les comparables disponibles, dédupliqués par id.
-    const dedupe = (arr) => {
-      const seen = new Set();
-      const out = [];
-      for (const c of arr) {
-        const id = c?.id;
-        if (!id || !seen.has(id)) {
-          if (id) seen.add(id);
-          out.push(c);
-        }
-      }
-      return out;
-    };
-
-    // Source primaire : les sélectionnés (Top retenu par l'agent).
-    if (sel.length > 0) {
-      // On ajoute aussi les manuels qui n'auraient pas été sélectionnés,
-      // pour qu'ils restent visibles dans la section "Autres biens analysés".
-      const selNorm = sel.map((c, idx) => normalize(c, idx, c.source || 'portail'));
-      const selIds = new Set(selNorm.map((c) => c.id));
-      const extraManual = manualComps
-        .filter((c) => !selIds.has(c.id))
-        .map((c, idx) => ({ ...normalize(c, idx + sel.length, c.source || 'portail'), selected: false }));
-      return dedupe([...selNorm, ...extraManual]);
-    }
-    // Sinon : manuels + DVF top (tous "sélectionnés" par défaut pour qu'ils
-    // s'affichent dans la grille principale).
-    const manualNormalized = manualComps.map((c, idx) => normalize(c, idx, c.source || 'portail'));
-    const dvfNormalized = dvfTop.map((c, idx) => normalize(c, idx + manualNormalized.length, 'dvf'));
-    return dedupe([...manualNormalized, ...dvfNormalized]);
-  }, [isLive, activeBien, reportState, manualComps]);
 
   // effAvisValeur : prix depuis activeBien.result + génération auto des
   // points forts / vigilance depuis les caractéristiques du bien
@@ -472,10 +829,12 @@ export default function CompteRendu() {
       ? reportState.selectedStrategy
       : 1; // par défaut "Recommandé"
 
+    // Le document n'affiche que la stratégie retenue, et d'elle que le prix :
+    // délai, profil cible, risque et argumentaire ne sont plus rendus.
     const strategies = [
-      { label: 'Prudent', prix: prixBas, prixM2: Math.round(prixBas / surface), delai: '—', profilCible: '—', risque: '—', argumentaireDetaille: 'Borne basse de la fourchette d\'estimation.', recommended: selectedIdx === 0 },
-      { label: 'Recommandé', prix: customPrice, prixM2: customPrixM2, delai: '—', profilCible: '—', risque: '—', argumentaireDetaille: 'Prix retenu par l\'agent à partir de l\'analyse cascade.', recommended: selectedIdx === 1 },
-      { label: 'Ambitieux', prix: prixHaut, prixM2: Math.round(prixHaut / surface), delai: '—', profilCible: '—', risque: '—', argumentaireDetaille: 'Borne haute de la fourchette d\'estimation.', recommended: selectedIdx === 2 },
+      { label: 'Prudent', prix: prixBas, prixM2: Math.round(prixBas / surface), recommended: selectedIdx === 0 },
+      { label: 'Recommandé', prix: customPrice, prixM2: customPrixM2, recommended: selectedIdx === 1 },
+      { label: 'Ambitieux', prix: prixHaut, prixM2: Math.round(prixHaut / surface), recommended: selectedIdx === 2 },
     ];
 
     return {
@@ -484,7 +843,6 @@ export default function CompteRendu() {
       prixHaut,
       prixM2: customPrixM2,
       strategies,
-      decomposition: Array.isArray(r.breakdown) && r.breakdown.length > 0 ? r.breakdown : avisValeur.decomposition,
       pointsForts: fortsEdites,
       pointsVigilance: vigilanceEdites,
       acquereurs: realAcquereurs.map((a) => ({ budget: (a.budgetMax || 0) * 1000 })),
@@ -547,10 +905,13 @@ export default function CompteRendu() {
       introParagraphe: pick('introParagraphe', avisValeur?.lettre?.introParagraphe || ''),
       paragrapheMethodologie: pick(
         'paragrapheMethodologie',
-        "Notre méthodologie s'appuie sur l'analyse de biens comparables, la mesure de la tension de marché dans votre secteur et les caractéristiques propres de votre bien. Vous retrouverez le détail dans les pages suivantes.",
+        "Notre méthodologie s'appuie sur l'analyse des ventes signées dans votre secteur, sur les projets d'achat actifs de notre fichier acquéreurs et sur les caractéristiques propres de votre bien.",
       ),
       cloture: pick('cloture', avisValeur?.lettre?.cloture || ''),
-      formulePolitesse: pick('formulePolitesse', 'Je reste à votre disposition,'),
+      formulePolitesse: pick(
+        'formulePolitesse',
+        "Veuillez agréer l'expression de mes salutations distinguées,",
+      ),
     };
   }, [reportState]);
 
@@ -561,11 +922,338 @@ export default function CompteRendu() {
 
   const recommendedStrategy = effAvisValeur.strategies.find((s) => s.recommended) || effAvisValeur.strategies[0];
 
+  /* ── Définition du prix ───────────────────────────────────────────────
+   * Les points forts et de vigilance, chacun avec son impact chiffré, qui
+   * expliquent l'écart entre la valeur des comparables et le prix retenu.
+   *
+   * La valeur des comparables est obtenue par différence (prix retenu moins
+   * la somme des ajustements) : c'est la seule façon de garantir que le
+   * décompte présenté au mandant tombe juste au centime. Un tableau qui ne
+   * s'additionne pas ruinerait l'argumentaire qu'il est censé porter.
+   */
+  const definitionPrix = useMemo(() => {
+    const lignes = [
+      ...(effAvisValeur.pointsForts || []).map(normPoint),
+      ...(effAvisValeur.pointsVigilance || []).map(normPoint),
+    ].filter((pt) => pt.label);
+    const somme = lignes.reduce((t, pt) => t + (pt.montant || 0), 0);
+    const retenu = recommendedStrategy?.prix || 0;
+    // Seuls les points chiffrés entrent dans le décompte : douze lignes de
+    // même poids visuel, dont six « non chiffré », ne se lisaient plus. Les
+    // autres sont renvoyés à l'argumentaire, qui les détaille déjà.
+    const chiffrees = lignes.filter((pt) => pt.montant !== null);
+    return {
+      chiffrees,
+      nbNonChiffrees: lignes.length - chiffrees.length,
+      base: retenu - somme,
+      retenu,
+    };
+  }, [effAvisValeur.pointsForts, effAvisValeur.pointsVigilance, recommendedStrategy]);
+
+  // Projets d'achat dont le plafond de budget couvre le prix retenu.
+  const projetsCompatibles = (effAvisValeur.acquereurs || []).filter(
+    (a) => a.budget >= (recommendedStrategy?.prix || 0)
+  ).length;
+
   const dateEdition = new Date().toLocaleDateString('fr-FR', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
   });
+
+  /* Annexes : ce que les pastilles disaient, désormais une ligne de la fiche
+   * (« Annexes : ascenseur, cave » plutôt qu'une rangée de badges). */
+  const annexes = useMemo(() => {
+    if (!isLive) return 'Balcon de 5,2 m², cave, ascenseur';
+    const b = activeBien?.bien || {};
+    const parts = [];
+    if (b.exterieur && b.exterieur !== 'aucun') parts.push(b.exterieur);
+    if (b.parking && b.parking !== 'aucun') parts.push(`parking ${b.parking}`);
+    if (b.ascenseur) parts.push('ascenseur');
+    if (parts.length === 0) return 'Aucune';
+    const s = parts.join(', ');
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }, [isLive, activeBien]);
+
+  /* Marché communal et conditions de financement (DVF + INSEE + Banque de
+   * France, via /api/marche-financement). En démo on affiche l'extrait réel
+   * du millésime pour Lyon 3e. Échec silencieux : la section disparaît
+   * plutôt que d'afficher des tirets. */
+  const [marcheFi, setMarcheFi] = useState(isLive ? null : MARCHE_FINANCEMENT_DEMO);
+  useEffect(() => {
+    if (!isLive) return undefined;
+    const citycode = activeBien?.adresse?.citycode;
+    if (!citycode) return undefined;
+    const ctrl = new AbortController();
+    fetchMarcheFinancement(citycode, ctrl.signal).then((data) => {
+      if (!ctrl.signal.aborted) setMarcheFi(data);
+    });
+    return () => ctrl.abort();
+  }, [isLive, activeBien]);
+
+  /* Simulation d'emprunt sur le prix retenu, au taux du millésime assurance
+   * comprise. Sans apport ni frais d'acquisition : on annonce l'hypothèse
+   * dans la note plutôt que de la masquer dans le calcul. */
+  const simulation = useMemo(() => {
+    const taux = marcheFi?.taux?.avecAssurance;
+    const prix = recommendedStrategy?.prix;
+    if (!Number.isFinite(taux) || !Number.isFinite(prix) || prix <= 0) return null;
+    return {
+      taux,
+      durees: [20, 25].map((annees) => ({ annees, montant: mensualite(prix, taux, annees) })),
+    };
+  }, [marcheFi, recommendedStrategy]);
+
+  // Lien encodé dans le QR : réglage d'agence si renseigné, défaut sinon.
+  const lienApp = effAgence.lienApp || LIEN_APP_DEFAUT;
+
+  /* Photos du document : photos uploadées en étape 2 si présentes, sinon le
+   * catalogue de démo. Même sélection que l'avis de valeur (helper partagé) :
+   * les deux documents montrent le même bien, ils montrent les mêmes photos. */
+  const photosDoc = useMemo(() => {
+    const source = isLive && livePhotos.length > 0
+      ? livePhotos.map((ph) => ({ ...ph, url: ph.src }))
+      : PROPERTY_PHOTOS;
+    return pickDocumentPhotos(source, 5);
+  }, [isLive, livePhotos]);
+  const photoPrincipale = photosDoc[0]?.url || null;
+  const photosVignettes = photosDoc.slice(1);
+
+  // Prix/m² de la stratégie recommandée : repère dans la distribution des
+  // ventes du secteur (section « Notre activité dans votre secteur »).
+  const prixM2Reco = Number(recommendedStrategy?.prixM2) || 0;
+
+  /* ───── Marché local Ideeri — activité du réseau autour du bien ─────
+   * Biens vendus, sous compromis et en vente relevés par notre agence et les
+   * agences partenaires. La génération est déterministe (seed = coordonnées
+   * du bien) : deux éditions du même document décrivent le même marché.
+   *
+   * À remplacer par l'appel réel `GET /marche-local?lat&lon&rayon` — la forme
+   * des objets `bien` est déjà celle du contrat d'API.
+   */
+  const marcheLocal = useMemo(() => {
+    const lat = activeBien?.adresse?.coords?.[0] ?? DEMO_COORDS[0];
+    const lon = activeBien?.adresse?.coords?.[1] ?? DEMO_COORDS[1];
+    const ville = activeBien?.adresse?.city || DEMO_VILLE;
+    // Référence de prix du secteur : le prix/m² calculé pour le bien, sinon
+    // la médiane DVF, sinon le prix/m² recommandé — pour que le marché simulé
+    // et le prix de présentation restent sur la même échelle.
+    const prixM2Ref =
+      activeBien?.result?.prixM2 || activeBien?.dvfStats?.median || prixM2Reco || 2600;
+
+    const { biens } = buildMarcheLocal({ lat, lon, ville, prixM2Ref });
+
+    // Périmètre : rayon + antériorité. Les biens encore en vente ne sont pas
+    // filtrés sur la date — ils sont actuels par définition.
+    const perimetre = biens.filter(
+      (b) =>
+        b.distance <= MARCHE_LOCAL_RAYON_KM &&
+        (b.statut === 'en_vente' || b.moisEcoules <= MARCHE_LOCAL_PERIODE_MOIS)
+    );
+
+    const vendus = perimetre.filter((b) => b.statut === 'vendu');
+    const compromis = perimetre.filter((b) => b.statut === 'compromis');
+    const enVente = perimetre.filter((b) => b.statut === 'en_vente');
+
+    const mediane = (nums) => {
+      if (!nums.length) return null;
+      const s = nums.slice().sort((a, b) => a - b);
+      const m = Math.floor(s.length / 2);
+      return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2);
+    };
+
+    const delais = vendus.map((b) => b.delaiJours).filter((n) => Number.isFinite(n));
+    const delaiMoyen = delais.length
+      ? Math.round(delais.reduce((s, n) => s + n, 0) / delais.length)
+      : null;
+
+    // Distribution des prix/m² signés en 5 paliers d'amplitude égale (arrondie
+    // à 50 €) : support visuel du positionnement du prix recommandé.
+    const prixM2Vendus = vendus.map((b) => b.prixM2).filter((n) => Number.isFinite(n));
+    let paliers = [];
+    if (prixM2Vendus.length >= 5) {
+      const min = Math.min(...prixM2Vendus);
+      const max = Math.max(...prixM2Vendus);
+      const pas = Math.max(50, Math.ceil((max - min) / 5 / 50) * 50);
+      const base = Math.floor(min / pas) * pas;
+      const brut = Array.from({ length: 5 }, (_, i) => {
+        const from = base + i * pas;
+        const to = from + pas;
+        return { from, to, count: prixM2Vendus.filter((v) => v >= from && v < to).length };
+      });
+      const maxCount = Math.max(...brut.map((b) => b.count), 1);
+      paliers = brut.map((b) => ({
+        ...b,
+        label: `${b.from.toLocaleString('fr-FR')} – ${b.to.toLocaleString('fr-FR')}`,
+        pct: Math.round((b.count / maxCount) * 100),
+      }));
+    }
+
+    const parDistance = (a, b) => a.distance - b.distance;
+
+    /* ── Biens en concurrence ──────────────────────────────────────────
+     * Un concurrent n'est pas n'importe quel bien à vendre dans le secteur :
+     * c'est un bien qui vise les mêmes acquéreurs. On retient donc, en plus
+     * du périmètre et du plafond de prix, les caractéristiques qui font qu'un
+     * acquéreur hésite entre deux biens : même type, typologie à une pièce
+     * près, surface dans une bande de ±CONCURRENCE_BANDE_SURFACE.
+     */
+    const typeCible = isLive
+      ? (activeBien?.bien?.type === 'maison' ? 'Maison' : 'Appartement')
+      : 'Appartement';
+    const piecesCible = Number(effProperty.pieces);
+    const surfaceCible = Number(effProperty.surface);
+    const plafond = Math.round((effAvisValeur.prixHaut || 0) * CONCURRENCE_MARGE_PRIX);
+
+    const concurrents = biens
+      .filter((b) => b.statut === 'en_vente')
+      .filter((b) => b.distance <= CONCURRENCE_RAYON_KM)
+      .filter((b) => b.type === typeCible)
+      .filter((b) => !Number.isFinite(piecesCible) || Math.abs(b.pieces - piecesCible) <= 1)
+      .filter((b) => {
+        // Surface non renseignée : on ne peut pas trancher, on garde le bien.
+        if (!Number.isFinite(surfaceCible) || surfaceCible <= 0) return true;
+        return Math.abs(b.surface - surfaceCible) / surfaceCible <= CONCURRENCE_BANDE_SURFACE;
+      })
+      .filter((b) => !plafond || b.prix <= plafond)
+      .sort(parDistance);
+
+    // Tranches d'un kilomètre : la tranche k regroupe les biens situés
+    // entre k-1 et k km du bien estimé.
+    const tranches = Array.from({ length: CONCURRENCE_RAYON_KM }, (_, i) => ({
+      km: i + 1,
+      count: concurrents.filter((b) => b.distance > i && b.distance <= i + 1).length,
+    }));
+
+    // Vignettes photo : les deux concurrents les plus proches, chacun au-dessus
+    // de sa tranche. Au-delà de deux, le graphique devient illisible.
+    const vignettes = [];
+    concurrents.forEach((b) => {
+      if (vignettes.length >= 2) return;
+      const km = Math.max(1, Math.ceil(b.distance));
+      if (vignettes.some((v) => v.km === km)) return;
+      const photos = getCompPhotos({ id: b.id });
+      if (photos[0]) vignettes.push({ km, src: photos[0], id: b.id });
+    });
+
+    /* ── Plan du secteur ────────────────────────────────────────────────
+     * Projection équirectangulaire locale : à cette échelle (quelques km)
+     * l'erreur est négligeable, et on gagne un placement des points fidèle
+     * aux coordonnées réelles — la trame de rues, elle, reste décorative.
+     */
+    const KM_PAR_DEG_LAT = 110.57;
+    const KM_PAR_DEG_LON = 111.32 * Math.cos((lat * Math.PI) / 180);
+    const projeter = (b) => ({
+      ...b,
+      dxKm: ((b.coords?.[1] ?? lon) - lon) * KM_PAR_DEG_LON,
+      dyKm: ((b.coords?.[0] ?? lat) - lat) * KM_PAR_DEG_LAT,
+    });
+
+    /* Cadrage : on englobe les 6 ventes signées les plus proches, sur le
+     * palier de rayon rond immédiatement supérieur. Serrer le cadre est ce
+     * qui rend le plan lisible — à 3 km tout se tasse au centre et plus
+     * aucune étiquette ne trouve sa place. */
+    const PALIERS_RAYON = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 5];
+    const vendusProches = vendus.slice().sort(parDistance).slice(0, 6);
+    const dMax = vendusProches[vendusProches.length - 1]?.distance || 0.5;
+    const rayonCarteKm = PALIERS_RAYON.find((d) => d >= dMax) || Math.ceil(dMax);
+    const idsLabellises = new Set(vendusProches.map((b) => b.id));
+
+    const pointsCarte = perimetre
+      .filter((b) => b.distance <= rayonCarteKm)
+      .sort(parDistance)
+      .slice(0, 18)
+      .map(projeter)
+      .map((b) => ({
+        id: b.id,
+        statut: b.statut,
+        mine: b.mine,
+        dxKm: b.dxKm,
+        dyKm: b.dyKm,
+        prixM2: b.prixM2,
+        voie: b.adresse || b.voie,
+        // Seules les ventes signées portent un prix : c'est la donnée qui
+        // fait référence. Le reste situe l'activité sans surcharger le plan.
+        labellise: b.statut === 'vendu' && idsLabellises.has(b.id),
+      }));
+
+    return {
+      rayonKm: MARCHE_LOCAL_RAYON_KM,
+      periodeMois: MARCHE_LOCAL_PERIODE_MOIS,
+      ville,
+      total: perimetre.length,
+      vendus: vendus.length,
+      vendusAgence: vendus.filter((b) => b.mine).length,
+      compromis: compromis.length,
+      enVente: enVente.length,
+      delaiMoyen,
+      prixM2MedianVendus: mediane(prixM2Vendus),
+      paliers,
+      carte: {
+        rayonKm: rayonCarteKm,
+        // Seed stable : la trame de rues ne doit pas changer d'un tirage
+        // du document à l'autre.
+        seed: Math.abs(Math.round(lat * 10000) ^ Math.round(lon * 10000)) || 1,
+        points: pointsCarte,
+      },
+      concurrence: {
+        rayonKm: CONCURRENCE_RAYON_KM,
+        total: concurrents.length,
+        tranches,
+        vignettes,
+        // Tranche la plus proche occupée : c'est la concurrence immédiate,
+        // celle qu'on met en avant.
+        trancheProche: tranches.find((t) => t.count > 0)?.km || null,
+      },
+    };
+  }, [activeBien, isLive, prixM2Reco, effAvisValeur.prixHaut, effProperty.pieces, effProperty.surface]);
+
+  /* ───── Plan de commercialisation ───────────────────────────────────
+   * Priorité aux jalons réellement posés par l'agent dans le RdvPlanner ;
+   * à défaut, plan type calé sur la date d'édition du document.
+   */
+  const planCommercialisation = useMemo(() => {
+    const fmtLong = (d) =>
+      d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    const jalonsAgent = Array.isArray(reportState.rdvPlanner?.jalons)
+      ? reportState.rdvPlanner.jalons.filter((j) => j && j.date)
+      : [];
+
+    if (jalonsAgent.length) {
+      return {
+        source: 'agent',
+        etapes: jalonsAgent
+          .slice()
+          .sort((a, b) => String(a.date).localeCompare(String(b.date)))
+          .map((j) => {
+            const [y, m, d] = String(j.date).split('-').map(Number);
+            const date = new Date(y, (m || 1) - 1, d || 1);
+            return {
+              dateLabel: fmtLong(date),
+              titre: j.label || 'Point d\u2019étape',
+              detail: [j.heure, j.duree ? `${j.duree} min` : null].filter(Boolean).join(' · '),
+              color: j.color,
+            };
+          }),
+      };
+    }
+
+    const base = new Date();
+    return {
+      source: 'defaut',
+      etapes: PLAN_COMMERCIALISATION_DEFAUT.map((e) => {
+        const date = new Date(base);
+        date.setDate(date.getDate() + e.jours);
+        return {
+          dateLabel: fmtLong(date),
+          jourLabel: e.jours === 0 ? 'Jour J' : `J+${e.jours}`,
+          titre: e.titre,
+          detail: e.detail,
+        };
+      }),
+    };
+  }, [reportState]);
 
   const isPrintMode =
     typeof window !== 'undefined' &&
@@ -581,13 +1269,33 @@ export default function CompteRendu() {
 
   const [shareStatus, setShareStatus] = useState('idle'); // idle|loading|copied|error
 
-  const selectedComps = effComparables.filter((c) => c.selected);
-
   // Personas d'acquéreurs : en web on sélectionne, en PDF tout est déplié.
   // En mode live, on ne dispose pas de personas regroupés → on affichera
   // une liste plate des acquéreurs réels dans la section 6.
   const personasList = Object.values(personasAcquereurs);
-  const [activePersonaKey, setActivePersonaKey] = useState(personasList[0].key);
+
+  /* Profils triés par poids décroissant, « Autre » toujours en dernier :
+   * c'est un réceptacle, pas un profil qui mérite la première place même
+   * quand il pèse lourd. `teinte` dégrade l'opacité du plus gros au plus
+   * petit, ce qui donne le dégradé de la barre sans figer une couleur (la
+   * couleur d'agence reste pilotée par --primary). */
+  const personasTries = useMemo(() => {
+    const total = personasList.reduce((s, p) => s + (p.count || 0), 0) || 1;
+    const tries = personasList
+      .slice()
+      .sort((x, y) => {
+        if (x.key === 'autre') return 1;
+        if (y.key === 'autre') return -1;
+        return (y.count || 0) - (x.count || 0);
+      });
+    const nbColores = tries.filter((p) => p.key !== 'autre').length || 1;
+    let rang = 0;
+    return tries.map((p) => {
+      const teinte = p.key === 'autre' ? 1 : 1 - (rang++ / nbColores) * 0.62;
+      return { ...p, pct: Math.round(((p.count || 0) / total) * 100), teinte };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Prix de référence pour le filtre acquéreur : on prend le prix retenu
   // par l'agent (customPrice → médiane) ; on ne considère un acquéreur
@@ -632,17 +1340,29 @@ export default function CompteRendu() {
         <div className="cover-bar" />
         <h1 className="cover-title">ÉTUDE DE MARCHÉ</h1>
         <p className="cover-address">{effProperty.adresse || '—'}</p>
-        <div className="cover-hero" aria-hidden="true">
-          {isLive && livePhotos[0]?.src ? (
-            <img src={livePhotos[0].src} alt="Photo principale" className="cover-hero-img" />
+        <div className="cover-hero">
+          {photoPrincipale ? (
+            <>
+              <img src={photoPrincipale} alt="Photo principale du bien" className="cover-hero-img" />
+              {photosVignettes.length > 0 && (
+                <div className="cover-strip">
+                  {photosVignettes.map((ph, i) => (
+                    <figure key={ph.id || i}>
+                      <img src={ph.url} alt={ph.label || ''} />
+                      {ph.label && <figcaption>{ph.label}</figcaption>}
+                    </figure>
+                  ))}
+                </div>
+              )}
+            </>
           ) : (
             <div className="cover-hero-placeholder">
-              <span>{effProperty.surface} m² · T{effProperty.pieces} · Étage {effProperty.etage}</span>
+              <span>{fmtNb(effProperty.surface)} m² · T{effProperty.pieces} · Étage {effProperty.etage}</span>
             </div>
           )}
         </div>
         <div className="cover-meta">
-          <div>Référence : <strong>{effProperty.reference}</strong></div>
+          <div>Référence : <strong className="mono">{effProperty.reference}</strong></div>
           <div>Établi le {dateEdition}</div>
           <div>Par {effAgent.nom}, {effAgent.fonction}</div>
         </div>
@@ -677,10 +1397,11 @@ export default function CompteRendu() {
         <div className="letter-body">
           <p>{effLettre.formuleAppel || `${effMandant.civilite || ''} ${effMandant.nom || ''}`.trim() + ','}</p>
           <p>{effLettre.introParagraphe || effAvisValeur.lettre.introParagraphe}</p>
+          {/* Aucun prix dans la lettre : le prix de présentation n'apparaît
+              qu'une fois dans le document, en section « Notre proposition ». */}
           <p>
-            Au terme de notre analyse, nous évaluons la valeur vénale de votre bien
-            à <strong>{(effAvisValeur.prixBas || 0).toLocaleString('fr-FR')} € — {(effAvisValeur.prixHaut || 0).toLocaleString('fr-FR')} €</strong>,
-            avec une recommandation de prix de présentation à <strong>{(recommendedStrategy?.prix || 0).toLocaleString('fr-FR')} €</strong>.
+            Au terme de notre analyse, vous trouverez notre recommandation de prix
+            de présentation en section « Notre proposition ».
           </p>
           <p>{effLettre.paragrapheMethodologie}</p>
           <p>{effLettre.cloture || effAvisValeur.lettre.cloture}</p>
@@ -706,94 +1427,120 @@ export default function CompteRendu() {
       <section className="property page-break">
         <h2 className="section-title">Votre bien</h2>
 
-        <div className="property-gallery">
-          {isLive ? (
-            livePhotos.length > 0 ? (
-              <>
-                <div className="photo-main" style={{ backgroundImage: `url(${livePhotos[0].src})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
-                <div className="photo-grid">
-                  {livePhotos.slice(1, 4).map((p, i) => (
+        <div className="bien-grid">
+          <aside>
+            <div className="bien-photo">
+              {photoPrincipale ? (
+                <img className="bien-photo-img" src={photoPrincipale} alt="Photo du bien" />
+              ) : (
+                <div className="bien-photo-vide">photo du bien · à brancher</div>
+              )}
+              {photosVignettes.length > 0 && (
+                <div className="bien-vignettes">
+                  {photosVignettes.slice(0, 3).map((ph, i) => (
                     <div
-                      key={p.id || i}
-                      className="photo-thumb"
-                      style={{ backgroundImage: `url(${p.src})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+                      key={ph.id || i}
+                      className="bien-vignette"
+                      style={{ backgroundImage: `url(${ph.url})` }}
                     />
                   ))}
                 </div>
-              </>
-            ) : (
-              <div className="photo-main" style={{ color: '#999' }}>Aucune photo ajoutée</div>
-            )
-          ) : (
-            <>
-              <div className="photo-main">Photo principale</div>
-              <div className="photo-grid">
-                <div className="photo-thumb">Séjour</div>
-                <div className="photo-thumb">Cuisine</div>
-                <div className="photo-thumb">Chambre</div>
+              )}
+            </div>
+
+            {/* Échelle DPE : le mandant situe son bien d'un coup d'œil, sans
+                avoir à interpréter une lettre isolée. */}
+            {effProperty.dpe && effProperty.dpe !== '—' && (
+              <div className="card dpe-card">
+                <div className="eyebrow">Performance énergétique</div>
+                <div className="dpe-echelle">
+                  {['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((l) => (
+                    <span
+                      key={l}
+                      className={`dpe-lettre${l === effProperty.dpe ? ` active dpe-${l}` : ''}`}
+                    >
+                      {l}
+                    </span>
+                  ))}
+                </div>
+                <p className="dpe-texte">
+                  Étiquette énergie <strong>{effProperty.dpe}</strong>
+                  {(isLive ? effProperty.ges : 'D') && (isLive ? effProperty.ges : 'D') !== '—' && (
+                    <>
+                      {' '}· gaz à effet de serre{' '}
+                      <strong>{isLive ? effProperty.ges : 'D'}</strong>
+                    </>
+                  )}
+                  . Diagnostic valable 10 ans à compter de sa réalisation.
+                </p>
               </div>
-            </>
-          )}
+            )}
+          </aside>
+
+          <div className="card">
+            <div className="kv-row">
+              <span className="kv-key">Type</span>
+              <span className="kv-val">
+                {isLive ? (activeBien?.bien?.type === 'maison' ? 'Maison' : 'Appartement') : 'Appartement'}{' '}
+                T{effProperty.pieces}, {effProperty.chambres} chambre{plural(effProperty.chambres)}
+              </span>
+            </div>
+            <div className="kv-row">
+              <span className="kv-key">Surface</span>
+              <span className="kv-val">{fmtNb(effProperty.surface)} m² Carrez</span>
+            </div>
+            <div className="kv-row">
+              <span className="kv-key">Étage</span>
+              <span className="kv-val">{effProperty.etage}{isLive ? '' : ' / 6'}</span>
+            </div>
+            <div className="kv-row">
+              <span className="kv-key">Année</span>
+              <span className="kv-val">{effProperty.annee}</span>
+            </div>
+            <div className="kv-row">
+              <span className="kv-key">Exposition</span>
+              <span className="kv-val">{isLive ? (activeBien?.bien?.exposition || '—') : 'Sud-Est'}</span>
+            </div>
+            <div className="kv-row">
+              <span className="kv-key">Chauffage</span>
+              <span className="kv-val">{isLive ? (effProperty.chauffage || '—') : 'Individuel gaz'}</span>
+            </div>
+            <div className="kv-row">
+              <span className="kv-key">Annexes</span>
+              <span className="kv-val">{annexes}</span>
+            </div>
+            <div className="kv-row">
+              <span className="kv-key">État</span>
+              <span className="kv-val">{isLive ? (effProperty.etat || '—') : 'Bon état'}</span>
+            </div>
+            <div className="kv-row">
+              <span className="kv-key">Référence</span>
+              <span className="kv-val mono">{effProperty.reference}</span>
+            </div>
+
+            {!isLive && (
+              <p className="property-desc">
+                Bel appartement T{effProperty.pieces} de {fmtNb(effProperty.surface)} m² traversant,
+                situé au {effProperty.etage}ᵉ étage avec ascenseur d'un immeuble des années 1970 en
+                bon état d'entretien. La cuisine ouverte sur le séjour lumineux offre un espace de
+                vie agréable. Les menuiseries double vitrage performant et la chaudière gaz à
+                condensation de 2018 permettent une consommation maîtrisée.
+              </p>
+            )}
+          </div>
         </div>
 
-        <div className="property-specs">
-          <div className="spec-col">
-            <div className="spec-row"><span>Type</span><strong>{isLive ? (activeBien?.bien?.type === 'maison' ? 'Maison' : 'Appartement') : 'Appartement'} T{effProperty.pieces}</strong></div>
-            <div className="spec-row"><span>Surface</span><strong>{effProperty.surface} m²</strong></div>
-            <div className="spec-row"><span>Pièces</span><strong>{effProperty.pieces}</strong></div>
-            <div className="spec-row"><span>Chambres</span><strong>{effProperty.chambres}</strong></div>
-            <div className="spec-row"><span>Étage</span><strong>{effProperty.etage}{isLive ? '' : ' / 6'}</strong></div>
-            <div className="spec-row"><span>Année</span><strong>{effProperty.annee}</strong></div>
-          </div>
-          <div className="spec-col">
-            <div className="spec-row">
-              <span>DPE</span>
-              <strong className={`dpe-badge dpe-${effProperty.dpe}`}>{effProperty.dpe}</strong>
-            </div>
-            <div className="spec-row">
-              <span>GES</span>
-              <strong className={`dpe-badge dpe-${isLive ? (effProperty.ges || 'D') : 'D'}`}>{isLive ? (effProperty.ges || '—') : 'D'}</strong>
-            </div>
-            <div className="spec-row"><span>Exposition</span><strong>{isLive ? (activeBien?.bien?.exposition || '—') : 'Sud-Est'}</strong></div>
-            <div className="spec-row"><span>Chauffage</span><strong>{isLive ? (effProperty.chauffage || '—') : 'Individuel gaz'}</strong></div>
-            <div className="spec-row"><span>État</span><strong>{isLive ? (effProperty.etat || '—') : 'Bon état'}</strong></div>
-            <div className="spec-row"><span>Ascenseur</span><strong>{isLive ? (activeBien?.bien?.ascenseur ? 'Oui' : 'Non') : 'Oui'}</strong></div>
-          </div>
-        </div>
-
-        {!isLive && (
-          <p className="property-desc">
-            Bel appartement T{effProperty.pieces} de {effProperty.surface} m² traversant, situé au {effProperty.etage}ᵉ
-            étage avec ascenseur d'un immeuble des années 1970 en bon état d'entretien.
-            Il dispose d'un balcon de 5,2 m² exposé Sud-Est, d'une cave et d'un parking
-            extérieur. La cuisine ouverte sur le séjour lumineux offre un espace de vie
-            agréable. Les menuiseries double vitrage performant et la chaudière gaz à
-            condensation de 2018 permettent une consommation maîtrisée.
-          </p>
-        )}
-
-        {!isLive && (
-          <div className="property-tags">
-            <span className="pill">Balcon</span>
-            <span className="pill">Ascenseur</span>
-            <span className="pill">Cave</span>
-            <span className="pill">Parking</span>
-            <span className="pill">DPE D</span>
-            <span className="pill">Métro 350m</span>
-          </div>
-        )}
-        {isLive && (
-          <div className="property-tags">
-            {activeBien?.bien?.exterieur && activeBien.bien.exterieur !== 'aucun' && (
-              <span className="pill">{activeBien.bien.exterieur.charAt(0).toUpperCase() + activeBien.bien.exterieur.slice(1)}</span>
-            )}
-            {activeBien?.bien?.ascenseur && <span className="pill">Ascenseur</span>}
-            {activeBien?.bien?.parking && activeBien.bien.parking !== 'aucun' && (
-              <span className="pill">Parking {activeBien.bien.parking}</span>
-            )}
-            {effProperty.dpe && effProperty.dpe !== '—' && <span className="pill">DPE {effProperty.dpe}</span>}
-          </div>
-        )}
+        {/* Renvoi vers l'app : le document ne peut pas tout porter, le releve
+            piece par piece y tiendrait dix pages. On oriente vers l'outil
+            plutot que de le resumer mal. */}
+        {/* Renvoi vers l'app : le document ne peut pas tout porter, le
+            relevé pièce par pièce y tiendrait dix pages. */}
+        <BlocAppIdeeri
+          titre="Retrouvez tout le détail de votre bien, pièce par pièce, dans votre projet de vente."
+          accent="pièce par pièce"
+          sousTitre="Photos et relevé complet, accessibles à tout moment."
+          lien={lienApp}
+        />
       </section>
 
       {/* =============================================================
@@ -911,6 +1658,7 @@ export default function CompteRendu() {
           {effContexteZone.zoneLabel} · rayon {effContexteZone.rayonMetres} m autour du bien
         </p>
 
+        <div className="card">
         <div className="market-kpis">
           <div className="kpi">
             <div className="kpi-value">{effContexteZone.market.prixM2} €/m²</div>
@@ -921,207 +1669,161 @@ export default function CompteRendu() {
             <div className="kpi-label">Évolution 12 mois</div>
           </div>
           <div className="kpi">
-            <div className="kpi-value">{effContexteZone.market.delai}</div>
-            <div className="kpi-label">Délai moyen de vente</div>
-          </div>
-          <div className="kpi">
             <div className="kpi-value">{effContexteZone.market.transactions}</div>
             <div className="kpi-label">Transactions 12 mois</div>
           </div>
         </div>
 
-        <div className="market-tension">
-          <strong>Tension du marché : </strong>
-          <span className="tension-badge">{effContexteZone.tensionLabel}</span>
-          <span className="tension-score">{effContexteZone.tensionScore}/10</span>
-        </div>
+        <p className="note">
+          Source : DVF — transactions publiées par l'administration fiscale sur
+          les 12 derniers mois dans le périmètre ci-dessus. Le délai de vente
+          constaté et les ventes de notre réseau figurent en section
+          « Notre activité dans votre secteur ».
+        </p>
 
         <p className="market-caption">
           Fourchette de prix observée sur la typologie T{effProperty.pieces} dans votre secteur :
           <strong> {effContexteZone.market.fourchette} €/m²</strong>.
         </p>
+        </div>
 
-        {effAvisValeur.afficherCommodites && effContexteZone.commodites?.length > 0 && (
-          <div className="market-commodites">
-            <h3>Commodités à proximité</h3>
-            {Object.entries(
-              effContexteZone.commodites.reduce((acc, c) => {
-                (acc[c.categorie] ||= []).push(c);
-                return acc;
-              }, {})
-            ).map(([cat, items]) => (
-              <div className="commod-cat" key={cat}>
-                <h4>{cat}</h4>
-                <ul>
-                  {items
-                    .slice()
-                    .sort((a, b) => a.distance - b.distance)
-                    .map((c, i) => (
-                      <li key={i}>
-                        <strong>{c.nom}</strong>
-                        <span> · {c.distance} m · {c.tempsAPied} min à pied</span>
-                      </li>
-                    ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        )}
+        {/* Carte du secteur : commodités relevées autour du bien et risques
+            répertoriés sur la commune. En mode live les POI viennent
+            d'Overpass via l'étape 3 ; en démo, du jeu fictif Lyon 3ᵉ. */}
+        <div className="market-carte">
+          <div className="eyebrow">Commodités et risques autour du bien</div>
+          <CarteCommodites
+            centre={
+              isLive && Array.isArray(activeBien?.adresse?.coords)
+                ? activeBien.adresse.coords
+                : DEMO_COORDS
+            }
+            labelBien={effProperty.adresse || 'Votre bien'}
+            poi={isLive ? effContexteZone.poi : POI_DEMO}
+            risques={isLive ? effContexteZone.risques : contexteZone.risques}
+            rayonMetres={effContexteZone.rayonMetres || 1000}
+            print={isPrintMode}
+          />
+        </div>
+
       </section>
 
       {/* =============================================================
-          SECTION 5 bis — Commodités à proximité (POI Overpass / Step2)
-          Source : reportState.contexteMarche.poi (persisté par Step2).
+          SECTION 5 quater — Notre activité dans votre secteur
+          Source : data/marcheLocalIdeeri (réseau Ideeri). Preuve d'activité :
+          prix réellement signés, offre concurrente, délais constatés.
           ============================================================= */}
-      {isLive && effContexteZone.poi && Object.keys(effContexteZone.poi).some((k) => Array.isArray(effContexteZone.poi[k]) && effContexteZone.poi[k].length > 0) && (
-        <section className="commodites page-break">
-          <h2 className="section-title">Commodités à proximité</h2>
-          <p className="section-intro" style={{ marginBottom: 24, color: '#666' }}>
-            Points d'intérêt relevés dans un rayon de {effContexteZone.rayonMetres || 1000} m
-            autour du bien (source OpenStreetMap).
+      {marcheLocal.total > 0 && (
+        <section className="reseau page-break">
+          <h2 className="section-title">Notre activité dans votre secteur</h2>
+          <p className="section-intro">
+            {marcheLocal.total} biens suivis par notre réseau dans un rayon de{' '}
+            {marcheLocal.rayonKm} km autour du vôtre, sur les {marcheLocal.periodeMois}{' '}
+            derniers mois. Ce sont des prix réellement signés — pas des prix affichés.
           </p>
 
-          {(() => {
-            const POI_LABELS = {
-              transports: 'Transports & accessibilité',
-              commerces: 'Commerces & services',
-              education: 'Éducation',
-              sante: 'Santé',
-              environnement: 'Environnement & cadre de vie',
-            };
-            const POI_ORDER = ['transports', 'commerces', 'education', 'sante', 'environnement'];
-            const fmtDist = (d) => {
-              if (d == null) return '—';
-              return d < 1000 ? `${d} m` : `${(d / 1000).toFixed(1)} km`;
-            };
-
-            return POI_ORDER
-              .filter((cat) => Array.isArray(effContexteZone.poi[cat]) && effContexteZone.poi[cat].length > 0)
-              .map((cat) => (
-                <div key={cat} className="poi-cat" style={{ marginBottom: 24 }}>
-                  <h3 style={{
-                    fontSize: 15,
-                    fontWeight: 600,
-                    color: 'var(--primary, #1a3a52)',
-                    marginBottom: 10,
-                    paddingBottom: 6,
-                    borderBottom: '1px solid #e5e7eb',
-                  }}>
-                    {POI_LABELS[cat]}
-                  </h3>
-                  <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                    {effContexteZone.poi[cat].slice(0, 6).map((p, i) => (
-                      <li key={i} style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        padding: '5px 0',
-                        borderBottom: '1px dotted #eee',
-                        fontSize: 13,
-                      }}>
-                        <span style={{ color: '#222' }}>{p.name}</span>
-                        <strong style={{ color: '#46B962', marginLeft: 12 }}>{fmtDist(p.distance)}</strong>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ));
-          })()}
-        </section>
-      )}
-
-      {/* =============================================================
-          SECTION 5 ter — Risques & Aléas (Géorisques / Step2)
-          Source : reportState.contexteMarche.risques.
-          ============================================================= */}
-      {isLive && effContexteZone.risques && (() => {
-        const r = effContexteZone.risques;
-        // Au moins une donnée présente
-        return !!(r.inondation || r.argile || r.sismique || r.radon || r.mouvement || r.basias);
-      })() && (
-        <section className="risques page-break">
-          <h2 className="section-title">Risques & Aléas</h2>
-          <p className="section-intro" style={{ marginBottom: 24, color: '#666' }}>
-            Synthèse des risques naturels et technologiques répertoriés sur la commune
-            (source : Géorisques — data.gouv.fr).
-          </p>
-
-          {(() => {
-            const r = effContexteZone.risques;
-            const items = [];
-            if (r.inondation) {
-              items.push({
-                label: 'Inondation (PPRI)',
-                value: r.inondation.present ? (r.inondation.niveau || 'Présent') : 'Aucun',
-                level: r.inondation.present ? 'warn' : 'ok',
-              });
-            }
-            if (r.argile && r.argile.niveau) {
-              const niv = String(r.argile.niveau).toLowerCase();
-              const isBad = /fort|élev/.test(niv);
-              const isWarn = /moy/.test(niv);
-              items.push({
-                label: 'Retrait-gonflement argiles',
-                value: r.argile.niveau,
-                level: isBad ? 'bad' : isWarn ? 'warn' : 'ok',
-              });
-            }
-            if (r.sismique && r.sismique.niveau) {
-              const z = parseInt(r.sismique.zone, 10);
-              const lvl = z >= 4 ? 'bad' : z === 3 ? 'warn' : 'ok';
-              items.push({
-                label: `Sismicité (zone ${r.sismique.zone || '?'})`,
-                value: r.sismique.niveau,
-                level: lvl,
-              });
-            }
-            if (r.radon && r.radon.potentiel) {
-              const lvl = r.radon.potentiel === 'Élevé' ? 'bad' : r.radon.potentiel === 'Moyen' ? 'warn' : 'ok';
-              items.push({
-                label: 'Potentiel radon',
-                value: r.radon.potentiel,
-                level: lvl,
-              });
-            }
-            if (r.mouvement) {
-              items.push({
-                label: 'Mouvements de terrain (500 m)',
-                value: r.mouvement.present ? `${r.mouvement.count} signalé(s)` : 'Aucun',
-                level: r.mouvement.present ? 'warn' : 'ok',
-              });
-            }
-            if (r.basias) {
-              items.push({
-                label: 'Sites BASIAS (500 m)',
-                value: r.basias.present ? `${r.basias.count} signalé(s)` : 'Aucun',
-                level: r.basias.present ? 'warn' : 'ok',
-              });
-            }
-
-            const COLORS = { ok: '#46B962', warn: '#f5a623', bad: '#e74c3c' };
-
-            return (
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(2, 1fr)',
-                gap: 12,
-              }}>
-                {items.map((it, i) => (
-                  <div key={i} style={{
-                    border: '1px solid #e5e7eb',
-                    borderLeft: `4px solid ${COLORS[it.level]}`,
-                    borderRadius: 6,
-                    padding: '10px 14px',
-                    background: '#fff',
-                  }}>
-                    <div style={{ fontSize: 12, color: '#666', marginBottom: 3 }}>{it.label}</div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: COLORS[it.level] }}>
-                      {it.value}
-                    </div>
-                  </div>
-                ))}
+          <div className="card">
+          <div className="market-kpis">
+            <div className="kpi kpi-highlight">
+              <div className="kpi-value">{marcheLocal.vendus}</div>
+              <div className="kpi-label">Ventes signées</div>
+            </div>
+            <div className="kpi">
+              <div className="kpi-value">{marcheLocal.compromis}</div>
+              <div className="kpi-label">Sous compromis</div>
+            </div>
+            <div className="kpi">
+              <div className="kpi-value">{marcheLocal.enVente}</div>
+              <div className="kpi-label">Actuellement en vente</div>
+            </div>
+            <div className="kpi">
+              <div className="kpi-value">
+                {marcheLocal.delaiMoyen ? `${marcheLocal.delaiMoyen} j` : '—'}
               </div>
-            );
-          })()}
+              <div className="kpi-label">Délai moyen de vente</div>
+            </div>
+          </div>
+
+          {marcheLocal.vendusAgence > 0 && (
+            <p className="reseau-part">
+              Dont <strong>{marcheLocal.vendusAgence} vente{plural(marcheLocal.vendusAgence)}</strong>{' '}
+              conclue{plural(marcheLocal.vendusAgence)} directement par {effAgence.nom}.
+            </p>
+          )}
+          </div>
+
+          {marcheLocal.paliers.length > 0 && (
+            <div className="card reseau-distrib">
+              <div className="eyebrow">Prix au m² des ventes signées</div>
+              {/* Distribution purement factuelle : aucun repère sur le prix
+                  recommandé, qui n'apparaît qu'en section « Notre proposition ». */}
+              {marcheLocal.paliers.map((pal) => (
+                <div className="distrib-row" key={pal.from}>
+                  <span className="distrib-label">{pal.label} €/m²</span>
+                  <span className="distrib-bar">
+                    <i style={{ width: `${pal.pct}%` }} />
+                  </span>
+                  <span className="distrib-count">{pal.count}</span>
+                </div>
+              ))}
+              {marcheLocal.prixM2MedianVendus && (
+                <p className="distrib-caption">
+                  La médiane des ventes signées de notre réseau ressort à{' '}
+                  <strong>{marcheLocal.prixM2MedianVendus.toLocaleString('fr-FR')} €/m²</strong>.
+                </p>
+              )}
+            </div>
+          )}
+
+          {marcheLocal.carte.points.length > 0 && (
+            <div className="card reseau-block">
+              <div className="eyebrow">Les ventes signées autour de votre bien</div>
+              <div className="carte-wrap">
+                <CarteSecteur
+                  carte={marcheLocal.carte}
+                  libelleBien={
+                    String(activeBien?.bien?.type || '').toLowerCase().startsWith('maison')
+                      ? 'Votre maison'
+                      : 'Votre bien'
+                  }
+                />
+              </div>
+              <p className="note carte-legende">
+                Chaque pastille porte le prix au m² réellement signé. Les points
+                cerclés de blanc sont les ventes conclues par notre agence. Le
+                plan est cadré sur les ventes les plus proches
+                ({fmtKm(marcheLocal.carte.rayonKm)}) ; le périmètre analysé,
+                lui, s'étend à {fmtKm(marcheLocal.rayonKm)}. Positions à
+                l'échelle d'après les coordonnées des biens ; la trame de rues
+                est schématique.
+              </p>
+            </div>
+          )}
+
+          {marcheLocal.concurrence.total > 0 && (
+            <div className="card reseau-block">
+              <div className="eyebrow">Les biens en concurrence</div>
+              <p className="reseau-sub">
+                Les biens encore à vendre à moins de{' '}
+                {marcheLocal.concurrence.rayonKm} km dont les caractéristiques sont
+                comparables aux vôtres : même type de bien, typologie à une pièce
+                près, surface à 25 % près et gamme de prix équivalente.
+              </p>
+              <HistogrammeConcurrence
+                tranches={marcheLocal.concurrence.tranches}
+                vignettes={marcheLocal.concurrence.vignettes}
+                trancheProche={marcheLocal.concurrence.trancheProche}
+              />
+              <p className="conc-legende">
+                {marcheLocal.concurrence.total} bien
+                {plural(marcheLocal.concurrence.total)} en concurrence directe
+                {marcheLocal.concurrence.trancheProche
+                  ? `, le plus proche à moins de ${marcheLocal.concurrence.trancheProche} km.`
+                  : '.'}
+              </p>
+            </div>
+          )}
+
         </section>
       )}
 
@@ -1155,7 +1857,13 @@ export default function CompteRendu() {
               </>
             )
           ) : (
-            <><strong>{totalProjets} projets d'achat actifs</strong> dans votre périmètre matchent les critères de votre bien. Ils se répartissent en 5 profils-types.</>
+            <>
+              <strong>{totalProjets} projets d'achat actifs</strong> dans votre périmètre
+              correspondent aux critères de votre bien (typologie, surface, secteur),
+              répartis en 5 profils. Leur budget, en revanche, ne couvre pas toujours
+              le prix de présentation : le nombre de projets réellement solvables
+              à ce prix figure en section « Notre proposition ».
+            </>
           )}
         </p>
 
@@ -1197,275 +1905,45 @@ export default function CompteRendu() {
 
         {!isLive && !reportState.displayConfig?.hideDemo && (
         <>
-        <div className="personas-row">
-          {personasList.map((p) => {
-            const isActive = activePersonaKey === p.key;
-            return (
-              <div
-                key={p.key}
-                className={`persona-card ${isActive ? 'active' : ''}`}
-                onClick={() => !isPrintMode && setActivePersonaKey(p.key)}
-                role={isPrintMode ? undefined : 'button'}
-                tabIndex={isPrintMode ? undefined : 0}
-              >
-                <div className="persona-count">{p.count}</div>
-                <div className="persona-name">{p.name}</div>
-                <div className="persona-sub">{p.sub}</div>
-              </div>
-            );
-          })}
+        {/* Répartition en barre empilée puis une ligne par profil. Aucun clic :
+            le document part en PDF, un profil qu'il faut sélectionner pour voir
+            son détail resterait invisible pour le mandant. */}
+        <div className="card">
+        <div className="prof-bar" aria-hidden="true">
+          {personasTries.map((p) => (
+            <span
+              key={p.key}
+              className="prof-bar-seg"
+              style={{
+                width: `${p.pct}%`,
+                background: p.key === 'autre' ? '#c4c8cc' : 'var(--primary)',
+                opacity: p.key === 'autre' ? 1 : p.teinte,
+              }}
+            />
+          ))}
         </div>
 
-        {/* En PDF → tous les personas dépliés ; en web → seul l'actif */}
-        {(isPrintMode ? personasList : personasList.filter((p) => p.key === activePersonaKey))
-          .map((p) => (
-            <div className="persona-focus" key={`focus-${p.key}`}>
-              <div className="persona-focus-header">
-                <div className="persona-focus-title">
-                  <span className="dot" />
-                  <span>{p.name}</span>
-                  <span className="count-pill">{p.count} projets</span>
-                </div>
-                <div className="persona-focus-meta">
-                  <span>Budget moyen <strong>{p.budget}</strong></span>
-                  <span>Délai cible <strong>{p.delai}</strong></span>
-                  <span>Compatibilité <strong className="compat">{p.compat}</strong></span>
-                </div>
-              </div>
-
-              <div className="persona-focus-body">
-                <div className="persona-needs">
-                  <h4>Besoins principaux identifiés</h4>
-                  <ul>
-                    {p.needs.map((n, i) => (
-                      <li key={i} className="need-item">
-                        <span
-                          className="need-bullet"
-                          style={{ color: n.match ? 'var(--primary)' : '#e05252' }}
-                        >
-                          {n.match ? '✓' : '✗'}
-                        </span>
-                        <span className="need-text">
-                          {n.txt}
-                          <span className={`need-tag ${n.match ? '' : 'miss'}`}>
-                            {n.tag}
-                          </span>
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="persona-buyers">
-                  <h4>Top projets de ce profil</h4>
-                  <div className="buyer-list">
-                    {p.buyers.map((b) => (
-                      <div key={b.rank} className="buyer-row">
-                        <span className="buyer-rank">#{b.rank}</span>
-                        <span className="buyer-name">{b.name}</span>
-                        <span className="buyer-budget">{b.budget}</span>
-                        <span className="buyer-score">{b.score}</span>
-                      </div>
-                    ))}
-                    {p.count > p.buyers.length && (
-                      <div className="buyer-more">
-                        + {p.count - p.buyers.length} autre{p.count - p.buyers.length > 1 ? 's' : ''} projet{p.count - p.buyers.length > 1 ? 's' : ''} dans ce profil
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
+        <ul className="prof-list">
+          {personasTries.map((p) => (
+            <li key={p.key}>
+              <span
+                className="prof-puce"
+                style={{
+                  background: p.key === 'autre' ? '#c4c8cc' : 'var(--primary)',
+                  opacity: p.key === 'autre' ? 1 : p.teinte,
+                }}
+              />
+              <span className="prof-nom">{p.name}</span>
+              <span className="prof-part">
+                {p.count} projet{plural(p.count)} · {p.pct} %
+              </span>
+              <span className="prof-budget">{p.budget}</span>
+            </li>
           ))}
+        </ul>
+        </div>
         </>
         )}
-      </section>
-
-      {/* =============================================================
-          SECTION 7 — Notre méthodologie
-          ============================================================= */}
-      {!reportState.displayConfig?.hideConfiance && (
-      <section className="methodology">
-        <h2 className="section-title">Comment nous avons estimé votre bien</h2>
-
-        <div className="pillars">
-          {effAvisValeur.methodologie.piliers.map((p, i) => (
-            <div className="pillar" key={i}>
-              <div className="pillar-visual">
-                {LUCIDE_ICONS[p.iconeLucide] || null}
-              </div>
-              <div className="pillar-title">{p.titre}</div>
-              <div className="pillar-desc">{p.desc}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-      )}
-
-      {/* =============================================================
-          SECTION 7 — Comparables retenus (enrichis, avec badge fiabilité)
-          ============================================================= */}
-      <section className="comparables page-break">
-        <h2 className="section-title">Comparables retenus</h2>
-        <p className="comp-intro">
-          Nous avons analysé <strong>{effComparables.length} biens comparables</strong>,
-          dont <strong>{selectedComps.length} retenus</strong> pour le calcul
-          de la moyenne pondérée.
-        </p>
-
-        {selectedComps.length === 0 ? (
-          <div className="comp-empty">
-            Aucun comparable n'a été retenu en étape 3. L'analyse comparative
-            pourra être complétée ultérieurement.
-          </div>
-        ) : (
-          <div className="comparables-grid">
-            {selectedComps.map((c) => {
-              const surfaceTxt = Number(c.surface) > 0 ? `${c.surface} m²` : null;
-              const piecesTxt = Number(c.pieces) > 0
-                ? `${c.pieces} pièce${Number(c.pieces) > 1 ? 's' : ''}`
-                : null;
-              const titleParts = [c.type, surfaceTxt, piecesTxt].filter(Boolean);
-              const titleLine = titleParts.length > 1
-                ? `${titleParts[0]} — ${titleParts.slice(1).join(', ')}`
-                : titleParts[0] || '—';
-              const distTxt = c.distance && c.distance !== '—' ? c.distance : null;
-              const addressLine = [c.adresse !== '—' ? c.adresse : null, distTxt]
-                .filter(Boolean)
-                .join(' · ');
-              const etageDisplay = (c.etage === '—' && c.etageMax === '—')
-                ? '—'
-                : `${c.etage}${c.etageMax !== '—' ? '/' + c.etageMax : ''}`;
-              const prixNum = Number(c.prix) || 0;
-              const prixM2Num = Number(c.prixM2) || 0;
-              return (
-                <div className="comp-card" key={c.id}>
-                  {c.photoUrl && (
-                    <div className="comp-photo">
-                      <img
-                        src={c.photoUrl}
-                        alt={titleLine}
-                        loading="lazy"
-                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                      />
-                    </div>
-                  )}
-
-                  <div className="comp-header">
-                    <span className={`comp-source comp-source-${c.source}`}>
-                      {c.sourceLabel}
-                    </span>
-                    {c.date && <span className="comp-date">{c.date}</span>}
-                  </div>
-
-                  <div className="comp-title">{titleLine}</div>
-                  {addressLine && <div className="comp-address">{addressLine}</div>}
-
-                  <div className="comp-grid">
-                    <div><span>Étage</span><strong>{etageDisplay}</strong></div>
-                    <div>
-                      <span>DPE</span>
-                      <strong className={`dpe-badge dpe-${c.dpe}`}>{c.dpe}</strong>
-                    </div>
-                    <div><span>État</span><strong>{c.etat}</strong></div>
-                    <div><span>Atouts</span><strong>{(c.atouts || []).join(', ') || '—'}</strong></div>
-                    <div><span>Exposition</span><strong>{c.exposition}</strong></div>
-                    <div><span>Année</span><strong>{c.anneeConstruction}</strong></div>
-                  </div>
-
-                  <div className="comp-price">
-                    <div>
-                      <strong>
-                        {prixNum > 0 ? `${prixNum.toLocaleString('fr-FR')} €` : '—'}
-                      </strong>
-                      {prixM2Num > 0 && (
-                        <span className="comp-m2"> · {prixM2Num.toLocaleString('fr-FR')} €/m²</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="comp-reliability">
-                    <ReliabilityBadge comparable={c} size="sm" />
-                  </div>
-
-                  {c.commentairePertinence && (
-                    <p className="comp-comment">{c.commentairePertinence}</p>
-                  )}
-
-                  {c.urlAnnonce && (
-                    <a
-                      className="comp-link"
-                      href={c.urlAnnonce}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Voir l'annonce d'origine ↗
-                    </a>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {effComparables.some((c) => !c.selected) && (
-          <div className="comp-others">
-            <h3>Autres biens analysés (non retenus)</h3>
-            <div className="comp-others-list">
-              {effComparables
-                .filter((c) => !c.selected)
-                .map((c) => {
-                  const surfaceTxt = Number(c.surface) > 0 ? `${c.surface} m²` : null;
-                  const typoParts = [c.type, surfaceTxt].filter(Boolean).join(' · ');
-                  const prixM2Num = Number(c.prixM2) || 0;
-                  return (
-                    <div className="comp-other-row" key={c.id}>
-                      <div className="cor-main">
-                        <strong className="cor-address">{c.adresse}</strong>
-                        {typoParts && <span className="cor-typo">{typoParts}</span>}
-                      </div>
-                      <div className="cor-side">
-                        <span className="cor-price">
-                          {prixM2Num > 0 ? `${prixM2Num.toLocaleString('fr-FR')} €/m²` : '—'}
-                        </span>
-                        {c.raisonEcart && <span className="cor-reason">{c.raisonEcart}</span>}
-                      </div>
-                    </div>
-                  );
-                })}
-            </div>
-          </div>
-        )}
-
-        <div className="comp-average">
-          Moyenne pondérée retenue : <strong>{(effAvisValeur.prixM2 || 0).toLocaleString('fr-FR')} €/m²</strong>
-          {isLive && reportState.comparablesConfig?.weights && (() => {
-            const w = reportState.comparablesConfig.weights;
-            const sel = Array.isArray(reportState.comparablesSelectionnes)
-              ? reportState.comparablesSelectionnes
-              : [];
-            if (sel.length === 0) return null;
-            let sumW = 0;
-            let sumPxW = 0;
-            sel.forEach((c) => {
-              const id = c.id;
-              const px = Number(c.prixM2Raw ?? c.prixM2) || 0;
-              const wt = Number(w[id]) || 0;
-              if (px > 0 && wt > 0) {
-                sumW += wt;
-                sumPxW += px * wt;
-              }
-            });
-            if (sumW <= 0) return null;
-            const pondereCalc = Math.round(sumPxW / sumW);
-            return (
-              <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
-                Calcul direct depuis les pondérations agent ({sel.length} comparables) :
-                {' '}<strong>{pondereCalc.toLocaleString('fr-FR')} €/m²</strong>
-              </div>
-            );
-          })()}
-        </div>
       </section>
 
       {/* =============================================================
@@ -1474,93 +1952,307 @@ export default function CompteRendu() {
       <section className="arguments">
         <h2 className="section-title">Argumentaire de valorisation</h2>
 
-        <div className="arg-cols">
-          <div className="arg-col arg-strong">
-            <h3>Points forts</h3>
-            <ul>
-              {(effAvisValeur.pointsForts || []).length > 0 ? (
-                effAvisValeur.pointsForts.map((p, i) => <li key={i}>{p}</li>)
-              ) : (
-                <li style={{ color: '#999' }}>Non renseigné</li>
-              )}
-            </ul>
-          </div>
-          <div className="arg-col arg-vigilance">
-            <h3>Points de vigilance</h3>
-            <ul>
-              {(effAvisValeur.pointsVigilance || []).length > 0 ? (
-                effAvisValeur.pointsVigilance.map((p, i) => <li key={i}>{p}</li>)
-              ) : (
-                <li style={{ color: '#999' }}>Non renseigné</li>
-              )}
-            </ul>
+        <div className="card">
+          <div className="split">
+            <div className="arg-col arg-strong">
+              <div className="eyebrow accent">Points forts</div>
+              <ul className="bullets">
+                {(effAvisValeur.pointsForts || []).length > 0 ? (
+                  effAvisValeur.pointsForts.map((pt, i) => <li key={i}>{normPoint(pt).label}</li>)
+                ) : (
+                  <li className="arg-vide">Non renseigné</li>
+                )}
+              </ul>
+            </div>
+            <div className="arg-col arg-vigilance">
+              <div className="eyebrow">Points de vigilance</div>
+              <ul className="bullets">
+                {(effAvisValeur.pointsVigilance || []).length > 0 ? (
+                  effAvisValeur.pointsVigilance.map((pt, i) => <li key={i}>{normPoint(pt).label}</li>)
+                ) : (
+                  <li className="arg-vide">Non renseigné</li>
+                )}
+              </ul>
+            </div>
           </div>
         </div>
       </section>
 
       {/* =============================================================
-          SECTION 9 — Décomposition du prix (V2, sans ajustement zone)
+          SECTION 10 — Proposition commerciale
+          Un seul prix : celui que l'agent a retenu en Step5 (stratégie
+          sélectionnée → recommendedStrategy). La fourchette et les variantes
+          restent dans l'outil, elles ne sortent pas dans le document.
           ============================================================= */}
-      <section className="decomposition page-break">
-        <h2 className="section-title">Décomposition du prix</h2>
-
-        <div className="cascade">
-          {(effAvisValeur.decomposition || []).map((d, i) => (
-            <React.Fragment key={i}>
-              <div className={`cascade-step ${d.final ? 'final' : ''}`}>
-                <div className="step-label">{d.step}</div>
-                <div className="step-value">{d.value}</div>
-                {d.delta && <div className="step-delta">{d.delta}</div>}
-                <div className="step-detail">{d.detail}</div>
-              </div>
-              {i < (effAvisValeur.decomposition || []).length - 1 && (
-                <span className="cascade-arrow">→</span>
-              )}
-            </React.Fragment>
-          ))}
-        </div>
-      </section>
-
-      {/* =============================================================
-          SECTION 10 — Proposition commerciale (3 stratégies)
-          ============================================================= */}
-      {!reportState.displayConfig?.hideStrategie && (
+      {!reportState.displayConfig?.hideStrategie && recommendedStrategy && (
       <section className="strategies page-break">
         <h2 className="section-title">Notre proposition</h2>
 
-        <div className="strat-cols">
-          {effAvisValeur.strategies.map((s, i) => (
-            <div
-              key={i}
-              className={`strat-col ${s.recommended ? 'recommended' : ''}`}
-            >
-              {s.recommended && (
-                <span className="strat-badge">Notre recommandation</span>
-              )}
-              <div className="strat-label">{s.label}</div>
-              <div className="strat-price">{(s.prix || 0).toLocaleString('fr-FR')} €</div>
-              <div className="strat-m2">{(s.prixM2 || 0).toLocaleString('fr-FR')} €/m²</div>
-              <div className="strat-row">
-                <span>Projets d'achat compatibles</span>
-                <strong>
-                  {(effAvisValeur.acquereurs || []).filter((a) => a.budget >= s.prix).length}
-                </strong>
-              </div>
-              <div className="strat-row"><span>Délai</span><strong>{s.delai}</strong></div>
-              <div className="strat-row"><span>Profil</span><strong>{s.profilCible}</strong></div>
-              <div className="strat-row"><span>Risque</span><strong>{s.risque}</strong></div>
-            </div>
-          ))}
-        </div>
+        {/* Définition du prix : la valeur des comparables, puis chaque point
+            fort ou de vigilance avec son impact chiffré. Les points non
+            quantifiables restent affichés — ils comptent dans la décision
+            même sans montant, et les masquer laisserait croire qu'ils ont
+            été oubliés. */}
+        {definitionPrix.chiffrees.length > 0 && (
+          <div className="card def-prix">
+            <div className="eyebrow">Définition du prix</div>
 
-        {recommendedStrategy && (
-          <div className="strat-reco">
-            <strong>Pourquoi la stratégie {recommendedStrategy.label} ?</strong>
-            <p>{recommendedStrategy.argumentaireDetaille}</p>
+            <div className="def-row def-base">
+              <span className="def-libelle">Méthode comparative</span>
+              <span className="def-montant">
+                {definitionPrix.base.toLocaleString('fr-FR')} €
+              </span>
+            </div>
+
+            {definitionPrix.chiffrees.map((pt, i) => (
+              <div className="def-row" key={i}>
+                <span
+                  className="def-puce"
+                  style={{ background: pt.montant > 0 ? 'var(--primary)' : '#c0392b' }}
+                />
+                <span className="def-libelle">{pt.label}</span>
+                <span className={`def-montant ${pt.montant > 0 ? 'def-plus' : 'def-moins'}`}>
+                  {fmtMontant(pt.montant)}
+                </span>
+              </div>
+            ))}
+
+            <div className="def-row def-total">
+              <span className="def-libelle">Base retenue</span>
+              <span className="def-montant">
+                {definitionPrix.retenu.toLocaleString('fr-FR')} €
+              </span>
+            </div>
+
+            {definitionPrix.nbNonChiffrees > 0 && (
+              <p className="note">
+                {definitionPrix.nbNonChiffrees} autre
+                {plural(definitionPrix.nbNonChiffrees)} point
+                {plural(definitionPrix.nbNonChiffrees)} pèse
+                {definitionPrix.nbNonChiffrees > 1 ? 'nt' : ''} sur la décision sans se
+                traduire en euros — déjà intégré
+                {plural(definitionPrix.nbNonChiffrees)} à la valeur des comparables du
+                secteur, ou non chiffrable
+                {plural(definitionPrix.nbNonChiffrees)} honnêtement. Ils sont présentés
+                en section « Argumentaire de valorisation ».
+              </p>
+            )}
           </div>
         )}
+
+        <div className="proposition">
+          <div className="prop-main">
+            <div className="prop-label">Avis de valeur</div>
+            <div className="prop-price">
+              {(recommendedStrategy.prix || 0).toLocaleString('fr-FR')} €
+            </div>
+            <div className="prop-m2">
+              soit {(recommendedStrategy.prixM2 || 0).toLocaleString('fr-FR')} €/m²
+            </div>
+          </div>
+
+          {/* Le chiffre qui appuie le prix : combien d'acquéreurs peuvent
+              réellement l'acheter. Volet distinct pour qu'il ne concurrence
+              pas le prix, mais assez gros pour compter. */}
+          <div className="prop-aside">
+            <div className="prop-stat">{projetsCompatibles}</div>
+            <div className="prop-stat-label">
+              projet{plural(projetsCompatibles)} d'achat
+              <br />
+              au budget compatible
+            </div>
+          </div>
+        </div>
       </section>
       )}
+
+      {/* =============================================================
+          SECTION 10 ter — Le marché et le financement
+          Source : /api/marche-financement (DVF + INSEE + Banque de France).
+          Placé après le prix : ces chiffres l'éclairent, ils ne le
+          construisent pas — la construction est dans « Définition du prix ».
+          ============================================================= */}
+      {marcheFi && (
+        <section className="financement page-break">
+          <h2 className="section-title">Le marché et le financement</h2>
+
+          <div className="split">
+            <div className="card">
+              <div className="eyebrow">Le secteur en chiffres</div>
+              <div className="kv-row">
+                <span className="kv-key">Prix médian au m²</span>
+                <span className="kv-val">
+                  {marcheFi.marche.prixM2Median?.toLocaleString('fr-FR')} €/m²
+                </span>
+              </div>
+              <div className="kv-row">
+                <span className="kv-key">Vente médiane</span>
+                <span className="kv-val">
+                  {marcheFi.marche.valeurMediane?.toLocaleString('fr-FR')} € ·{' '}
+                  {marcheFi.marche.surfaceMediane} m²
+                </span>
+              </div>
+              <div className="kv-row">
+                <span className="kv-key">Ventes en 2025</span>
+                <span className="kv-val">{marcheFi.marche.nbVentes?.toLocaleString('fr-FR')}</span>
+              </div>
+              <div className="kv-row">
+                <span className="kv-key">Revenu du foyer médian</span>
+                <span className="kv-val">
+                  {marcheFi.foyer.revenuMensuel?.toLocaleString('fr-FR')} € / mois
+                </span>
+              </div>
+              {marcheFi.acheteurs.partLocaux != null && (
+                <div className="kv-row">
+                  <span className="kv-key">Acheteurs récents</span>
+                  <span className="kv-val">
+                    {marcheFi.acheteurs.partLocaux} % habitaient déjà {marcheFi.commune}
+                  </span>
+                </div>
+              )}
+              {marcheFi.acheteurs.ageDominant && (
+                <div className="kv-row">
+                  <span className="kv-key">Profil dominant</span>
+                  <span className="kv-val">
+                    {marcheFi.acheteurs.ageDominant}
+                    {marcheFi.acheteurs.categorieDominante
+                      ? `, ${marcheFi.acheteurs.categorieDominante}`
+                      : ''}
+                  </span>
+                </div>
+              )}
+              {marcheFi.acheteurs.origines.length > 0 && (
+                <div className="kv-row">
+                  <span className="kv-key">Viennent surtout de</span>
+                  <span className="kv-val">
+                    {marcheFi.acheteurs.origines
+                      .map((o) => `${o.commune} (${o.pct} %)`)
+                      .join(', ')}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="card">
+              <div className="eyebrow">Financer votre bien</div>
+              <div className="kv-row">
+                <span className="kv-key">Taux moyen des crédits</span>
+                <span className="kv-val">
+                  {marcheFi.taux.banqueDeFrance?.toLocaleString('fr-FR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })} %
+                </span>
+              </div>
+              <div className="kv-row">
+                <span className="kv-key">Taux de la simulation</span>
+                <span className="kv-val">
+                  {marcheFi.taux.avecAssurance?.toLocaleString('fr-FR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })} % assurance comprise
+                </span>
+              </div>
+
+              {simulation && (
+                <div className="fi-simu">
+                  {simulation.durees.map((d) => (
+                    <div className="fi-simu-item" key={d.annees}>
+                      <div className="fi-simu-montant">
+                        {d.montant?.toLocaleString('fr-FR')} €
+                      </div>
+                      <div className="fi-simu-label">par mois sur {d.annees} ans</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Le rapprochement qui parle vraiment au mandant : la
+                  mensualité de son bien face à la capacité du foyer médian
+                  de sa commune. */}
+              {marcheFi.foyer.mensualiteMax != null && (
+                <p className="fi-lecture">
+                  Le foyer médian de {marcheFi.commune} peut consacrer{' '}
+                  <strong>{marcheFi.foyer.mensualiteMax.toLocaleString('fr-FR')} € par mois</strong>{' '}
+                  à un crédit, soit un budget d'achat de{' '}
+                  <strong>{marcheFi.foyer.budgetAchat?.toLocaleString('fr-FR')} €</strong> sur 25 ans.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <p className="note">
+            Mensualités calculées sans apport ni frais d'acquisition, à titre
+            indicatif : elles ne valent pas offre de prêt. Données par commune —
+            à distinguer de la médiane du secteur immédiat, en section « Votre
+            marché local ». Millésime {marcheFi.millesime}. Source :{' '}
+            {marcheFi.source}
+          </p>
+        </section>
+      )}
+
+      {/* =============================================================
+          SECTION 10 bis — Plan de commercialisation
+          Jalons posés par l'agent (reportStore.rdvPlanner) sinon plan type
+          calé sur la date d'édition du document.
+          ============================================================= */}
+      <section className="plan page-break">
+        <h2 className="section-title">Plan de commercialisation</h2>
+        <p className="section-intro">
+          Le déroulé de la mise en vente et nos engagements de suivi, à compter
+          de la signature du mandat.
+        </p>
+
+        <ol className="card plan-timeline">
+          {planCommercialisation.etapes.map((e, i) => (
+            <li className="plan-step" key={i}>
+              <span
+                className="plan-dot"
+                style={e.color ? { background: e.color, borderColor: e.color } : undefined}
+              />
+              <div className="plan-when">
+                {e.jourLabel && <span className="plan-jour">{e.jourLabel}</span>}
+                <span className="plan-date">{e.dateLabel}</span>
+              </div>
+              <div className="plan-what">
+                <div className="plan-titre">{e.titre}</div>
+                {e.detail && <div className="plan-detail">{e.detail}</div>}
+              </div>
+            </li>
+          ))}
+        </ol>
+
+        <div className="plan-engagements">
+          <div className="eyebrow accent">Nos engagements pendant toute la durée du mandat</div>
+          <ul>
+            {ENGAGEMENTS_COMMERCIALISATION.map((e, i) => (
+              <li key={i}>{e}</li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Second rappel : ici le sujet n'est plus le bien mais le suivi de
+            la vente. Le mandant vient de lire les jalons, c'est le moment de
+            lui dire où il les suivra. */}
+        <BlocAppIdeeri
+          titre="Suivez votre vente en direct, depuis votre projet dans l'app."
+          accent="en direct"
+          points={[
+            'Comptes rendus et retours après chaque visite',
+            'Ce que les acquéreurs font de votre annonce : mise en favori, demande de renseignement, visite',
+            'Messagerie directe avec votre conseiller',
+            'Vos documents, à déposer et à consulter à tout moment',
+          ]}
+          note="L'app est connectée au logiciel de votre agence : chaque action de l'un est visible par l'autre."
+          lien={lienApp}
+        />
+
+        <p className="note">
+          {planCommercialisation.source === 'defaut'
+            ? 'Les échéances ci-dessus sont calculées à partir de la date d’édition du présent document. Elles seront confirmées à la signature du mandat.'
+            : 'Rendez-vous convenus avec vous et inscrits à notre agenda.'}
+        </p>
+      </section>
 
       {/* =============================================================
           SECTION 11 — Votre interlocuteur
@@ -1592,7 +2284,7 @@ export default function CompteRendu() {
           SECTION 12 — Mentions légales
           ============================================================= */}
       <footer className="legal page-break">
-        <h3>Mentions légales</h3>
+        <div className="eyebrow">Mentions légales</div>
         <ul>
           {(effAvisValeur.mentionsLegales || []).map((m, i) => (
             <li key={i}>{m}</li>
@@ -1629,7 +2321,7 @@ export default function CompteRendu() {
 
           {/* Retour à l'app — caché en vue partagée (le mandant n'a pas accès à l'app) */}
           {!isSharedView && (
-            <button className="btn secondary" onClick={() => navigate('/step/5')}>
+            <button className="btn secondary" onClick={() => navigate('/step/6')}>
               Retour
             </button>
           )}
@@ -1718,6 +2410,12 @@ function downloadPdf() {
 // ===========================================================================
 const reportCss = `
   .report-root {
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    /* Le --muted global de l'app (#949494) ne tient pas sur un document
+       imprimé : 2,9:1 de contraste sur blanc, sous le seuil d'accessibilité,
+       et franchement pâle une fois sorti de l'imprimante. On le redéfinit
+       pour le rapport seulement — les écrans de saisie gardent le leur. */
+    --muted: #6b7075;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     color: var(--secondary);
     background: #f5f5f5;
@@ -1733,15 +2431,48 @@ const reportCss = `
     margin: 0;
   }
   .section-title {
-    font-size: 15px;
+    font-family: var(--mono);
+    font-size: 18px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 1.5px;
+    /* Interlettrage réduit en même temps que le corps grossit : à 18 px, les
+       2 px d'origine étiraient les titres longs sur toute la largeur. */
+    letter-spacing: 1.4px;
+    line-height: 1.3;
     color: var(--primary);
     border-bottom: 1px solid var(--border);
-    padding-bottom: 8px;
-    margin: 0 0 24px;
+    padding-bottom: 14px;
+    margin: 0 0 28px;
   }
+
+  /* ⚠️ Ne jamais accoler un suffixe d'opacité à la variable de couleur
+     d'agence (du type « var(--primary) » suivi de « 0a ») : la substitution
+     de var() préserve les frontières de jetons, on obtient donc deux jetons
+     — le hex puis le suffixe — et non un hex à 8 chiffres. La déclaration
+     est invalide et silencieusement ignorée. Utiliser color-mix(), qui
+     accepte en plus n'importe quel format fourni par l'agence. */
+
+  /* ── Langage visuel : dossier technique ───────────────────────────────
+     Cartes arrondies, lignes libellé / valeur, intertitres et valeurs
+     techniques en monospace. Transposé sur fond clair : le document est fait
+     pour être imprimé et remis en main propre. */
+  /* Un cran plus foncé encore que --muted : en capitales de 11 px avec de
+     l'interlettrage, il faut plus de densité pour rester lisible. */
+  .eyebrow { font-family: var(--mono); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.6px; color: #555b61; margin: 0 0 12px; }
+  .eyebrow.accent { color: var(--primary); }
+  .card { border: 1px solid var(--border); border-radius: 14px; padding: 22px 26px; background: #fff; }
+
+  .kv-row { display: grid; grid-template-columns: 150px 1fr; gap: 18px; align-items: baseline; padding: 8px 0; }
+  .kv-row + .kv-row { border-top: 1px solid #f4f4f4; }
+  .kv-key { font-size: 13px; color: var(--muted); }
+  .kv-val { font-size: 14px; font-weight: 600; color: var(--secondary); }
+  .mono { font-family: var(--mono); font-weight: 500; font-size: 13px; }
+
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  .bullets { list-style: none; padding: 0; margin: 0; }
+  .bullets li { position: relative; padding: 5px 0 5px 15px; font-size: 13.5px; line-height: 1.55; color: var(--secondary); }
+  .bullets li::before { content: '•'; position: absolute; left: 1px; top: 5px; color: var(--muted); }
+  .note { margin: 24px 0 0; padding-top: 16px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); line-height: 1.65; }
 
   /* ====== 1. Cover ====== */
   .cover {
@@ -1757,8 +2488,13 @@ const reportCss = `
   .cover-title { font-size: 42px; font-weight: 700; letter-spacing: 4px; margin: 40px 0 16px; color: var(--secondary); }
   .cover-address { font-size: 20px; font-weight: 600; margin: 0 0 40px; color: var(--secondary); }
   .cover-hero { width: 100%; margin: 20px 0 40px; }
+  .cover-hero-img { display: block; width: 100%; height: 340px; object-fit: cover; border-radius: 12px; background: #f2f2f2; }
+  .cover-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
+  .cover-strip figure { margin: 0; }
+  .cover-strip img { display: block; width: 100%; height: 92px; object-fit: cover; border-radius: 9px; background: #f2f2f2; }
+  .cover-strip figcaption { font-size: 11px; color: var(--muted); margin-top: 5px; text-align: center; }
   .cover-hero-placeholder {
-    width: 100%; aspect-ratio: 16 / 9; background: linear-gradient(135deg, var(--primary)22, #f0f0f0);
+    width: 100%; aspect-ratio: 16 / 9; background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 13%, #fff), #f0f0f0);
     border-radius: 8px; display: flex; align-items: center; justify-content: center;
     color: var(--muted); font-size: 14px; font-weight: 600;
   }
@@ -1778,30 +2514,83 @@ const reportCss = `
   .letter-signature strong { color: var(--primary); }
   .signature-img { max-height: 60px; display: block; margin-bottom: 8px; }
 
-  /* ====== 3. Summary ====== */
-  .summary-hero { text-align: center; padding: 32px 0; border: 2px solid var(--primary); border-radius: 12px; background: linear-gradient(180deg, #fff 0%, var(--primary)0a 100%); margin-bottom: 24px; }
-  .summary-label { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-  .summary-price { font-size: 54px; font-weight: 700; color: var(--primary); margin: 8px 0; letter-spacing: -1px; }
-  .summary-range { font-size: 15px; color: var(--secondary); }
-  .summary-kpis { display: flex; justify-content: space-around; gap: 16px; margin: 24px 0; }
+  /* ====== KPI (sections Marché et Activité réseau) ====== */
   .kpi { text-align: center; flex: 1; }
   .kpi-value { font-size: 20px; font-weight: 700; color: var(--secondary); }
   .kpi-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
   .kpi.kpi-highlight .kpi-value { color: var(--primary); }
-  .summary-reco { padding: 16px 20px; background: #f7f7f7; border-left: 4px solid var(--primary); border-radius: 4px; font-size: 14px; }
 
-  /* ====== 4. Property ====== */
-  .property-gallery { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 24px; height: 280px; }
-  .photo-main { background: linear-gradient(135deg, var(--border), #c5c5c5); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #666; font-weight: 600; font-size: 13px; }
-  .photo-grid { display: grid; grid-template-rows: repeat(3, 1fr); gap: 12px; }
-  .photo-thumb { background: linear-gradient(135deg, var(--border), #d0d0d0); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #666; font-weight: 500; font-size: 12px; }
-  .property-specs { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-bottom: 20px; }
-  .spec-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
-  .spec-row span { color: var(--muted); }
-  .spec-row strong { color: var(--secondary); }
-  .property-desc { font-size: 14px; line-height: 1.7; color: var(--secondary); margin: 16px 0; }
-  .property-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-  .pill { display: inline-block; background: var(--primary)15; color: var(--primary); border: 1px solid var(--primary)40; border-radius: 14px; padding: 3px 12px; font-size: 12px; font-weight: 600; }
+  /* ====== 4. Votre bien ====== */
+  .bien-grid { display: grid; grid-template-columns: 268px 1fr; gap: 16px; align-items: start; }
+  .bien-photo { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: #f8f8f8; }
+  .bien-photo-img { display: block; width: 100%; height: 196px; object-fit: cover; }
+  .bien-photo-vide { height: 196px; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 11px; letter-spacing: 1px; color: var(--muted); }
+  .bien-vignettes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 6px; }
+  .bien-vignette { height: 50px; border-radius: 7px; background: #ececec center / cover no-repeat; }
+
+  /* Échelle DPE : la lettre du bien est remplie de sa couleur officielle,
+     les autres restent en gris. */
+  .dpe-card { margin-top: 14px; padding: 18px 20px; }
+  .dpe-echelle { display: flex; gap: 4px; margin-bottom: 12px; }
+  .dpe-lettre { flex: 1; text-align: center; padding: 6px 0; border-radius: 5px; background: #eeeff0; color: #a9adb1; font-family: var(--mono); font-size: 12px; font-weight: 700; }
+  .dpe-lettre.active { color: #fff; }
+  .dpe-lettre.active.dpe-C, .dpe-lettre.active.dpe-D { color: #33383d; }
+  .dpe-texte { font-size: 12px; color: var(--muted); line-height: 1.65; margin: 0; }
+  .dpe-texte strong { color: var(--secondary); font-weight: 700; }
+
+  .property-desc { font-size: 13.5px; line-height: 1.7; color: var(--secondary); margin: 18px 0 0; }
+
+  /* ── Renvoi vers l'app Ideeri ─────────────────────────────────────────
+     Seul bloc de marque du document, donc seul endroit où l'on sort de la
+     couleur d'agence pour la charte Ideeri : noir #1A1A1A, jaune #EBBC02,
+     texte blanc. Le noir revient ici parce qu'il est identitaire — c'est
+     différent du plan du secteur, qui était sombre sans raison. */
+  .app-renvoi {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 22px;
+    align-items: start;
+    margin-top: 18px;
+    padding: 26px 30px;
+    border-radius: 16px;
+    background: #1A1A1A;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .app-renvoi-logo { display: block; height: 26px; width: auto; margin-bottom: 16px; }
+  .app-renvoi-titre { font-size: 15px; font-weight: 600; color: #fff; line-height: 1.5; margin: 0; }
+  .app-renvoi-accent { color: #EBBC02; }
+  .app-renvoi-sous { font-size: 12.5px; color: rgba(255, 255, 255, 0.62); margin: 6px 0 0; }
+  /* Mention et non bouton : pas de bord, pas de fond, pas de coin arrondi. */
+  .app-renvoi-points { list-style: none; padding: 0; margin: 12px 0 0; }
+  .app-renvoi-points li { position: relative; padding: 3px 0 3px 15px; font-size: 12.5px; line-height: 1.5; color: rgba(255, 255, 255, 0.82); }
+  .app-renvoi-points li::before { content: ''; position: absolute; left: 1px; top: 11px; width: 4px; height: 4px; border-radius: 50%; background: #EBBC02; }
+  .app-renvoi-note { font-size: 12.5px; font-weight: 600; color: #EBBC02; line-height: 1.5; margin: 14px 0 0; }
+  .app-renvoi-stores {
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.4px;
+    color: #EBBC02;
+    margin: 18px 0 0;
+  }
+  /* Icône de l'application, pas le picto seul : c'est ce que le mandant
+     cherchera sur son téléphone. Le PNG porte déjà ses coins arrondis, on
+     n'en rajoute pas. */
+  /* Léger décalage vers le bas : le haut du wordmark tombe ainsi à peu près
+     au tiers de l'icône, ce qui aligne l'ensemble optiquement. */
+  .app-renvoi-icone-app { display: block; width: 64px; height: 64px; margin-top: 2px; }
+  .app-renvoi-aside { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .app-renvoi-qr { padding: 7px; border-radius: 10px; background: #fff; line-height: 0; }
+  .app-renvoi-qr-legende {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: rgba(255, 255, 255, 0.55);
+    margin: 0;
+    text-align: center;
+  }
 
   /* DPE badge */
   .dpe-badge { display: inline-block; min-width: 20px; padding: 2px 6px; border-radius: 4px; color: #fff; font-weight: 700; text-align: center; }
@@ -1815,11 +2604,11 @@ const reportCss = `
 
   /* ====== 5. Market ====== */
   .market-zone { margin: -16px 0 18px; font-size: 13px; color: var(--muted); font-style: italic; }
-  .market-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
-  .market-tension { margin: 16px 0; font-size: 14px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-  .tension-badge { display: inline-block; background: var(--primary)15; color: var(--primary); border: 1px solid var(--primary)40; border-radius: 6px; padding: 4px 12px; font-weight: 600; font-size: 13px; }
-  .tension-score { font-size: 13px; color: var(--muted); font-weight: 600; }
-  .market-caption { font-size: 13px; color: var(--secondary); }
+  /* Flex plutôt que grid : la grille sert à 3 tuiles (marché local) et à 4
+     (activité réseau), et auto-fit créait des colonnes vides. */
+  .market-kpis { display: flex; gap: 16px; margin-bottom: 20px; }
+  .market-source { font-size: 11px; color: var(--muted); line-height: 1.6; margin: 0 0 20px; }
+  .market-caption { font-size: 13px; color: var(--secondary); margin: 16px 0 0; }
   .market-commodites { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--border); }
   .market-commodites > h3 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--secondary); margin: 0 0 14px; }
   .commod-cat { margin-bottom: 12px; }
@@ -1830,132 +2619,111 @@ const reportCss = `
   .commod-cat li strong { font-weight: 600; color: var(--secondary); }
   .commod-cat li span { color: var(--muted); }
 
+  /* Carte des commodités (composant CarteCommodites) */
+  .market-carte { margin: 28px 0 4px; }
+  .cc-wrap { display: grid; grid-template-columns: 1.35fr 1fr; gap: 14px; align-items: start; }
+  .cc-map-col { position: relative; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: #eee; }
+  /* Hauteur calée sur celle du panneau compacté : le bloc ne grandit pas,
+     la carte occupe simplement le blanc qui restait à côté. */
+  .cc-map { height: 500px; width: 100%; }
+  .cc-map .leaflet-container { font-family: inherit; }
+  .cc-legende { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; padding: 8px 10px; background: #fff; border-top: 1px solid var(--border); font-size: 11px; color: var(--secondary); }
+  .cc-legende-item { display: inline-flex; align-items: center; gap: 6px; }
+  .cc-puce { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  .cc-panel { display: flex; flex-direction: column; gap: 10px; }
+  .cc-card { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; background: #fff; }
+  .cc-card-head { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; }
+  .cc-card-icon { display: inline-flex; align-items: center; }
+  .cc-card-head h3 { font-family: var(--mono); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.6px; color: var(--muted); margin: 0; }
+
+  /* Une ligne par catégorie : compteur + distance du point le plus proche,
+     puis le nom de ce point. Le détail complet se déplie à l'écran. */
+  .cc-cat + .cc-cat { border-top: 1px solid #f2f2f2; }
+  .cc-cat-head { display: grid; grid-template-columns: 15px 1fr auto auto; gap: 8px; align-items: center; width: 100%; padding: 7px 0 0; border: none; background: none; font-family: inherit; text-align: left; }
+  .cc-cat-head.cliquable { cursor: pointer; }
+  .cc-cat-head.cliquable:hover .cc-cat-label { color: var(--primary); }
+  .cc-cat-label { font-size: 13px; font-weight: 600; color: var(--secondary); }
+  .cc-cat-count { font-size: 11px; font-weight: 700; color: #fff; background: var(--muted); border-radius: 9px; min-width: 18px; padding: 0 5px; text-align: center; }
+  .cc-cat-dist { font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .cc-cat-proche { font-size: 11px; color: var(--muted); padding: 1px 0 7px 23px; overflow-wrap: anywhere; }
+
+  .cc-list { list-style: none; padding: 4px 0 7px 23px; margin: 0; }
+  .cc-list li { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: baseline; padding: 3px 0; font-size: 11.5px; }
+  .cc-type { color: var(--muted); font-size: 10.5px; white-space: nowrap; }
+  .cc-name { color: var(--secondary); min-width: 0; overflow-wrap: anywhere; }
+  .cc-dist { color: var(--secondary); font-weight: 600; white-space: nowrap; text-align: right; }
+
+  .cc-list-risques { padding-left: 0; }
+  .cc-list-risques li { grid-template-columns: 1fr auto; padding: 3px 0; }
+  .cc-list-risques li + li { border-top: 1px solid #f7f7f7; }
+  .cc-level-ok { color: #46B962; }
+  .cc-level-warn { color: #d98407; }
+  .cc-level-bad { color: #e74c3c; }
+  .cc-source { font-size: 10px; color: var(--muted); margin: 8px 0 0; }
+
   /* ====== 6. Personas acquéreurs ====== */
   .section-intro { font-size: 14px; color: var(--secondary); margin: 0 0 20px; line-height: 1.6; }
-  .personas-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 24px; }
-  .persona-card { border: 1px solid var(--border); border-radius: 10px; padding: 18px 10px; background: #fff; text-align: center; cursor: pointer; transition: all 0.18s; position: relative; }
-  .persona-card:hover { border-color: var(--primary)60; background: var(--primary)05; }
-  .persona-card.active { border: 1px solid var(--primary); background: var(--primary)15; }
-  .persona-card.active::after { content: ''; position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 8px solid var(--primary); }
-  .persona-count { font-size: 28px; font-weight: 700; color: var(--secondary); line-height: 1; }
-  .persona-card.active .persona-count { color: var(--primary); }
-  .persona-name { font-size: 12px; font-weight: 700; color: var(--secondary); margin-top: 8px; }
-  .persona-sub { font-size: 10px; color: var(--muted); margin-top: 2px; line-height: 1.3; }
+  /* Barre de répartition des profils : segments proportionnels au nombre de
+     projets, dégradé obtenu par opacité pour rester pilotable par --primary. */
+  .prof-bar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; margin: 4px 0 16px; }
+  .prof-bar-seg { display: block; height: 100%; }
 
-  .persona-focus { border: 1px solid var(--primary)40; border-radius: 10px; background: linear-gradient(180deg, var(--primary)0a 0%, #fff 60%); padding: 20px 22px; margin-bottom: 16px; }
-  .persona-focus-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--primary)25; margin-bottom: 14px; flex-wrap: wrap; gap: 12px; }
-  .persona-focus-title { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 700; color: var(--secondary); }
-  .persona-focus-title .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); }
-  .count-pill { background: var(--primary); color: #fff; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 10px; }
-  .persona-focus-meta { display: flex; gap: 16px; font-size: 11px; color: var(--muted); flex-wrap: wrap; }
-  .persona-focus-meta strong { color: var(--secondary); }
-  .persona-focus-meta .compat { color: var(--primary); }
+  .prof-list { list-style: none; padding: 0; margin: 0; }
+  .prof-list li { display: grid; grid-template-columns: 11px auto 1fr auto; gap: 10px; align-items: baseline; padding: 9px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+  .prof-list li:last-child { border-bottom: none; }
+  .prof-puce { width: 11px; height: 11px; border-radius: 3px; }
+  .prof-nom { font-weight: 600; color: var(--secondary); white-space: nowrap; }
+  .prof-part { font-size: 12px; color: var(--muted); }
+  .prof-budget { font-weight: 700; color: var(--secondary); white-space: nowrap; }
 
-  .persona-focus-body { display: grid; grid-template-columns: 1.3fr 1fr; gap: 22px; }
-  .persona-needs h4, .persona-buyers h4 { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin: 0 0 10px; }
-  .persona-needs ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
-  .need-item { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; color: var(--secondary); line-height: 1.5; }
-  .need-bullet { font-weight: 700; margin-top: 2px; flex-shrink: 0; }
-  .need-text { display: inline; }
-  .need-tag { display: inline-block; font-size: 10px; background: var(--primary)15; color: var(--primary); padding: 1px 6px; border-radius: 3px; margin-left: 6px; font-weight: 600; vertical-align: middle; }
-  .need-tag.miss { background: #fdecec; color: #e05252; }
+  /* ====== 8. Argumentaire ====== */
+  .arg-strong .bullets li::before { color: var(--primary); }
+  .arg-vigilance .bullets li::before { color: #d98407; }
+  .arg-vide { color: var(--muted); font-style: italic; }
 
-  .buyer-list { display: flex; flex-direction: column; gap: 5px; }
-  .buyer-row { display: grid; grid-template-columns: auto 1fr auto auto; gap: 10px; align-items: center; padding: 7px 10px; background: #fff; border: 1px solid var(--border); border-radius: 6px; font-size: 11px; }
-  .buyer-rank { font-weight: 700; color: var(--muted); font-size: 10px; min-width: 16px; }
-  .buyer-name { color: var(--secondary); font-weight: 600; }
-  .buyer-budget { color: var(--muted); font-size: 10px; }
-  .buyer-score { font-weight: 700; color: var(--primary); font-size: 12px; }
-  .buyer-more { font-size: 11px; color: var(--muted); padding: 6px 10px; font-style: italic; }
+  /* ====== 10. Proposition (prix unique) ====== */
+  /* Définition du prix : décompte ligne à ligne, aligné à droite sur les
+     montants. Les points valorisés portent une pastille verte ou rouge, les
+     non chiffrés une pastille grise. */
+  .def-prix { margin-bottom: 16px; }
+  .def-row { display: grid; grid-template-columns: 9px 1fr auto; gap: 14px; align-items: baseline; padding: 10px 0; font-size: 13.5px; }
+  .def-row + .def-row { border-top: 1px solid #f4f4f4; }
+  .def-libelle { color: var(--secondary); }
+  .def-puce { width: 9px; height: 9px; border-radius: 50%; align-self: center; }
+  .def-montant { font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; font-weight: 600; color: var(--secondary); }
+  .def-plus { color: var(--primary); }
+  .def-moins { color: #c0392b; }
 
-  /* ====== 7. Methodology ====== */
-  .pillars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 20px 0; }
-  .pillar { text-align: center; padding: 20px 14px; border: 1px solid var(--border); border-radius: 8px; background: #fafafa; }
-  .pillar-visual { width: 56px; height: 56px; border-radius: 50%; border: 1px solid var(--primary); color: var(--primary); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; background: #fff; }
-  .pillar-title { font-weight: 700; color: var(--primary); font-size: 14px; margin-bottom: 6px; }
-  .pillar-desc { font-size: 12px; color: var(--secondary); line-height: 1.5; }
+  /* Base et total : pas de pastille, deux colonnes, et un cran de contraste
+     au-dessus des ajustements pour qu'on lise d'abord d'où l'on part et où
+     l'on arrive. */
+  .def-base, .def-total { grid-template-columns: 1fr auto; border-top: none; }
+  .def-base .def-libelle { font-family: var(--mono); font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .def-base { padding: 0 0 14px; }
+  .def-total { margin-top: 6px; padding: 15px 0 0; border-top: 1px solid var(--secondary); font-size: 16px; }
+  .def-total .def-libelle { font-weight: 700; }
+  .def-total .def-montant { font-weight: 700; }
 
-  /* ====== 7. Comparables ====== */
-  .comp-intro { font-size: 14px; color: var(--secondary); line-height: 1.6; margin: 0 0 18px; }
-  .comp-intro strong { color: var(--primary); }
-  .comparables-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
-  .comp-empty { padding: 18px 20px; border: 1px dashed #d4d4d4; border-radius: 10px; background: #fafafa; color: #6b6b6b; font-size: 13px; line-height: 1.6; }
-  .comp-card { border: 1px solid var(--border); border-radius: 10px; padding: 20px; background: #fff; }
-  .comp-photo { margin: -20px -20px 14px; overflow: hidden; border-radius: 10px 10px 0 0; background: #f4f4f4; max-height: 200px; }
-  .comp-photo img { display: block; width: 100%; height: 180px; object-fit: cover; }
-  .comp-link { display: inline-block; margin-top: 10px; font-size: 12px; color: var(--primary); text-decoration: none; font-weight: 600; }
-  .comp-link:hover { text-decoration: underline; }
-  .comp-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-  .comp-source { display: inline-block; padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-  .comp-source-DVF { background: #e8f4fd; color: #1976d2; }
-  .comp-source-IDEERI { background: var(--primary)15; color: var(--primary); }
-  .comp-source-EN_COURS { background: #fff3e0; color: #e8a838; }
-  .comp-date { font-size: 12px; color: var(--muted); }
-  .comp-title { font-size: 15px; font-weight: 700; color: var(--secondary); margin-bottom: 4px; }
-  .comp-address { font-size: 13px; color: var(--muted); margin-bottom: 12px; }
-  .comp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 14px; margin-bottom: 12px; font-size: 12px; }
-  .comp-grid > div { display: flex; flex-direction: column; }
-  .comp-grid span { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
-  .comp-grid strong { color: var(--secondary); font-size: 13px; }
-  .comp-price { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 0; border-top: 1px solid #f0f0f0; font-size: 14px; }
-  .comp-price strong { color: var(--secondary); }
-  .comp-m2 { color: var(--muted); font-size: 13px; }
-  .comp-adjust { font-size: 12px; color: var(--muted); }
-  .comp-adjust strong { color: var(--secondary); }
-  .comp-reliability { margin: 8px 0; }
-  .comp-comment { font-size: 12px; color: var(--secondary); font-style: italic; margin: 8px 0 0; padding: 8px 12px; background: #fafafa; border-radius: 4px; }
-  .comp-average { margin-top: 20px; padding: 12px 20px; background: var(--primary)15; border-radius: 8px; text-align: right; font-size: 14px; color: var(--secondary); }
-  .comp-average strong { color: var(--primary); font-size: 16px; }
-  .comp-others { margin: 24px 0 12px; padding: 18px 20px; background: #fafafa; border-radius: 8px; border: 1px solid #ebebeb; }
-  .comp-others h3 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #6b6b6b; margin: 0 0 12px; }
-  .comp-others-list { display: flex; flex-direction: column; gap: 8px; }
-  .comp-other-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 14px; background: #fff; border: 1px solid #ebebeb; border-radius: 6px; flex-wrap: wrap; }
-  .cor-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-  .cor-address { font-size: 13px; color: var(--secondary); }
-  .cor-typo { font-size: 11px; color: var(--muted); }
-  .cor-side { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .cor-price { font-size: 13px; color: var(--secondary); font-weight: 600; }
-  .cor-reason { display: inline-block; background: #fdecec; color: #c83a3a; border: 1px solid #f5c6c6; border-radius: 12px; padding: 2px 10px; font-size: 11px; font-weight: 600; }
+  /* Deux volets : le prix occupe la surface, le nombre de projets solvables
+     tient dans un panneau à part. Chaque volet est centré dans sa colonne,
+     donc plus de grand vide au milieu de la carte. */
+  .proposition { display: grid; grid-template-columns: 1.55fr 1fr; border: 2px solid var(--primary); border-radius: 14px; background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 5%, #fff) 0%, #fff 65%); overflow: hidden; }
+  .prop-main { display: flex; flex-direction: column; justify-content: center; padding: 32px 34px; text-align: center; }
+  .prop-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.4px; }
+  .prop-price { font-size: 50px; font-weight: 700; color: var(--primary); letter-spacing: -1.5px; line-height: 1.05; margin: 12px 0 6px; }
+  .prop-m2 { font-size: 14px; color: var(--secondary); }
+  .prop-aside { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 22px; text-align: center; background: #fff; border-left: 1px solid var(--border); }
+  .prop-stat { font-size: 44px; font-weight: 700; color: var(--secondary); line-height: 1; }
+  .prop-stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; line-height: 1.55; margin-top: 10px; }
 
-  /* ====== 8. Arguments ====== */
-  .arg-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-  .arg-col { padding: 20px; border-radius: 8px; background: #fafafa; }
-  .arg-col h3 { margin: 0 0 12px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
-  .arg-strong h3 { color: var(--primary); }
-  .arg-vigilance h3 { color: #e8a838; }
-  .arg-col ul { list-style: none; padding: 0; margin: 0; }
-  .arg-col li { padding: 8px 0 8px 16px; border-bottom: 1px solid #ebebeb; font-size: 13px; position: relative; }
-  .arg-col li:last-child { border-bottom: none; }
-  .arg-col li::before { content: ''; position: absolute; left: 0; top: 14px; width: 6px; height: 6px; border-radius: 50%; }
-  .arg-strong li::before { background: var(--primary); }
-  .arg-vigilance li::before { background: #e8a838; }
-
-  /* ====== 9. Decomposition (V2 : 4 étapes) ====== */
-  .cascade { display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap; }
-  .cascade-step { flex: 1 1 0; min-width: 140px; background: #fafafa; border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; text-align: center; }
-  .cascade-step.final { background: var(--primary)15; border-color: var(--primary); font-weight: 600; }
-  .cascade-step.final .step-value { color: var(--primary); font-size: 20px; }
-  .step-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
-  .step-value { font-size: 16px; font-weight: 700; color: var(--secondary); margin: 4px 0; }
-  .step-delta { font-size: 12px; font-weight: 700; color: var(--primary); margin-bottom: 4px; }
-  .step-detail { font-size: 11px; color: var(--muted); line-height: 1.4; }
-  .cascade-arrow { font-size: 20px; color: #c0c0c0; display: flex; align-items: center; }
-
-  /* ====== 10. Strategies ====== */
-  .strat-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px; }
-  .strat-col { border: 1px solid var(--border); border-radius: 10px; padding: 20px 16px; text-align: center; background: #fff; position: relative; }
-  .strat-col.recommended { border: 2px solid var(--primary); background: var(--primary)0a; transform: translateY(-8px); box-shadow: 0 8px 24px var(--primary)30; }
-  .strat-badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--primary); color: #fff; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 12px; border-radius: 12px; white-space: nowrap; }
-  .strat-label { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-  .strat-price { font-size: 26px; font-weight: 700; color: var(--secondary); margin: 4px 0; }
-  .strat-col.recommended .strat-price { color: var(--primary); }
-  .strat-m2 { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
-  .strat-row { display: flex; flex-direction: column; gap: 2px; padding: 8px 0; border-top: 1px solid #f0f0f0; font-size: 12px; text-align: left; }
-  .strat-row span { color: var(--muted); text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; }
-  .strat-row strong { color: var(--secondary); font-size: 12px; font-weight: 600; line-height: 1.4; }
-  .strat-reco { padding: 20px 24px; background: var(--primary)0a; border-left: 4px solid var(--primary); border-radius: 6px; }
-  .strat-reco strong { color: var(--primary); font-size: 14px; }
-  .strat-reco p { margin: 8px 0 0; font-size: 13px; line-height: 1.6; color: var(--secondary); }
+  /* ====== 10 ter. Marché et financement ====== */
+  .fi-simu { display: flex; gap: 12px; margin: 18px 0 0; }
+  .fi-simu-item { flex: 1; text-align: center; padding: 14px 10px; border: 1px solid var(--border); border-radius: 12px; background: #fafafa; }
+  .fi-simu-montant { font-size: 24px; font-weight: 700; color: var(--primary); line-height: 1.1; }
+  .fi-simu-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-top: 6px; }
+  .fi-lecture { font-size: 12.5px; color: var(--secondary); line-height: 1.65; margin: 16px 0 0; }
+  .fi-lecture strong { color: var(--primary); }
 
   /* ====== 11. Contact ====== */
   .contact-card { display: grid; grid-template-columns: auto 1fr 1fr; gap: 24px; align-items: start; padding: 20px; border: 1px solid var(--border); border-radius: 10px; }
@@ -1969,10 +2737,51 @@ const reportCss = `
 
   /* ====== 12. Legal ====== */
   .legal { font-size: 11px; color: #6b6b6b; }
-  .legal h3 { color: var(--secondary); text-transform: uppercase; letter-spacing: 1px; font-size: 12px; margin: 0 0 12px; }
   .legal ul { padding-left: 18px; margin: 0 0 16px; }
   .legal li { margin-bottom: 6px; line-height: 1.6; }
   .legal-agence { padding-top: 12px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); line-height: 1.6; }
+
+  /* ====== 5 quater. Notre activité dans votre secteur ====== */
+  .reseau-part { font-size: 14px; margin: 0 0 24px; padding: 12px 16px; background: color-mix(in srgb, var(--primary) 4%, #fff); border-left: 4px solid var(--primary); border-radius: 4px; }
+  .reseau-part strong { color: var(--primary); }
+  .card.reseau-block, .card.reseau-distrib { margin-bottom: 14px; }
+  .reseau-sub { font-size: 13px; color: var(--muted); margin: 0 0 12px; line-height: 1.6; }
+
+  .distrib-row { display: grid; grid-template-columns: 150px 1fr 90px; gap: 12px; align-items: center; padding: 4px 0; font-size: 12px; }
+  .distrib-label { color: var(--secondary); white-space: nowrap; }
+  .distrib-bar { display: block; height: 14px; background: #f0f0f0; border-radius: 3px; overflow: hidden; }
+  .distrib-bar i { display: block; height: 100%; background: #b9bec4; border-radius: 3px; }
+  .distrib-count { font-size: 12px; color: var(--muted); }
+  .distrib-caption { font-size: 13px; color: var(--secondary); margin: 12px 0 0; line-height: 1.6; }
+
+  /* Plan du secteur : même traitement que les autres cartes du document —
+     bord fin, coins arrondis 14 px, fond clair. On force quand même le rendu
+     des couleurs à l'impression pour les aplats des pastilles. */
+  .carte-wrap { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: #fbfbfb; margin-bottom: 10px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .carte-svg { display: block; width: 100%; height: auto; font-family: inherit; }
+  .carte-legende { font-size: 11px; color: var(--muted); line-height: 1.6; margin: 0; }
+
+  .conc-svg { display: block; width: 100%; height: auto; margin: 4px 0 2px; font-family: inherit; }
+  .conc-legende { font-size: 12px; color: var(--secondary); margin: 0; }
+
+
+  /* ====== 10 bis. Plan de commercialisation ====== */
+  .plan-timeline { list-style: none; margin: 0 0 14px; position: relative; }
+  .plan-timeline::before { content: ''; position: absolute; left: 31px; top: 30px; bottom: 30px; width: 2px; background: var(--border); }
+  .plan-step { display: grid; grid-template-columns: 24px 170px 1fr; gap: 12px; align-items: start; padding: 0 0 20px; position: relative; }
+  .plan-step:last-child { padding-bottom: 0; }
+  .plan-dot { width: 12px; height: 12px; margin-top: 3px; border-radius: 50%; background: #fff; border: 3px solid var(--primary); box-sizing: border-box; z-index: 1; }
+  .plan-when { font-size: 12px; line-height: 1.5; }
+  .plan-jour { display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #fff; background: var(--primary); padding: 1px 7px; border-radius: 8px; margin-bottom: 4px; }
+  .plan-date { display: block; color: var(--muted); }
+  .plan-titre { font-size: 14px; font-weight: 600; color: var(--secondary); }
+  .plan-detail { font-size: 12px; color: var(--muted); line-height: 1.6; margin-top: 2px; }
+
+  .plan-engagements { padding: 20px 24px; background: #fafafa; border: 1px solid var(--border); border-radius: 14px; margin-bottom: 16px; }
+  .plan-engagements ul { list-style: none; padding: 0; margin: 0; }
+  .plan-engagements li { position: relative; padding: 5px 0 5px 18px; font-size: 13px; color: var(--secondary); line-height: 1.6; }
+  .plan-engagements li::before { content: '✓'; position: absolute; left: 0; color: var(--primary); font-weight: 700; }
+  .plan-note { font-size: 11px; color: var(--muted); line-height: 1.6; margin: 0; }
 
   /* ====== Actions (UI-only) ====== */
   .actions { text-align: center; padding: 32px; background: #fff; border-top: 1px solid var(--border); }
@@ -1988,7 +2797,26 @@ const reportCss = `
     .report-root { max-width: none; background: #fff; }
     .no-print { display: none !important; }
     .page-break { page-break-before: always; }
+
+    /* Couverture : le min-height de 900 px + le gabarit d'écran la faisaient
+       déborder sur une seconde page quasi vide. On resserre pour tenir sur
+       une seule page A4. */
+    .cover { min-height: 0 !important; padding: 28px 32px !important; }
+    .cover-bar { margin-bottom: 30px; }
+    .cover-title { font-size: 32px; letter-spacing: 3px; margin: 26px 0 12px; }
+    .cover-address { font-size: 17px; margin-bottom: 24px; }
+    .cover-hero { margin: 12px 0 24px; }
+    .cover-hero-img { height: 250px; }
+    .cover-strip { gap: 8px; margin-top: 8px; }
+    .cover-strip img { height: 68px; }
+    .cover-meta { margin: 22px 0; line-height: 1.65; }
+    .cover-footer { padding-top: 22px; }
     .report-root section, .report-root footer { padding: 24px 32px; }
-    .strat-col.recommended { transform: none; box-shadow: none; }
+    .card, .plan-engagements { break-inside: avoid; page-break-inside: avoid; }
+    .plan-step, .conc-list li, .carte-wrap { break-inside: avoid; page-break-inside: avoid; }
+    .market-carte, .cc-card, .cc-map-col { break-inside: avoid; page-break-inside: avoid; }
+    .proposition { break-inside: avoid; page-break-inside: avoid; }
+    .leaflet-control-zoom, .leaflet-popup { display: none !important; }
+    .cc-map { height: 320px; }
   }
 `;

@@ -7,7 +7,6 @@ import PropertyCard from '../components/PropertyCard';
 import Stepper from '../components/Stepper';
 import PhotoUploader from '../components/PhotoUploader';
 import Step1EditDrawer from '../components/Step1EditDrawer';
-import { avisValeur } from '../data/propertyData';
 import { PROPERTY_PHOTOS } from '../data/propertyPhotos';
 import { getActiveBien } from '../utils/activeBien';
 import { getAllPhotos, deletePhoto, getPhotosByRoom } from '../utils/photosStore';
@@ -881,7 +880,7 @@ const cssStyles = `
     color: #bbb;
   }
 
-  /* ---- Points forts / vigilance + avis vendeur (déplacés depuis Step5) ---- */
+  /* ---- Avis du vendeur (déplacé depuis Step5) ---- */
   .appraisal-card {
     background: white;
     border: 1px solid #eee;
@@ -1081,7 +1080,7 @@ function displayValue(field, value) {
   return `${value}${unit}`;
 }
 
-export default function Step1BienCible() {
+export default function Step2ReleveBien() {
   // Bien actif (saisi via /nouveau-bien). Si null, on retombe sur les valeurs
   // demo (12 rue des Lilas, Lyon 3eme).
   const [activeBien] = useState(() => getActiveBien());
@@ -1331,78 +1330,14 @@ export default function Step1BienCible() {
     cadastreAddress = label;
   }
 
-  // ---- Points forts / vigilance + avis du vendeur ------------------------
-  const hasRealLocation = !!(activeBien && activeBien.adresse && activeBien.adresse.label);
-
-  const buildAutoPoints = () => {
-    if (!hasRealLocation) {
-      return { forts: avisValeur.pointsForts, vigilance: avisValeur.pointsVigilance };
-    }
-    if (!activeBien?.bien) return { forts: [], vigilance: [] };
-    const bien = activeBien.bien;
-    const forts = [];
-    const vigilance = [];
-
-    const dpe = bien.dpe ? String(bien.dpe).toUpperCase() : null;
-    if (dpe && ['A', 'B', 'C'].includes(dpe)) forts.push(`DPE ${dpe} — bien performant énergétiquement`);
-    else if (dpe && ['F', 'G'].includes(dpe)) vigilance.push(`DPE ${dpe} — passoire thermique (interdiction de location 2025/2028)`);
-    else if (dpe === 'E') vigilance.push('DPE E — interdiction de location prévue en 2034');
-
-    if (bien.type === 'appartement' && bien.etage != null && bien.etage !== '') {
-      const e = Number(bien.etage);
-      if (e === 0) vigilance.push('Rez-de-chaussée — vis-à-vis et sécurité à anticiper');
-      else if (e >= 6 && !bien.ascenseur) vigilance.push(`${e}e étage sans ascenseur — frein commercial fort`);
-      else if (e >= 3 && bien.ascenseur) forts.push(`${e}e étage avec ascenseur — vue dégagée et confort`);
-    }
-
-    if (bien.exposition && /sud/i.test(bien.exposition)) forts.push(`Exposition ${bien.exposition.replace('_', '-')} — luminosité optimale`);
-    else if (bien.exposition === 'nord') vigilance.push('Exposition nord — luminosité réduite');
-
-    if (bien.exterieur === 'jardin') forts.push('Jardin — atout différenciant rare en zone urbaine');
-    else if (bien.exterieur === 'terrasse') forts.push('Terrasse — extérieur très recherché');
-    else if (bien.exterieur === 'balcon') forts.push('Balcon — extérieur appréciable');
-    else if (bien.exterieur === 'aucun' && bien.type === 'appartement') vigilance.push('Absence d\u2019extérieur — frein post-Covid');
-
-    if (bien.parking === 'box') forts.push('Box / garage fermé — valorise le bien (+5%)');
-    else if (bien.parking === 'place') forts.push('Place de parking — confort apprécié en centre-ville');
-    else if (bien.parking === 'aucun') vigilance.push('Pas de stationnement — frein dans certains quartiers');
-
-    if (bien.etat === 'neuf') forts.push('État neuf — aucun travaux à prévoir');
-    else if (bien.etat === 'refait') forts.push('Récemment rénové — prêt à emménager');
-    else if (bien.etat === 'a_renover') vigilance.push('À rénover — anticiper budget travaux');
-    else if (bien.etat === 'a_reconstruire') vigilance.push('À reconstruire — projet lourd, public restreint');
-
-    if (bien.annee) {
-      const a = Number(bien.annee);
-      if (a >= 2010) forts.push(`Construction ${a} — récent, normes thermiques actuelles`);
-      else if (a < 1948) vigilance.push(`Construction ${a} — ancien, vigilance sur structure et isolation`);
-    }
-    return { forts, vigilance };
-  };
-
-  const [pointsForts, setPointsForts] = useState(() => {
-    const st = getReportState();
-    if (Array.isArray(st.pointsForts)) return st.pointsForts;
-    return buildAutoPoints().forts;
-  });
-  const [pointsVigilance, setPointsVigilance] = useState(() => {
-    const st = getReportState();
-    if (Array.isArray(st.pointsVigilance)) return st.pointsVigilance;
-    return buildAutoPoints().vigilance;
-  });
+  // ---- Avis du vendeur ---------------------------------------------------
   const [avisVendeur, setAvisVendeur] = useState(() => {
     const st = getReportState();
     return typeof st.avisVendeur === 'string' ? st.avisVendeur : '';
   });
 
-  useEffect(() => { setReportState({ pointsForts }); }, [pointsForts]);
-  useEffect(() => { setReportState({ pointsVigilance }); }, [pointsVigilance]);
   useEffect(() => { setReportState({ avisVendeur }); }, [avisVendeur]);
 
-  const addPointFort = () => setPointsForts((prev) => [...prev, 'Nouveau point\u2026']);
-  const addPointVigilance = () => setPointsVigilance((prev) => [...prev, 'Nouveau point\u2026']);
-  const removePointFort = (idx) => setPointsForts((prev) => prev.filter((_, i) => i !== idx));
-  const removePointVigilance = (idx) => setPointsVigilance((prev) => prev.filter((_, i) => i !== idx));
 
   // ---- Photos : filtre par type + lightbox -------------------------------
   const [photoFilter, setPhotoFilter] = useState('salon');
@@ -1471,7 +1406,7 @@ export default function Step1BienCible() {
       <style>{cssStyles}</style>
       <div className="step1-page">
         <PropertyCard />
-        <Stepper currentStep={1} />
+        <Stepper currentStep={2} />
 
         <div className="step1-content" ref={contentRef} style={contentStyle}>
           {/* LEFT COLUMN : cartes lecture seule */}
@@ -1585,8 +1520,8 @@ export default function Step1BienCible() {
 
             {/* BUTTONS */}
             <div className="buttons-area">
-              <span className="btn btn-ghost">&larr; Retour</span>
-              <Link to="/step/2" className="btn btn-primary">
+              <Link to="/step/1" className="btn btn-ghost">&larr; Ouverture du rendez-vous</Link>
+              <Link to="/step/3" className="btn btn-primary">
                 &Eacute;tape suivante : Contexte Zone &rarr;
               </Link>
             </div>
@@ -1861,58 +1796,6 @@ export default function Step1BienCible() {
                 className="notes-textarea"
                 placeholder="Observations de visite..."
               />
-            </div>
-
-            {/* Points forts */}
-            <div className="appraisal-card strengths">
-              <div className="appraisal-title">Points forts <span className="appraisal-hint">(cliquer pour modifier)</span></div>
-              <div>
-                {pointsForts.map((p, i) => (
-                  <div key={i} className="appraisal-item">
-                    <span className="appraisal-icon">&#10004;</span>
-                    <span
-                      className="appraisal-text"
-                      contentEditable
-                      suppressContentEditableWarning
-                      onBlur={(e) => {
-                        const updated = [...pointsForts];
-                        updated[i] = e.currentTarget.textContent;
-                        setPointsForts(updated);
-                      }}
-                    >
-                      {p}
-                    </span>
-                    <button className="appraisal-del" onClick={() => removePointFort(i)} title="Supprimer">&times;</button>
-                  </div>
-                ))}
-              </div>
-              <button className="appraisal-add" onClick={addPointFort}>+ Ajouter un point fort</button>
-            </div>
-
-            {/* Points de vigilance */}
-            <div className="appraisal-card weaknesses">
-              <div className="appraisal-title">Points de vigilance <span className="appraisal-hint">(cliquer pour modifier)</span></div>
-              <div>
-                {pointsVigilance.map((p, i) => (
-                  <div key={i} className="appraisal-item">
-                    <span className="appraisal-icon">&#9888;</span>
-                    <span
-                      className="appraisal-text"
-                      contentEditable
-                      suppressContentEditableWarning
-                      onBlur={(e) => {
-                        const updated = [...pointsVigilance];
-                        updated[i] = e.currentTarget.textContent;
-                        setPointsVigilance(updated);
-                      }}
-                    >
-                      {p}
-                    </span>
-                    <button className="appraisal-del" onClick={() => removePointVigilance(i)} title="Supprimer">&times;</button>
-                  </div>
-                ))}
-              </div>
-              <button className="appraisal-add" onClick={addPointVigilance}>+ Ajouter un point de vigilance</button>
             </div>
 
             {/* Avis du vendeur */}

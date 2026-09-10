@@ -5,6 +5,7 @@ import Stepper from '../components/Stepper';
 import { contexteZone } from '../data/propertyData';
 import { getActiveBien } from '../utils/activeBien';
 import { getRisquesSynthese } from '../utils/georisquesClient';
+import { POI_CATEGORIES, POI_DEMO } from '../data/poiCategories';
 import { mergeReportSection, getReportSection } from '../utils/reportStore';
 
 const COLOR_MAP = {
@@ -1113,45 +1114,17 @@ function buildDynamicSections({ realPoi, risques, hasRealLocation }, fallback) {
 }
 
 /* ─── POI simulés autour du bien cible ─── */
-const POI_DATA = {
-  transports: [
-    { name: 'Métro Saxe-Gambetta', coords: [45.7565, 4.8545], detail: 'Ligne B/D — 350 m' },
-    { name: 'Tram T1 — Guillotière', coords: [45.7558, 4.8570], detail: '500 m' },
-    { name: 'Bus C3 — Dauphiné', coords: [45.7595, 4.8615], detail: '180 m' },
-    { name: 'Vélo\'v — Place Guichard', coords: [45.7575, 4.8560], detail: '15 places — 200 m' },
-    { name: 'Bus C9 — Villette', coords: [45.7605, 4.8575], detail: '280 m' },
-  ],
-  commerces: [
-    { name: 'Carrefour City', coords: [45.7573, 4.8610], detail: 'Alimentation — 150 m' },
-    { name: 'Boulangerie Paul', coords: [45.7585, 4.8565], detail: '120 m' },
-    { name: 'Pharmacie des Lilas', coords: [45.7590, 4.8600], detail: '80 m' },
-    { name: 'Marché couvert Part-Dieu', coords: [45.7608, 4.8570], detail: '650 m' },
-    { name: 'Tabac Presse Liberté', coords: [45.7568, 4.8598], detail: '200 m' },
-    { name: 'La Poste Lyon 3', coords: [45.7555, 4.8585], detail: '400 m' },
-    { name: 'Banque LCL', coords: [45.7582, 4.8550], detail: '350 m' },
-  ],
-  education: [
-    { name: 'École maternelle Montbrillant', coords: [45.7600, 4.8555], detail: 'Maternelle — 500 m' },
-    { name: 'Collège Raoul Dufy', coords: [45.7545, 4.8610], detail: 'Collège — 800 m' },
-    { name: 'Lycée Lacassagne', coords: [45.7530, 4.8570], detail: 'Lycée — 950 m' },
-    { name: 'Crèche Les P\'tits Loups', coords: [45.7592, 4.8625], detail: '300 m' },
-  ],
-  sante: [
-    { name: 'Cabinet Dr. Martin', coords: [45.7572, 4.8605], detail: 'Médecin généraliste — 100 m' },
-    { name: 'Hôpital Édouard Herriot', coords: [45.7540, 4.8630], detail: 'Hôpital — 1.1 km' },
-    { name: 'Dentiste Dr. Roux', coords: [45.7588, 4.8555], detail: '250 m' },
-    { name: 'Laboratoire Biogroup', coords: [45.7578, 4.8620], detail: '200 m' },
-  ],
-};
 
-const POI_STYLES = {
-  transports: { color: '#2563EB', icon: '🚇', label: 'Transports' },
-  commerces:  { color: '#D97706', icon: '🛒', label: 'Commerces' },
-  education:  { color: '#7C3AED', icon: '🎓', label: 'Éducation' },
-  sante:      { color: '#DC2626', icon: '🏥', label: 'Santé' },
-};
+/* Catégories partagées avec le compte rendu (data/poiCategories) : une seule
+ * couleur par catégorie dans tout le produit. On ne garde ici que les quatre
+ * catégories que la carte de l'étape 3 sait basculer. */
+const POI_STYLES = ['transports', 'commerces', 'education', 'sante'].reduce((acc, cle) => {
+  const c = POI_CATEGORIES[cle];
+  acc[cle] = { color: c.color, icon: c.emoji, label: c.label };
+  return acc;
+}, {});
 
-export default function Step2ContexteZone() {
+export default function Step3ContexteZone() {
   const navigate = useNavigate();
   // Hydratation depuis reportStore (persistance inter-pages)
   const persistedContexte = useMemo(() => getReportSection('contexteMarche', {}), []);
@@ -1540,7 +1513,7 @@ export default function Step2ContexteZone() {
     /* Si on a une vraie localité mais pas de POI live → on n'affiche RIEN
        sur la map (les markers démo Lyon 3 seraient trompeurs). */
     const hasRealLocation = !!activeBien?.adresse?.citycode;
-    const sourceData = realPoi || (hasRealLocation ? {} : POI_DATA);
+    const sourceData = realPoi || (hasRealLocation ? {} : POI_DEMO);
 
     Object.entries(POI_STYLES).forEach(([cat, style]) => {
       const group = poiLayersRef.current[cat];
@@ -1605,7 +1578,7 @@ export default function Step2ContexteZone() {
       <style>{cssStyles}</style>
 
       <PropertyCard />
-      <Stepper currentStep={2} />
+      <Stepper currentStep={3} />
 
       {/* Info Banner */}
       <div className="info-banner">
@@ -1839,10 +1812,10 @@ export default function Step2ContexteZone() {
 
       {/* Footer */}
       <div className="footer-buttons">
-        <button className="btn btn-ghost" onClick={() => navigate('/step/1')}>
+        <button className="btn btn-ghost" onClick={() => navigate('/step/2')}>
           &larr; Relev&eacute; d&rsquo;informations
         </button>
-        <button className="btn btn-primary" onClick={() => navigate('/step/3')}>
+        <button className="btn btn-primary" onClick={() => navigate('/step/4')}>
           Comparables &rarr;
         </button>
       </div>
