@@ -2797,6 +2797,20 @@ const reportCss = `
     .report-root { max-width: none; background: #fff; }
     .no-print { display: none !important; }
     .page-break { page-break-before: always; }
+
+    /* Couverture : le min-height de 900 px + le gabarit d'écran la faisaient
+       déborder sur une seconde page quasi vide. On resserre pour tenir sur
+       une seule page A4. */
+    .cover { min-height: 0 !important; padding: 28px 32px !important; }
+    .cover-bar { margin-bottom: 30px; }
+    .cover-title { font-size: 32px; letter-spacing: 3px; margin: 26px 0 12px; }
+    .cover-address { font-size: 17px; margin-bottom: 24px; }
+    .cover-hero { margin: 12px 0 24px; }
+    .cover-hero-img { height: 250px; }
+    .cover-strip { gap: 8px; margin-top: 8px; }
+    .cover-strip img { height: 68px; }
+    .cover-meta { margin: 22px 0; line-height: 1.65; }
+    .cover-footer { padding-top: 22px; }
     .report-root section, .report-root footer { padding: 24px 32px; }
     .card, .plan-engagements { break-inside: avoid; page-break-inside: avoid; }
     .plan-step, .conc-list li, .carte-wrap { break-inside: avoid; page-break-inside: avoid; }
