@@ -143,6 +143,18 @@ export const contexteZone = {
     delai: "68 j",
     fourchette: "3 850 – 4 720",
   },
+  /* Synthèse Géorisques de démonstration — même forme que le retour de
+   * getRisquesSynthese(), pour que le document de démo montre la fiche
+   * Risques telle qu'elle sortira en mode live. Valeurs fictives. */
+  risques: {
+    sismique: { zone: '2', niveau: 'Faible' },
+    radon: { potentiel: 'Faible' },
+    argile: { niveau: 'Moyen' },
+    inondation: { present: false, niveau: null },
+    mouvement: { present: false, count: 0 },
+    basias: { present: true, count: 2 },
+  },
+
   commodites: [
     { categorie: "Transports", nom: "Métro Sans Souci (ligne D)", distance: 280, tempsAPied: 4 },
     { categorie: "Transports", nom: "Bus C13 — arrêt Bonnel", distance: 120, tempsAPied: 2 },
@@ -669,11 +681,15 @@ export const avisValeur = {
   ],
 
   // --- V2 : mentions légales du rapport --------------------------------
+  /* Mentions légales — source unique partagée par le compte rendu et l'avis
+   * de valeur. Les deux documents portent le même avis de valeur, ils doivent
+   * porter les mêmes réserves : deux jeux de mentions divergents sur un même
+   * bien seraient indéfendables. */
   mentionsLegales: [
-    "La présente étude de marché a pour objet d'estimer la valeur vénale du bien. Elle ne constitue pas une expertise judiciaire au sens de l'article 1592 du Code civil.",
-    "Cette estimation est valable 3 mois à compter de la date d'édition.",
-    "L'estimation repose sur les informations collectées lors de notre visite, les données de marché publiques (DVF) et les ventes signées relevées par notre réseau.",
-    "Le propriétaire reste seul décideur du prix de mise en vente.",
+    "Cet avis de valeur a été réalisé à la date de sa rédaction, dans les conditions du marché actuel. Il tient compte de la spécificité de votre bien, de sa situation géographique, de sa surface, de la tension du marché et de la comparaison avec des biens similaires.",
+    "Cette estimation est délivrée sous réserve que des recherches ou examens plus approfondis (certificat d'urbanisme, titre de propriété, diagnostics immobiliers…) ne fassent apparaître aucun élément pénalisant, et que d'éventuelles servitudes n'aient pas d'incidence, à la hausse ou à la baisse, sur la détermination du prix du bien.",
+    "Cette indication de prix ne peut, bien entendu, être assimilée à une expertise immobilière, laquelle doit être établie par un Expert Immobilier en possession de l'ensemble des paramètres et documents nécessaires.",
+    "Seul un rapport d'expertise en bonne et due forme peut servir de base à la mise en place d'un partage, d'une donation, d'une déclaration d'IFI (Impôt sur la Fortune Immobilière), d'une déclaration de succession, d'une liquidation de communauté, d'une garantie hypothécaire, ou être produit dans le cadre d'un dossier contentieux ou judiciaire.",
   ],
 
   prixFinal: "300 000 €",
@@ -684,19 +700,24 @@ export const avisValeur = {
     { source: "DVF", adresse: "Voltaire", surface: "74m²", prixM2: "3 243 €", ajust: "+0.7%", poids: "20%" },
     { source: "Portail", adresse: "Montesquieu", surface: "70m²", prixM2: "3 700 €", ajust: "0%", poids: "10%" },
   ],
+  /* Points forts et points de vigilance, chacun avec son impact chiffré sur
+   * le prix quand il est quantifiable. `montant` à null = « non chiffré » :
+   * le point compte dans l'argumentaire mais n'est pas traduit en euros —
+   * soit qu'il soit déjà intégré à la valeur des comparables (localisation,
+   * dynamique de quartier), soit qu'il ne se chiffre pas honnêtement. */
   pointsForts: [
-    "Localisation recherchée : métro Sans Souci à 280 m, bus C13 à 120 m, commerces de proximité (boulangerie 90 m, pharmacie 310 m, Monoprix 380 m)",
-    "Ascenseur et balcon de 5,2 m² exposé Sud-Est — critères très recherchés",
-    "Traversant, cuisine ouverte sur séjour lumineux",
-    "DPE D avec potentiel C après travaux d'isolation",
-    "Quartier en hausse : +2,3 % sur 12 mois",
+    { label: "Localisation recherchée : métro Sans Souci à 280 m, bus C13 à 120 m, commerces de proximité (boulangerie 90 m, pharmacie 310 m, Monoprix 380 m)", montant: null },
+    { label: "Ascenseur et balcon de 5,2 m² exposé Sud-Est — critères très recherchés", montant: 7000 },
+    { label: "Traversant, cuisine ouverte sur séjour lumineux", montant: 3000 },
+    { label: "DPE D avec potentiel C après travaux d'isolation", montant: null },
+    { label: "Quartier en hausse : +2,3 % sur 12 mois", montant: null },
   ],
   pointsVigilance: [
-    "Travaux de ravalement votés : 15 000 € de quote-part",
-    "Concurrence active dans le secteur — voir « Notre activité dans votre secteur »",
-    "Copropriété avec 3,2 % d'impayés",
-    "DPE D — sensibilité croissante des acquéreurs",
-    "Bruit routier 65 dB — classement 3",
+    { label: "Travaux de ravalement votés : 15 000 € de quote-part", montant: -15000 },
+    { label: "DPE D — sensibilité croissante des acquéreurs", montant: -5000 },
+    { label: "Concurrence active dans le secteur — voir « Notre activité dans votre secteur »", montant: null },
+    { label: "Copropriété avec 3,2 % d'impayés", montant: null },
+    { label: "Bruit routier 65 dB — classement 3", montant: null },
   ],
   strategies: [
     {

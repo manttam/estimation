@@ -618,12 +618,14 @@ export default function Step1Ouverture() {
   const [pointsForts, setPointsForts] = useState(() => {
     const st = getReportState();
     if (Array.isArray(st.pointsForts)) return st.pointsForts;
-    return aBienReel ? [] : avisValeur.pointsForts;
+    // Les points de démo portent désormais un montant : l'éditeur ne
+    // manipule que le libellé.
+    return aBienReel ? [] : avisValeur.pointsForts.map((pt) => pt.label);
   });
   const [pointsVigilance, setPointsVigilance] = useState(() => {
     const st = getReportState();
     if (Array.isArray(st.pointsVigilance)) return st.pointsVigilance;
-    return aBienReel ? [] : avisValeur.pointsVigilance;
+    return aBienReel ? [] : avisValeur.pointsVigilance.map((pt) => pt.label);
   });
 
   useEffect(() => { setReportState({ pointsForts }); }, [pointsForts]);

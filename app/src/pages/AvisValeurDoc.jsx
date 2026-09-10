@@ -7,6 +7,7 @@ import {
   agent as agentMock,
 } from '../data/propertyData';
 import { PROPERTY_PHOTOS } from '../data/propertyPhotos';
+import { pickDocumentPhotos } from '../utils/photosDocument';
 import { getReportState } from '../utils/reportStore';
 import { getPhotosForCarousel, revokePhotoUrls } from '../utils/photosStore';
 
@@ -29,24 +30,6 @@ import { getPhotosForCarousel, revokePhotoUrls } from '../utils/photosStore';
  * ------------------------------------------------------------------------- */
 
 const GREEN = '#46B962';
-
-/* Ordre de préférence pour la sélection automatique des photos du document :
- * une pièce de vie en photo principale, puis les pièces les plus parlantes. */
-const PHOTO_PRIORITY = ['salon', 'cuisine', 'chambre', 'sdb', 'exterieur', 'autre'];
-
-function pickDocumentPhotos(photos, max = 5) {
-  if (!photos || !photos.length) return [];
-  const remaining = [...photos];
-  const picked = [];
-  // Un représentant par type, dans l'ordre de priorité
-  for (const type of PHOTO_PRIORITY) {
-    const i = remaining.findIndex((p) => p.type === type);
-    if (i !== -1) picked.push(...remaining.splice(i, 1));
-    if (picked.length >= max) return picked.slice(0, max);
-  }
-  // Complète avec ce qui reste
-  return [...picked, ...remaining].slice(0, max);
-}
 
 function formatEuro(n) {
   if (n == null || Number.isNaN(Number(n))) return '—';
@@ -625,31 +608,12 @@ export default function AvisValeurDoc() {
         {/* ============ 7. MENTIONS ============ */}
         <div className="av-mentions">
           <h3>Mentions</h3>
-          <p>
-            Cet avis de valeur a été réalisé à la date de sa rédaction, dans les conditions
-            du marché actuel. Il tient compte de la spécificité de votre bien, de sa
-            situation géographique, de sa surface, de la tension du marché et de la
-            comparaison avec des biens similaires.
-          </p>
-          <p>
-            Cette estimation est délivrée sous réserve que des recherches ou examens plus
-            approfondis (certificat d'urbanisme, titre de propriété, diagnostics
-            immobiliers…) ne fassent apparaître aucun élément pénalisant, et que
-            d'éventuelles servitudes n'aient pas d'incidence, à la hausse ou à la baisse,
-            sur la détermination du prix du bien.
-          </p>
-          <p>
-            Cette indication de prix ne peut, bien entendu, être assimilée à une expertise
-            immobilière, laquelle doit être établie par un Expert Immobilier en possession
-            de l'ensemble des paramètres et documents nécessaires.
-          </p>
-          <p>
-            Seul un rapport d'expertise en bonne et due forme peut servir de base à la mise
-            en place d'un partage, d'une donation, d'une déclaration d'IFI (Impôt sur la
-            Fortune Immobilière), d'une déclaration de succession, d'une liquidation de
-            communauté, d'une garantie hypothécaire, ou être produit dans le cadre d'un
-            dossier contentieux ou judiciaire.
-          </p>
+          {/* Même source que le compte rendu (avisValeur.mentionsLegales) :
+              les deux documents ne peuvent pas porter des réserves
+              différentes sur le même avis de valeur. */}
+          {(avisValeur.mentionsLegales || []).map((m, i) => (
+            <p key={i}>{m}</p>
+          ))}
         </div>
 
         <footer className="av-footer">
