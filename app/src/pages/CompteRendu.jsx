@@ -1374,32 +1374,44 @@ export default function CompteRendu() {
             </blockquote>
           )}
 
-          <div className="split">
-            {effAgence.services?.length > 0 && (
-              <div className="card">
-                <div className="eyebrow">Nos services</div>
-                <ul className="bullets">
-                  {effAgence.services.map((s, i) => (
-                    <li key={i}>{s}</li>
-                  ))}
-                </ul>
+          {/* Services et implantations au fil du texte : deux énumérations de
+              cinq entrées ne justifient pas deux encadrés, qui coupaient la
+              page en deux pour pas grand-chose. */}
+          {effAgence.services?.length > 0 && (
+            <p className="agence-liste">
+              <strong>Nos services</strong> — {effAgence.services.join(' · ')}
+            </p>
+          )}
+          {effAgence.implantations?.length > 0 && (
+            <p className="agence-liste">
+              <strong>Nos implantations</strong> — {effAgence.implantations.join(' · ')}
+            </p>
+          )}
+
+          {/* Le site est le seul endroit où le mandant peut voir l'agence à
+              l'œuvre — les biens en vente, les équipes. Il mérite mieux
+              qu'une mention en fin de ligne de coordonnées, où il se perdait
+              entre le téléphone et l'e-mail. */}
+          {effAgence.siteWeb && (
+            <div className="agence-site">
+              <span className="agence-site-icone" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                  <path d="M2 12h20" />
+                </svg>
+              </span>
+              <div>
+                <div className="agence-site-intro">
+                  Nos biens en vente, nos équipes et nos actualités
+                </div>
+                <div className="agence-site-url">{effAgence.siteWeb}</div>
               </div>
-            )}
-            {effAgence.implantations?.length > 0 && (
-              <div className="card">
-                <div className="eyebrow">Nos implantations</div>
-                <ul className="bullets">
-                  {effAgence.implantations.map((v, i) => (
-                    <li key={i}>{v}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
 
           <p className="note">
             {effAgence.adresse} · {effAgence.tel} · {effAgence.email}
-            {effAgence.siteWeb ? ` · ${effAgence.siteWeb}` : ''}
           </p>
         </section>
       )}
@@ -2534,7 +2546,15 @@ const reportCss = `
   .agence-citation { margin: 22px 0; padding: 4px 0 4px 20px; border-left: 3px solid var(--primary); }
   .agence-citation p { font-size: 14.5px; font-style: italic; color: var(--secondary); line-height: 1.65; margin: 0; }
   .agence-citation cite { display: block; margin-top: 8px; font-size: 12px; font-style: normal; color: var(--muted); }
-  .agence .split { margin-top: 22px; }
+  .agence-liste { font-size: 13.5px; line-height: 1.7; color: var(--secondary); margin: 0 0 8px; }
+  .agence-liste strong { color: var(--primary); }
+
+  /* Mise en avant du site : teinte d'agence et filet à gauche, sans bord
+     complet — c'est un renvoi, pas une carte de données. */
+  .agence-site { display: flex; align-items: center; gap: 16px; margin: 24px 0 4px; padding: 16px 20px; border-left: 3px solid var(--primary); border-radius: 0 12px 12px 0; background: color-mix(in srgb, var(--primary) 6%, #fff); }
+  .agence-site-icone { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; background: var(--primary); color: #fff; flex-shrink: 0; }
+  .agence-site-intro { font-size: 12.5px; color: var(--secondary); }
+  .agence-site-url { font-size: 17px; font-weight: 700; color: var(--primary); margin-top: 2px; }
 
   /* ====== KPI (sections Marché et Activité réseau) ====== */
   .kpi { text-align: center; flex: 1; }
