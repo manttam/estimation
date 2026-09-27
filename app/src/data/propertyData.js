@@ -158,6 +158,19 @@ export const property = {
   // Pas de référence cadastrale en dur : la section « Cadastre et plan de
   // zone » la tient de l'API, une valeur saisie ici la contredirait.
 
+  /* Diagnostic de performance énergétique. Le DPE réglementaire porte deux
+   * jauges — consommation et émissions — chacune avec sa valeur chiffrée,
+   * plus l'estimation des dépenses annuelles. Afficher la seule lettre
+   * revient à n'en montrer qu'un tiers. Champs alignés sur le relevé de
+   * l'étape 2 (catégorie « dpe »). */
+  dpeDate: "14/03/2024",
+  dpeConsommation: 198,        // kWh/m²/an — cohérent avec la classe D
+  ges: "D",
+  gesValeur: 32,               // kgeqCO2/m².an — cohérent avec la classe D
+  dpeCoutMin: 1240,            // €/an
+  dpeCoutMax: 1720,            // €/an
+  dpeAnneeReference: "2021",
+
   // --- Avis de valeur (document mandant) -----------------------------
   dateAvisValeur: "31 mars 2026",
 

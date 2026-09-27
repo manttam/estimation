@@ -800,6 +800,33 @@ export default function CompteRendu() {
     return merged;
   }, [reportState]);
 
+  /* Diagnostic de performance énergétique.
+   *
+   * Le DPE réglementaire porte deux jauges — consommation et émissions —
+   * chacune avec sa valeur chiffrée, et l'estimation des dépenses annuelles.
+   * N'afficher que la lettre d'énergie n'en montre qu'un tiers, et laisse
+   * le mandant sans le chiffre qu'un acquéreur lui demandera.
+   */
+  const dpeInfos = useMemo(() => {
+    const bd = reportState.bienDetails || {};
+    const live = (...slugs) => (isLive ? findDetail(bd, ...slugs) : undefined);
+    const demo = (v) => (isLive ? undefined : v);
+    const nb = (v) => {
+      const n = Number(v);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    };
+    return {
+      classeEnergie: effProperty.dpe,
+      consommation: nb(live('consommation_energetique_valeur') ?? demo(property.dpeConsommation)),
+      classeGes: (isLive ? effProperty.ges : property.ges) || null,
+      emissions: nb(live('gaz_effet_de_serre_valeur') ?? demo(property.gesValeur)),
+      coutMin: nb(live('cout_annuel_min') ?? demo(property.dpeCoutMin)),
+      coutMax: nb(live('cout_annuel_max') ?? demo(property.dpeCoutMax)),
+      anneeReference: live('annee_de_reference') ?? demo(property.dpeAnneeReference),
+      date: live('date_de_realisation') ?? demo(property.dpeDate),
+    };
+  }, [isLive, reportState, effProperty]);
+
   /* Coordonnées du bien, partagées par la carte des commodités et les
    * cartes cadastre / zonage. */
   const coordsBien = useMemo(
@@ -1526,28 +1553,64 @@ export default function CompteRendu() {
 
             {/* Échelle DPE : le mandant situe son bien d'un coup d'œil, sans
                 avoir à interpréter une lettre isolée. */}
-            {effProperty.dpe && effProperty.dpe !== '—' && (
+            {dpeInfos.classeEnergie && dpeInfos.classeEnergie !== '—' && (
               <div className="card dpe-card">
                 <div className="eyebrow">Performance énergétique</div>
-                <div className="dpe-echelle">
-                  {['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((l) => (
-                    <span
-                      key={l}
-                      className={`dpe-lettre${l === effProperty.dpe ? ` active dpe-${l}` : ''}`}
-                    >
-                      {l}
-                    </span>
+
+                {/* Les deux jauges du DPE réglementaire, chacune avec sa
+                    valeur chiffrée à droite. */}
+                {[
+                  {
+                    titre: 'Consommation',
+                    classe: dpeInfos.classeEnergie,
+                    valeur: dpeInfos.consommation,
+                    unite: 'kWh/m²/an',
+                  },
+                  {
+                    titre: 'Gaz à effet de serre',
+                    classe: dpeInfos.classeGes,
+                    valeur: dpeInfos.emissions,
+                    unite: 'kg CO₂/m²/an',
+                  },
+                ]
+                  .filter((j) => j.classe && j.classe !== '—')
+                  .map((j) => (
+                    <div className="dpe-jauge" key={j.titre}>
+                      <div className="dpe-jauge-tete">
+                        <span className="dpe-jauge-titre">{j.titre}</span>
+                        {j.valeur && (
+                          <span className="dpe-jauge-valeur">
+                            {j.valeur.toLocaleString('fr-FR')} {j.unite}
+                          </span>
+                        )}
+                      </div>
+                      <div className="dpe-echelle">
+                        {['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((l) => (
+                          <span
+                            key={l}
+                            className={`dpe-lettre${l === j.classe ? ` active dpe-${l}` : ''}`}
+                          >
+                            {l}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
                   ))}
-                </div>
+
                 <p className="dpe-texte">
-                  Étiquette énergie <strong>{effProperty.dpe}</strong>
-                  {(isLive ? effProperty.ges : 'D') && (isLive ? effProperty.ges : 'D') !== '—' && (
+                  {dpeInfos.coutMin && dpeInfos.coutMax && (
                     <>
-                      {' '}· gaz à effet de serre{' '}
-                      <strong>{isLive ? effProperty.ges : 'D'}</strong>
+                      Dépenses annuelles d&apos;énergie estimées entre{' '}
+                      <strong>{dpeInfos.coutMin.toLocaleString('fr-FR')} €</strong> et{' '}
+                      <strong>{dpeInfos.coutMax.toLocaleString('fr-FR')} €</strong>
+                      {dpeInfos.anneeReference
+                        ? ` pour un usage standard, prix indexés sur ${dpeInfos.anneeReference}.`
+                        : ' pour un usage standard.'}{' '}
                     </>
                   )}
-                  . Diagnostic valable 10 ans à compter de sa réalisation.
+                  {dpeInfos.date
+                    ? `Diagnostic réalisé le ${dpeInfos.date}, valable 10 ans.`
+                    : 'Diagnostic valable 10 ans à compter de sa réalisation.'}
                 </p>
               </div>
             )}
@@ -2622,11 +2685,15 @@ const reportCss = `
   /* Échelle DPE : la lettre du bien est remplie de sa couleur officielle,
      les autres restent en gris. */
   .dpe-card { padding: 18px 20px; display: flex; flex-direction: column; justify-content: center; }
-  .dpe-echelle { display: flex; gap: 4px; margin-bottom: 12px; }
+  .dpe-jauge + .dpe-jauge { margin-top: 14px; }
+  .dpe-jauge-tete { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 6px; }
+  .dpe-jauge-titre { font-size: 12px; color: var(--secondary); font-weight: 600; }
+  .dpe-jauge-valeur { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .dpe-echelle { display: flex; gap: 4px; margin-bottom: 0; }
   .dpe-lettre { flex: 1; text-align: center; padding: 6px 0; border-radius: 5px; background: #eeeff0; color: #a9adb1; font-family: var(--mono); font-size: 12px; font-weight: 700; }
   .dpe-lettre.active { color: #fff; }
   .dpe-lettre.active.dpe-C, .dpe-lettre.active.dpe-D { color: #33383d; }
-  .dpe-texte { font-size: 12px; color: var(--muted); line-height: 1.65; margin: 0; }
+  .dpe-texte { font-size: 12px; color: var(--muted); line-height: 1.65; margin: 16px 0 0; }
   .dpe-texte strong { color: var(--secondary); font-weight: 700; }
 
   /* ====== 4 ter. Cadastre et zonage ====== */
