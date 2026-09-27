@@ -2568,11 +2568,16 @@ const reportCss = `
   .cover-bar { width: 100%; height: 4px; background: var(--primary); margin-bottom: 60px; }
   .cover-title { font-size: 42px; font-weight: 700; letter-spacing: 4px; margin: 40px 0 16px; color: var(--secondary); }
   .cover-address { font-size: 20px; font-weight: 600; margin: 0 0 40px; color: var(--secondary); }
-  .cover-hero { width: 100%; margin: 20px 0 40px; }
-  .cover-hero-img { display: block; width: 100%; height: 340px; object-fit: cover; border-radius: 12px; background: #f2f2f2; }
-  .cover-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
+  /* Photo de couverture au format carré. En bandeau large, une photo prise
+     à la verticale — la majorité des photos de bien — perdait la moitié de sa
+     hauteur au recadrage. Le carré est le format qui maltraite le moins les
+     deux orientations. La colonne photo est centrée et le bandeau de
+     vignettes s'aligne sur sa largeur, pour former un bloc cohérent. */
+  .cover-hero { width: 100%; max-width: 380px; margin: 20px auto 40px; }
+  .cover-hero-img { display: block; width: 100%; aspect-ratio: 1 / 1; height: auto; object-fit: cover; border-radius: 12px; background: #f2f2f2; }
+  .cover-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
   .cover-strip figure { margin: 0; }
-  .cover-strip img { display: block; width: 100%; height: 92px; object-fit: cover; border-radius: 9px; background: #f2f2f2; }
+  .cover-strip img { display: block; width: 100%; aspect-ratio: 1 / 1; height: auto; object-fit: cover; border-radius: 8px; background: #f2f2f2; }
   .cover-strip figcaption { font-size: 11px; color: var(--muted); margin-top: 5px; text-align: center; }
   .cover-hero-placeholder {
     width: 100%; aspect-ratio: 16 / 9; background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 13%, #fff), #f0f0f0);
@@ -2887,10 +2892,10 @@ const reportCss = `
     .cover-bar { margin-bottom: 30px; }
     .cover-title { font-size: 32px; letter-spacing: 3px; margin: 26px 0 12px; }
     .cover-address { font-size: 17px; margin-bottom: 24px; }
-    .cover-hero { margin: 12px 0 24px; }
-    .cover-hero-img { height: 250px; }
-    .cover-strip { gap: 8px; margin-top: 8px; }
-    .cover-strip img { height: 68px; }
+    /* Carré plus petit à l'impression : la couverture doit tenir sur une
+       page, photo principale et vignettes comprises. */
+    .cover-hero { max-width: 260px; margin: 12px auto 24px; }
+    .cover-strip { gap: 6px; margin-top: 6px; }
     .cover-meta { margin: 22px 0; line-height: 1.65; }
     .cover-footer { padding-top: 22px; }
     .report-root section, .report-root footer { padding: 24px 32px; }
