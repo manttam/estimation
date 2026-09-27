@@ -13,6 +13,40 @@ export const agence = {
   couleurPrimaire: "#46B962",
   couleurSecondaire: "#393939",
   mentionsComplementaires: "Activité non soumise à garantie financière",
+
+  /* Présentation de l'agence, affichée en page 2 du compte rendu à la place
+   * de la lettre d'accompagnement.
+   *
+   * Chaque champ est optionnel : le document n'affiche que les blocs
+   * renseignés, et la section entière disparaît si `presentation` est vide.
+   * Une agence sans texte de présentation ne doit pas se retrouver avec une
+   * page à trous.
+   *
+   * ⚠️ Contenu de démonstration. En production, il vient des réglages de
+   * l'agence — c'est son histoire, pas la nôtre. */
+  baseline: "Votre partenaire de confiance pour tous vos projets immobiliers.",
+  presentation: [
+    "Fondée en 2009 par Claire Vasseur, l'Agence Immobilière de Lyon est née d'une conviction simple : une transaction immobilière se joue autant sur la connaissance fine d'un quartier que sur la maîtrise des outils.",
+    "La première agence a ouvert rue de la République. Le bouche-à-oreille aidant, l'équipe s'est étoffée de conseillers recrutés dans leur propre secteur — parce qu'on ne vend bien que le quartier où l'on vit. Aujourd'hui, l'agence réunit douze collaborateurs répartis sur quatre implantations lyonnaises.",
+    "Notre parti pris : former des spécialistes qui travaillent ensemble plutôt que des généralistes isolés. Chaque estimation est relue par un second conseiller, chaque mandat suivi par un binôme.",
+  ],
+  services: [
+    "Achat et vente",
+    "Location",
+    "Gestion locative",
+    "Estimation",
+    "Investissement",
+  ],
+  implantations: [
+    "Lyon 2ᵉ (69002)",
+    "Lyon 3ᵉ (69003)",
+    "Lyon 6ᵉ (69006)",
+    "Villeurbanne (69100)",
+  ],
+  citation: {
+    texte: "On ne vend pas un bien, on accompagne un projet de vie. C'est plus long, et c'est la seule façon de bien faire.",
+    auteur: "Claire Vasseur, fondatrice",
+  },
 };
 
 export const agent = {

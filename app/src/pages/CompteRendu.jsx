@@ -799,33 +799,6 @@ export default function CompteRendu() {
     return merged;
   }, [reportState]);
 
-  // effLettre : textes de la lettre page 2 saisis dans Réglages, avec
-  // fallback sur les phrases par défaut (propertyData.avisValeur.lettre +
-  // fallbacks hard-codés pour l'objet / la formule d'appel / la formule
-  // de politesse qui n'existaient pas en mock).
-  const effLettre = useMemo(() => {
-    const persisted = (reportState.lettre && typeof reportState.lettre === 'object')
-      ? reportState.lettre : {};
-    const pick = (key, fallback) => {
-      const v = persisted[key];
-      return (typeof v === 'string' && v.trim() !== '') ? v : fallback;
-    };
-    return {
-      objet: pick('objet', null),                             // null → format auto avec adresse
-      formuleAppel: pick('formuleAppel', null),               // null → format auto avec civilité + nom
-      introParagraphe: pick('introParagraphe', avisValeur?.lettre?.introParagraphe || ''),
-      paragrapheMethodologie: pick(
-        'paragrapheMethodologie',
-        "Notre méthodologie s'appuie sur l'analyse des ventes signées dans votre secteur, sur les projets d'achat actifs de notre fichier acquéreurs et sur les caractéristiques propres de votre bien.",
-      ),
-      cloture: pick('cloture', avisValeur?.lettre?.cloture || ''),
-      formulePolitesse: pick(
-        'formulePolitesse',
-        "Veuillez agréer l'expression de mes salutations distinguées,",
-      ),
-    };
-  }, [reportState]);
-
   const themeStyle = {
     '--primary': effAgence.couleurPrimaire,
     '--secondary': effAgence.couleurSecondaire,
@@ -1362,55 +1335,74 @@ export default function CompteRendu() {
         </div>
       </section>
 
+
       {/* =============================================================
-          SECTION 2 — Lettre d'accompagnement
+          SECTION 2 — Notre agence
+          Remplace la lettre d'accompagnement : le mandant a déjà l'agent en
+          face de lui, ce qu'il ne connaît pas c'est la maison derrière.
+          Chaque bloc est optionnel — une agence qui n'a pas renseigné son
+          texte n'obtient pas une page à trous, elle n'obtient pas la page.
           ============================================================= */}
-      <section className="letter page-break">
-        <div className="letter-header">
-          <div className="letter-from">
-            <strong>{effAgence.nom}</strong>
-            <div>{effAgence.adresse}</div>
-            <div>{effAgence.tel}</div>
-            <div>{effAgence.email}</div>
+      {(effAgence.presentation?.length > 0 ||
+        effAgence.services?.length > 0 ||
+        effAgence.implantations?.length > 0) && (
+        <section className="agence page-break">
+          <h2 className="section-title">Notre agence</h2>
+
+          <div className="agence-tete">
+            {effAgence.logo && (
+              <img src={effAgence.logo} alt={effAgence.nom} className="agence-tete-logo" />
+            )}
+            <div>
+              <div className="agence-nom">{effAgence.nom}</div>
+              {effAgence.baseline && <p className="agence-baseline">{effAgence.baseline}</p>}
+            </div>
           </div>
-          <div className="letter-to">
-            <strong>{effMandant.civilite} {effMandant.prenom} {effMandant.nom}</strong>
-            <div>{effMandant.adresseCorrespondance}</div>
-          </div>
-        </div>
 
-        <p className="letter-date">{(effAgence.adresse || '').split(',').slice(-1)[0].trim().split(' ').slice(-1)[0] /* ville */ ? `Lyon, le ${dateEdition}` : `Le ${dateEdition}`}</p>
-
-        <p className="letter-object">
-          <strong>Objet :</strong> {effLettre.objet || `Étude de marché — ${effProperty.adresse || '—'}`}
-        </p>
-
-        <div className="letter-body">
-          <p>{effLettre.formuleAppel || `${effMandant.civilite || ''} ${effMandant.nom || ''}`.trim() + ','}</p>
-          <p>{effLettre.introParagraphe || effAvisValeur.lettre.introParagraphe}</p>
-          {/* Aucun prix dans la lettre : le prix de présentation n'apparaît
-              qu'une fois dans le document, en section « Notre proposition ». */}
-          <p>
-            Au terme de notre analyse, vous trouverez notre recommandation de prix
-            de présentation en section « Notre proposition ».
-          </p>
-          <p>{effLettre.paragrapheMethodologie}</p>
-          <p>{effLettre.cloture || effAvisValeur.lettre.cloture}</p>
-          <p>{effLettre.formulePolitesse}</p>
-        </div>
-
-        <div className="letter-signature">
-          {effAgent.signature && (
-            <img src={effAgent.signature} alt="Signature" className="signature-img" />
+          {effAgence.presentation?.length > 0 && (
+            <div className="agence-texte">
+              {effAgence.presentation.map((p, i) => (
+                <p key={i}>{p}</p>
+              ))}
+            </div>
           )}
-          <div><strong>{effAgent.nom}</strong></div>
-          <div>{effAgent.fonction}</div>
-          <div>{effAgent.telDirect || effAgent.telephone} · {effAgent.email}</div>
-        </div>
-      </section>
 
-      {/* Section Synthèse supprimée à la demande — le prix/fourchette est
-          présenté directement en section Proposition commerciale. */}
+          {effAgence.citation?.texte && (
+            <blockquote className="agence-citation">
+              <p>{effAgence.citation.texte}</p>
+              {effAgence.citation.auteur && <cite>{effAgence.citation.auteur}</cite>}
+            </blockquote>
+          )}
+
+          <div className="split">
+            {effAgence.services?.length > 0 && (
+              <div className="card">
+                <div className="eyebrow">Nos services</div>
+                <ul className="bullets">
+                  {effAgence.services.map((s, i) => (
+                    <li key={i}>{s}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {effAgence.implantations?.length > 0 && (
+              <div className="card">
+                <div className="eyebrow">Nos implantations</div>
+                <ul className="bullets">
+                  {effAgence.implantations.map((v, i) => (
+                    <li key={i}>{v}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          <p className="note">
+            {effAgence.adresse} · {effAgence.tel} · {effAgence.email}
+            {effAgence.siteWeb ? ` · ${effAgence.siteWeb}` : ''}
+          </p>
+        </section>
+      )}
 
       {/* =============================================================
           SECTION 4 — Votre bien
@@ -2531,16 +2523,18 @@ const reportCss = `
   .cover-footer { margin-top: auto; padding-top: 40px; font-size: 11px; color: var(--muted); border-top: 1px solid var(--border); width: 100%; }
 
   /* ====== 2. Letter ====== */
-  .letter-header { display: flex; justify-content: space-between; margin-bottom: 40px; font-size: 13px; line-height: 1.6; }
-  .letter-from, .letter-to { max-width: 45%; }
-  .letter-from strong, .letter-to strong { color: var(--secondary); display: block; margin-bottom: 4px; }
-  .letter-date { text-align: right; font-size: 13px; color: var(--secondary); margin: 0 0 24px; }
-  .letter-object { font-size: 14px; margin: 0 0 24px; padding-bottom: 8px; border-bottom: 2px solid var(--primary); }
-  .letter-body { font-size: 14px; line-height: 1.7; }
-  .letter-body p { margin: 0 0 14px; }
-  .letter-signature { margin-top: 40px; font-size: 13px; line-height: 1.6; }
-  .letter-signature strong { color: var(--primary); }
-  .signature-img { max-height: 60px; display: block; margin-bottom: 8px; }
+  /* ====== 2. Notre agence ====== */
+  .agence-tete { display: flex; align-items: center; gap: 18px; margin-bottom: 22px; }
+  .agence-tete-logo { max-width: 130px; max-height: 54px; object-fit: contain; }
+  .agence-nom { font-size: 19px; font-weight: 700; color: var(--secondary); }
+  .agence-baseline { font-size: 13.5px; color: var(--primary); margin: 3px 0 0; font-weight: 600; }
+  .agence-texte p { font-size: 14px; line-height: 1.75; color: var(--secondary); margin: 0 0 13px; }
+  /* Citation du dirigeant : filet à gauche plutôt que guillemets décoratifs,
+     pour rester dans le registre sobre du reste du document. */
+  .agence-citation { margin: 22px 0; padding: 4px 0 4px 20px; border-left: 3px solid var(--primary); }
+  .agence-citation p { font-size: 14.5px; font-style: italic; color: var(--secondary); line-height: 1.65; margin: 0; }
+  .agence-citation cite { display: block; margin-top: 8px; font-size: 12px; font-style: normal; color: var(--muted); }
+  .agence .split { margin-top: 22px; }
 
   /* ====== KPI (sections Marché et Activité réseau) ====== */
   .kpi { text-align: center; flex: 1; }
