@@ -117,6 +117,26 @@ const PLAN_COMMERCIALISATION_DEFAUT = [
   },
 ];
 
+/* Rappel « suivi de vente », le plus commercial des deux blocs Ideeri.
+ *
+ * Déclaré à part parce qu'il est rendu à deux endroits selon le mode : dans
+ * le plan de commercialisation quand celui-ci est présent, seul à sa place
+ * quand le plan est retiré. Un document sans ce rappel perdrait l'argument
+ * le plus fort — et le dupliquer en JSX le ferait diverger au premier
+ * changement de texte.
+ */
+const RAPPEL_SUIVI_VENTE = {
+  titre: "Suivez votre vente en direct, depuis votre projet dans l'app.",
+  accent: 'en direct',
+  points: [
+    'Comptes rendus et retours après chaque visite',
+    'Ce que les acquéreurs font de votre annonce : mise en favori, demande de renseignement, visite',
+    'Messagerie directe avec votre conseiller',
+    'Vos documents, à déposer et à consulter à tout moment',
+  ],
+  note: "L'app est connectée au logiciel de votre agence : chaque action de l'un est visible par l'autre.",
+};
+
 /* Engagements de suivi affichés sous la timeline. */
 const ENGAGEMENTS_COMMERCIALISATION = [
   'Un compte rendu écrit après chaque visite, sous 24 heures.',
@@ -2237,18 +2257,7 @@ export default function CompteRendu() {
         {/* Second rappel : ici le sujet n'est plus le bien mais le suivi de
             la vente. Le mandant vient de lire les jalons, c'est le moment de
             lui dire où il les suivra. */}
-        <BlocAppIdeeri
-          titre="Suivez votre vente en direct, depuis votre projet dans l'app."
-          accent="en direct"
-          points={[
-            'Comptes rendus et retours après chaque visite',
-            'Ce que les acquéreurs font de votre annonce : mise en favori, demande de renseignement, visite',
-            'Messagerie directe avec votre conseiller',
-            'Vos documents, à déposer et à consulter à tout moment',
-          ]}
-          note="L'app est connectée au logiciel de votre agence : chaque action de l'un est visible par l'autre."
-          lien={lienApp}
-        />
+        <BlocAppIdeeri {...RAPPEL_SUIVI_VENTE} lien={lienApp} />
 
         <p className="note">
           {planCommercialisation.source === 'defaut'
@@ -2256,6 +2265,16 @@ export default function CompteRendu() {
             : 'Rendez-vous convenus avec vous et inscrits à notre agenda.'}
         </p>
       </section>
+      )}
+
+      {/* Le rappel « suivi de vente » est logé dans le plan de
+          commercialisation. Quand celui-ci est retiré, le rappel reste, à la
+          même place dans le document : c'est le plus parlant des deux, le
+          perdre priverait la version courte de son meilleur argument. */}
+      {sansPlan && (
+        <section className="plan">
+          <BlocAppIdeeri {...RAPPEL_SUIVI_VENTE} lien={lienApp} />
+        </section>
       )}
 
       {/* =============================================================
