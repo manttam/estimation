@@ -799,6 +799,19 @@ export default function CompteRendu() {
     return merged;
   }, [reportState]);
 
+  /* Texte de présentation de l'agence : saisi brut, découpé en paragraphes
+   * sur les lignes vides. On tolère un tableau au cas où un appelant en
+   * fournirait un, mais le contrat est une chaîne. */
+  const paragraphesAgence = useMemo(() => {
+    const brut = effAgence.presentation;
+    if (Array.isArray(brut)) return brut.map((p) => String(p).trim()).filter(Boolean);
+    if (typeof brut !== 'string') return [];
+    return brut
+      .split(/\n\s*\n/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+  }, [effAgence.presentation]);
+
   const themeStyle = {
     '--primary': effAgence.couleurPrimaire,
     '--secondary': effAgence.couleurSecondaire,
@@ -1340,12 +1353,12 @@ export default function CompteRendu() {
           SECTION 2 — Notre agence
           Remplace la lettre d'accompagnement : le mandant a déjà l'agent en
           face de lui, ce qu'il ne connaît pas c'est la maison derrière.
-          Chaque bloc est optionnel — une agence qui n'a pas renseigné son
-          texte n'obtient pas une page à trous, elle n'obtient pas la page.
+          Le texte est saisi brut par l'agence : on le découpe en paragraphes
+          sur les lignes vides et on n'y touche pas autrement. Pas de titre
+          mis en gras, pas de liste reconstruite — on ne sait pas ce qui
+          sera écrit. Sans texte, pas de section plutôt qu'une page à trous.
           ============================================================= */}
-      {(effAgence.presentation?.length > 0 ||
-        effAgence.services?.length > 0 ||
-        effAgence.implantations?.length > 0) && (
+      {paragraphesAgence.length > 0 && (
         <section className="agence page-break">
           <h2 className="section-title">Notre agence</h2>
 
@@ -1353,40 +1366,14 @@ export default function CompteRendu() {
             {effAgence.logo && (
               <img src={effAgence.logo} alt={effAgence.nom} className="agence-tete-logo" />
             )}
-            <div>
-              <div className="agence-nom">{effAgence.nom}</div>
-              {effAgence.baseline && <p className="agence-baseline">{effAgence.baseline}</p>}
-            </div>
+            <div className="agence-nom">{effAgence.nom}</div>
           </div>
 
-          {effAgence.presentation?.length > 0 && (
-            <div className="agence-texte">
-              {effAgence.presentation.map((p, i) => (
-                <p key={i}>{p}</p>
-              ))}
-            </div>
-          )}
-
-          {effAgence.citation?.texte && (
-            <blockquote className="agence-citation">
-              <p>{effAgence.citation.texte}</p>
-              {effAgence.citation.auteur && <cite>{effAgence.citation.auteur}</cite>}
-            </blockquote>
-          )}
-
-          {/* Services et implantations au fil du texte : deux énumérations de
-              cinq entrées ne justifient pas deux encadrés, qui coupaient la
-              page en deux pour pas grand-chose. */}
-          {effAgence.services?.length > 0 && (
-            <p className="agence-liste">
-              <strong>Nos services</strong> — {effAgence.services.join(' · ')}
-            </p>
-          )}
-          {effAgence.implantations?.length > 0 && (
-            <p className="agence-liste">
-              <strong>Nos implantations</strong> — {effAgence.implantations.join(' · ')}
-            </p>
-          )}
+          <div className="agence-texte">
+            {paragraphesAgence.map((p, i) => (
+              <p key={i}>{p}</p>
+            ))}
+          </div>
 
           {/* Le site est le seul endroit où le mandant peut voir l'agence à
               l'œuvre — les biens en vente, les équipes. Il mérite mieux
@@ -2539,15 +2526,9 @@ const reportCss = `
   .agence-tete { display: flex; align-items: center; gap: 18px; margin-bottom: 22px; }
   .agence-tete-logo { max-width: 130px; max-height: 54px; object-fit: contain; }
   .agence-nom { font-size: 19px; font-weight: 700; color: var(--secondary); }
-  .agence-baseline { font-size: 13.5px; color: var(--primary); margin: 3px 0 0; font-weight: 600; }
+  /* Texte brut : un seul style de paragraphe, aucune mise en valeur — on ne
+     sait pas ce que l'agence écrira, on ne le met donc pas en scène. */
   .agence-texte p { font-size: 14px; line-height: 1.75; color: var(--secondary); margin: 0 0 13px; }
-  /* Citation du dirigeant : filet à gauche plutôt que guillemets décoratifs,
-     pour rester dans le registre sobre du reste du document. */
-  .agence-citation { margin: 22px 0; padding: 4px 0 4px 20px; border-left: 3px solid var(--primary); }
-  .agence-citation p { font-size: 14.5px; font-style: italic; color: var(--secondary); line-height: 1.65; margin: 0; }
-  .agence-citation cite { display: block; margin-top: 8px; font-size: 12px; font-style: normal; color: var(--muted); }
-  .agence-liste { font-size: 13.5px; line-height: 1.7; color: var(--secondary); margin: 0 0 8px; }
-  .agence-liste strong { color: var(--primary); }
 
   /* Mise en avant du site : teinte d'agence et filet à gauche, sans bord
      complet — c'est un renvoi, pas une carte de données. */
