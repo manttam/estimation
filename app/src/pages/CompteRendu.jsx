@@ -189,137 +189,6 @@ const CARTE_W = 1000;
 const CARTE_H = 620;
 
 /**
- * HistogrammeConcurrence — répartition des biens concurrents par distance.
- *
- * Un simple décompte par tranche d'un kilomètre : c'est la pression
- * concurrentielle qui parle au mandant, pas le détail des annonces adverses.
- * Rendu en SVG inline, sans librairie : ça sort tel quel à l'impression.
- */
-function HistogrammeConcurrence({ tranches, vignettes = [], trancheProche }) {
-  const W = 980;
-  const H = 380;
-  const M = { haut: 46, bas: 46, gauche: 42, droite: 18 };
-
-  const maxCount = Math.max(1, ...tranches.map((t) => t.count));
-  // Deux crans d'air au-dessus de la plus haute barre : les vignettes photo
-  // se posent dans cet espace sans chevaucher la grille.
-  const yMax = Math.max(3, maxCount + 2);
-
-  const x0 = M.gauche;
-  const x1 = W - M.droite;
-  const yBase = H - M.bas;
-  const yTop = M.haut;
-
-  const slot = (x1 - x0) / tranches.length;
-  const largeurBarre = slot * 0.62;
-  const centreDe = (i) => x0 + slot * i + slot / 2;
-  const yDe = (v) => yBase - (v / yMax) * (yBase - yTop);
-
-  const graduations = Array.from({ length: yMax + 1 }, (_, i) => i);
-
-  return (
-    <svg
-      className="conc-svg"
-      viewBox={`0 0 ${W} ${H}`}
-      role="img"
-      aria-label={`Nombre de biens concurrents par tranche de distance, de 1 à ${tranches.length} kilomètres.`}
-    >
-      {/* Grille horizontale */}
-      {graduations.map((v) => (
-        <g key={v}>
-          <line
-            x1={x0}
-            y1={yDe(v)}
-            x2={x1}
-            y2={yDe(v)}
-            stroke={v === 0 ? '#9aa0a6' : '#e2e5e8'}
-            strokeWidth={v === 0 ? 1.4 : 1}
-            strokeDasharray={v === 0 ? undefined : '5 5'}
-          />
-          <text x={x0 - 10} y={yDe(v) + 4} textAnchor="end" fontSize="13" fill="#9aa0a6">
-            {v}
-          </text>
-        </g>
-      ))}
-
-      {/* Repère de la tranche la plus proche */}
-      {trancheProche && (
-        <line
-          x1={centreDe(trancheProche - 1)}
-          y1={yTop - 10}
-          x2={centreDe(trancheProche - 1)}
-          y2={yBase}
-          stroke="#c3c8cd"
-          strokeWidth="1"
-          strokeDasharray="5 5"
-        />
-      )}
-
-      {/* Barres */}
-      {tranches.map((t, i) => {
-        if (t.count === 0) return null;
-        const proche = t.km === trancheProche;
-        return (
-          <rect
-            key={t.km}
-            x={centreDe(i) - largeurBarre / 2}
-            y={yDe(t.count)}
-            width={largeurBarre}
-            height={yBase - yDe(t.count)}
-            fill="var(--primary)"
-            opacity={proche ? 1 : 0.35}
-          />
-        );
-      })}
-
-      {/* Vignettes photo des concurrents les plus proches */}
-      <defs>
-        {vignettes.map((v) => (
-          <clipPath id={`conc-clip-${v.id}`} key={v.id}>
-            <circle cx={centreDe(v.km - 1)} cy={yDe(tranches[v.km - 1]?.count || 0) - 30} r="21" />
-          </clipPath>
-        ))}
-      </defs>
-      {vignettes.map((v) => {
-        const cx = centreDe(v.km - 1);
-        const cy = yDe(tranches[v.km - 1]?.count || 0) - 30;
-        return (
-          <g key={v.id}>
-            <image
-              href={v.src}
-              x={cx - 21}
-              y={cy - 21}
-              width="42"
-              height="42"
-              preserveAspectRatio="xMidYMid slice"
-              clipPath={`url(#conc-clip-${v.id})`}
-            />
-            <circle cx={cx} cy={cy} r="21" fill="none" stroke="var(--primary)" strokeWidth="2.5" />
-          </g>
-        );
-      })}
-
-      {/* Axe des distances */}
-      {tranches.map((t, i) => (
-        <text
-          key={t.km}
-          x={centreDe(i)}
-          y={yBase + 24}
-          textAnchor="middle"
-          fontSize="14"
-          fill="#6b7075"
-        >
-          {t.km}
-        </text>
-      ))}
-      <text x={x1} y={yBase + 42} textAnchor="end" fontSize="13" fill="#9aa0a6">
-        distance (km)
-      </text>
-    </svg>
-  );
-}
-
-/**
  * CarteSecteur — plan du secteur autour du bien estimé.
  *
  * Les points sont placés d'après les coordonnées réelles des biens
@@ -1126,10 +995,15 @@ export default function CompteRendu() {
 
     /* ── Biens en concurrence ──────────────────────────────────────────
      * Un concurrent n'est pas n'importe quel bien à vendre dans le secteur :
-     * c'est un bien qui vise les mêmes acquéreurs. On retient donc, en plus
-     * du périmètre et du plafond de prix, les caractéristiques qui font qu'un
-     * acquéreur hésite entre deux biens : même type, typologie à une pièce
-     * près, surface dans une bande de ±CONCURRENCE_BANDE_SURFACE.
+     * c'est un bien qui vise les mêmes acquéreurs. On retient donc les
+     * caractéristiques qui font qu'un acquéreur hésite entre deux biens :
+     * même type, typologie à une pièce près, surface dans une bande de
+     * ±CONCURRENCE_BANDE_SURFACE, prix sous le plafond.
+     *
+     * La localisation d'un bien encore en vente n'est pas fiable — adresse
+     * approximative, annonce volontairement floue. Elle n'est donc ni
+     * affichée ni annoncée : CONCURRENCE_RAYON_KM ne sert plus que de borne
+     * technique, pour éviter de ramasser un bien à l'autre bout du réseau.
      */
     const typeCible = isLive
       ? (activeBien?.bien?.type === 'maison' ? 'Maison' : 'Appartement')
@@ -1149,25 +1023,41 @@ export default function CompteRendu() {
         return Math.abs(b.surface - surfaceCible) / surfaceCible <= CONCURRENCE_BANDE_SURFACE;
       })
       .filter((b) => !plafond || b.prix <= plafond)
-      .sort(parDistance);
+      // Du plus récemment mis en vente au plus ancien.
+      .sort((a, b) => (a.enLigneDepuisJours || 0) - (b.enLigneDepuisJours || 0));
 
-    // Tranches d'un kilomètre : la tranche k regroupe les biens situés
-    // entre k-1 et k km du bien estimé.
-    const tranches = Array.from({ length: CONCURRENCE_RAYON_KM }, (_, i) => ({
-      km: i + 1,
-      count: concurrents.filter((b) => b.distance > i && b.distance <= i + 1).length,
-    }));
+    /* Une ligne par concurrent, pas un histogramme.
+     *
+     * Le filtre sur les caractéristiques ne laisse qu'une poignée de biens :
+     * répartis en tranches, ils tombent presque toujours dans la même, et le
+     * graphique se réduit à une barre unique qui n'apprend rien. À cet ordre
+     * de grandeur, une barre par bien est plus lisible — et elle rend au
+     * passage les caractéristiques de chacun, que l'histogramme effaçait.
+     *
+     * La barre porte l'ancienneté de l'annonce : c'est la donnée fiable qui
+     * reste une fois la localisation écartée, et celle qui sert l'argument
+     * de prix — un bien comparable invendu depuis des mois en dit plus long
+     * que des kilomètres.
+     */
+    const anciennetes = concurrents
+      .map((b) => b.enLigneDepuisJours)
+      .filter((j) => Number.isFinite(j));
+    const ancienneteMediane = mediane(anciennetes);
+    const ancienneteMax = anciennetes.length ? Math.max(...anciennetes) : 0;
 
-    // Vignettes photo : les deux concurrents les plus proches, chacun au-dessus
-    // de sa tranche. Au-delà de deux, le graphique devient illisible.
-    const vignettes = [];
-    concurrents.forEach((b) => {
-      if (vignettes.length >= 2) return;
-      const km = Math.max(1, Math.ceil(b.distance));
-      if (vignettes.some((v) => v.km === km)) return;
-      const photos = getCompPhotos({ id: b.id });
-      if (photos[0]) vignettes.push({ km, src: photos[0], id: b.id });
-    });
+    const items = concurrents
+      .slice()
+      // Du plus longtemps en vente au plus récent : les annonces qui traînent
+      // en premier, ce sont elles qui portent le message.
+      .sort((a, b) => (b.enLigneDepuisJours || 0) - (a.enLigneDepuisJours || 0))
+      .slice(0, 8)
+      .map((b) => ({
+        id: b.id,
+        libelle: `${b.type} · T${b.pieces} · ${fmtNb(b.surface)} m²`,
+        jours: b.enLigneDepuisJours || 0,
+        pct: ancienneteMax ? Math.round(((b.enLigneDepuisJours || 0) / ancienneteMax) * 100) : 0,
+        photo: getCompPhotos({ id: b.id })[0] || null,
+      }));
 
     /* ── Plan du secteur ────────────────────────────────────────────────
      * Projection équirectangulaire locale : à cette échelle (quelques km)
@@ -1245,13 +1135,9 @@ export default function CompteRendu() {
         points: pointsCarte,
       },
       concurrence: {
-        rayonKm: CONCURRENCE_RAYON_KM,
         total: concurrents.length,
-        tranches,
-        vignettes,
-        // Tranche la plus proche occupée : c'est la concurrence immédiate,
-        // celle qu'on met en avant.
-        trancheProche: tranches.find((t) => t.count > 0)?.km || null,
+        items,
+        ancienneteMediane,
       },
     };
   }, [activeBien, isLive, prixM2Reco, effAvisValeur.prixHaut, effProperty.pieces, effProperty.surface]);
@@ -1877,21 +1763,34 @@ export default function CompteRendu() {
             <div className="card reseau-block">
               <div className="eyebrow">Les biens en concurrence</div>
               <p className="reseau-sub">
-                Les biens encore à vendre à moins de{' '}
-                {marcheLocal.concurrence.rayonKm} km dont les caractéristiques sont
+                Les biens encore à vendre dont les caractéristiques sont
                 comparables aux vôtres : même type de bien, typologie à une pièce
                 près, surface à 25 % près et gamme de prix équivalente.
               </p>
-              <HistogrammeConcurrence
-                tranches={marcheLocal.concurrence.tranches}
-                vignettes={marcheLocal.concurrence.vignettes}
-                trancheProche={marcheLocal.concurrence.trancheProche}
-              />
+              {/* Une ligne par bien : la barre porte le temps passé en vente,
+                  la seule mesure fiable une fois la localisation écartée. */}
+              <ul className="conc-liste">
+                {marcheLocal.concurrence.items.map((it) => (
+                  <li key={it.id}>
+                    {it.photo ? (
+                      <img src={it.photo} alt="" aria-hidden="true" className="conc-photo" />
+                    ) : (
+                      <span className="conc-photo conc-photo-vide" aria-hidden="true" />
+                    )}
+                    <span className="conc-libelle">{it.libelle}</span>
+                    <span className="conc-barre">
+                      <i style={{ width: `${Math.max(it.pct, 4)}%` }} />
+                    </span>
+                    <span className="conc-jours">{it.jours} j</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="conc-echelle">en vente depuis</p>
               <p className="conc-legende">
                 {marcheLocal.concurrence.total} bien
                 {plural(marcheLocal.concurrence.total)} en concurrence directe
-                {marcheLocal.concurrence.trancheProche
-                  ? `, le plus proche à moins de ${marcheLocal.concurrence.trancheProche} km.`
+                {marcheLocal.concurrence.ancienneteMediane
+                  ? `, en vente depuis ${marcheLocal.concurrence.ancienneteMediane} jours en médiane.`
                   : '.'}
               </p>
             </div>
@@ -2851,7 +2750,21 @@ const reportCss = `
   .carte-svg { display: block; width: 100%; height: auto; font-family: inherit; }
   .carte-legende { font-size: 11px; color: var(--muted); line-height: 1.6; margin: 0; }
 
-  .conc-svg { display: block; width: 100%; height: auto; margin: 4px 0 2px; font-family: inherit; }
+  /* Une ligne par bien concurrent : vignette, caractéristiques, barre
+     d'ancienneté, nombre de jours. */
+  .conc-liste { list-style: none; padding: 0; margin: 4px 0 6px; }
+  .conc-liste li { display: grid; grid-template-columns: 34px 168px 1fr auto; gap: 12px; align-items: center; padding: 7px 0; font-size: 12.5px; }
+  .conc-liste li + li { border-top: 1px solid #f4f4f4; }
+  .conc-photo { width: 34px; height: 34px; border-radius: 7px; object-fit: cover; display: block; background: #eee; }
+  .conc-photo-vide { background: #f0f0f0; }
+  .conc-libelle { color: var(--secondary); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .conc-barre { display: block; height: 12px; background: #f0f0f0; border-radius: 3px; overflow: hidden; }
+  .conc-barre i { display: block; height: 100%; background: var(--primary); opacity: 0.55; border-radius: 3px; }
+  /* La plus ancienne est la plus longue : on la souligne sans couleur
+     supplémentaire, en la laissant seule à pleine opacité. */
+  .conc-liste li:first-child .conc-barre i { opacity: 1; }
+  .conc-jours { font-variant-numeric: tabular-nums; color: var(--secondary); font-weight: 600; white-space: nowrap; }
+  .conc-echelle { font-size: 10.5px; color: var(--muted); text-align: right; margin: 0 0 10px; font-style: italic; }
   .conc-legende { font-size: 12px; color: var(--secondary); margin: 0; }
 
 
