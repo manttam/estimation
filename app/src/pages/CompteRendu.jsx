@@ -2119,6 +2119,17 @@ export default function CompteRendu() {
             <div className="prop-m2">
               soit {(recommendedStrategy.prixM2 || 0).toLocaleString('fr-FR')} €/m²
             </div>
+
+            {/* La fourchette reste sous le prix, en petit : c'est une marge de
+                manœuvre, pas la réponse. Affichée en gros, elle efface le prix
+                retenu et le mandant ne sait plus ce qu'on lui recommande. */}
+            {effAvisValeur.prixBas > 0 && effAvisValeur.prixHaut > 0 && (
+              <div className="prop-fourchette">
+                Fourchette {effAvisValeur.prixBas.toLocaleString('fr-FR')} €
+                {' – '}
+                {effAvisValeur.prixHaut.toLocaleString('fr-FR')} €
+              </div>
+            )}
           </div>
 
           {/* Le chiffre qui appuie le prix : combien d'acquéreurs peuvent
@@ -2783,6 +2794,7 @@ const reportCss = `
   .prop-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.4px; }
   .prop-price { font-size: 50px; font-weight: 700; color: var(--primary); letter-spacing: -1.5px; line-height: 1.05; margin: 12px 0 6px; }
   .prop-m2 { font-size: 14px; color: var(--secondary); }
+  .prop-fourchette { font-size: 12px; color: var(--muted); margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
   .prop-aside { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 22px; text-align: center; background: #fff; border-left: 1px solid var(--border); }
   .prop-stat { font-size: 44px; font-weight: 700; color: var(--secondary); line-height: 1; }
   .prop-stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; line-height: 1.55; margin-top: 10px; }
