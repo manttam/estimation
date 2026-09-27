@@ -1402,22 +1402,25 @@ export default function CompteRendu() {
         <img src={effAgence.logo} alt={effAgence.nom} className="cover-logo" />
         <div className="cover-bar" />
         <h1 className="cover-title">ÉTUDE DE MARCHÉ</h1>
+        {/* Le mandant avant le bien : le document lui est adressé, il doit y
+            lire son nom avant de lire son adresse. */}
+        {[effMandant.civilite, effMandant.prenom, effMandant.nom]
+          .filter(Boolean)
+          .join(' ')
+          .trim() && (
+          <p className="cover-mandant">
+            {[effMandant.civilite, effMandant.prenom, effMandant.nom]
+              .filter(Boolean)
+              .join(' ')}
+          </p>
+        )}
         <p className="cover-address">{effProperty.adresse || '—'}</p>
+        {/* Une seule photo en couverture : le bandeau de vignettes dispersait
+            le regard alors que cette page n'a qu'un rôle, poser le bien. Les
+            autres photos restent en section « Votre bien ». */}
         <div className="cover-hero">
           {photoPrincipale ? (
-            <>
-              <img src={photoPrincipale} alt="Photo principale du bien" className="cover-hero-img" />
-              {photosVignettes.length > 0 && (
-                <div className="cover-strip">
-                  {photosVignettes.map((ph, i) => (
-                    <figure key={ph.id || i}>
-                      <img src={ph.url} alt={ph.label || ''} />
-                      {ph.label && <figcaption>{ph.label}</figcaption>}
-                    </figure>
-                  ))}
-                </div>
-              )}
-            </>
+            <img src={photoPrincipale} alt="Photo principale du bien" className="cover-hero-img" />
           ) : (
             <div className="cover-hero-placeholder">
               <span>{fmtNb(effProperty.surface)} m² · T{effProperty.pieces} · Étage {effProperty.etage}</span>
@@ -2567,17 +2570,17 @@ const reportCss = `
   .cover-logo { max-width: 180px; max-height: 80px; margin-bottom: 20px; align-self: flex-start; }
   .cover-bar { width: 100%; height: 4px; background: var(--primary); margin-bottom: 60px; }
   .cover-title { font-size: 42px; font-weight: 700; letter-spacing: 4px; margin: 40px 0 16px; color: var(--secondary); }
+  /* Le mandant en corps courant, l'adresse en gras : le nom situe, le bien
+     est le sujet. */
+  .cover-mandant { font-size: 17px; color: var(--secondary); margin: 0 0 6px; }
   .cover-address { font-size: 20px; font-weight: 600; margin: 0 0 40px; color: var(--secondary); }
   /* Photo de couverture au format carré. En bandeau large, une photo prise
      à la verticale — la majorité des photos de bien — perdait la moitié de sa
      hauteur au recadrage. Le carré est le format qui maltraite le moins les
      deux orientations. La colonne photo est centrée et le bandeau de
      vignettes s'aligne sur sa largeur, pour former un bloc cohérent. */
-  .cover-hero { width: 100%; max-width: 380px; margin: 20px auto 40px; }
+  .cover-hero { width: 100%; max-width: 460px; margin: 20px auto 40px; }
   .cover-hero-img { display: block; width: 100%; aspect-ratio: 1 / 1; height: auto; object-fit: cover; border-radius: 12px; background: #f2f2f2; }
-  .cover-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
-  .cover-strip figure { margin: 0; }
-  .cover-strip img { display: block; width: 100%; aspect-ratio: 1 / 1; height: auto; object-fit: cover; border-radius: 8px; background: #f2f2f2; }
   .cover-strip figcaption { font-size: 11px; color: var(--muted); margin-top: 5px; text-align: center; }
   .cover-hero-placeholder {
     width: 100%; aspect-ratio: 16 / 9; background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 13%, #fff), #f0f0f0);
@@ -2893,9 +2896,9 @@ const reportCss = `
     .cover-title { font-size: 32px; letter-spacing: 3px; margin: 26px 0 12px; }
     .cover-address { font-size: 17px; margin-bottom: 24px; }
     /* Carré plus petit à l'impression : la couverture doit tenir sur une
-       page, photo principale et vignettes comprises. */
-    .cover-hero { max-width: 260px; margin: 12px auto 24px; }
-    .cover-strip { gap: 6px; margin-top: 6px; }
+       page. Le bandeau de vignettes ayant disparu, la photo peut grossir. */
+    .cover-hero { max-width: 330px; margin: 12px auto 24px; }
+    .cover-mandant { font-size: 15px; }
     .cover-meta { margin: 22px 0; line-height: 1.65; }
     .cover-footer { padding-top: 22px; }
     .report-root section, .report-root footer { padding: 24px 32px; }
