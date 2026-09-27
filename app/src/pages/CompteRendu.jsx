@@ -36,6 +36,24 @@ import { getCompPhotos } from '../utils/compPhotos';
 const MARCHE_LOCAL_RAYON_KM = 5;
 const MARCHE_LOCAL_PERIODE_MOIS = 24;
 
+/* Garde-fou sur les prix au m² des ventes du réseau.
+ *
+ * Une vente dont la surface bâtie n'est pas renseignée, un terrain nu, un
+ * garage ou une vente multi-lots produit un prix au m² absurde — 0, 72,
+ * 100 €/m². Une seule de ces lignes tire la médiane vers le bas et rend la
+ * distribution illisible ; imprimée dans un document remis au mandant, elle
+ * décrédibilise tout le reste, y compris les chiffres justes.
+ *
+ * Mêmes bornes que le chemin DVF (api/dvf.js) : les deux sources doivent
+ * appliquer le même critère de vraisemblance.
+ */
+const PRIX_M2_PLANCHER = 500;
+const PRIX_M2_PLAFOND = 30000;
+/* En deçà de ce nombre de ventes exploitables, la médiane et la distribution
+ * ne reposent plus sur rien : on masque les prix plutôt que d'en publier
+ * d'invérifiables. */
+const VENTES_FIABLES_MINIMUM = 3;
+
 /* Concurrence : un acquéreur élargit sa recherche bien au-delà de la rue, on
  * regarde donc plus large que le périmètre d'analyse des ventes signées. */
 const CONCURRENCE_RAYON_KM = 10;
@@ -1067,9 +1085,20 @@ export default function CompteRendu() {
       ? Math.round(delais.reduce((s, n) => s + n, 0) / delais.length)
       : null;
 
+    /* Ventes exploitables pour parler prix. Les autres restent comptées dans
+     * les KPI et présentes sur le plan : c'est leur prix au m² qu'on ne
+     * publie pas, pas leur existence. */
+    const vendusFiables = vendus.filter(
+      (b) =>
+        Number.isFinite(b.prixM2) &&
+        b.prixM2 >= PRIX_M2_PLANCHER &&
+        b.prixM2 <= PRIX_M2_PLAFOND
+    );
+    const prixPublies = vendusFiables.length >= VENTES_FIABLES_MINIMUM;
+
     // Distribution des prix/m² signés en 5 paliers d'amplitude égale (arrondie
     // à 50 €) : support visuel du positionnement du prix recommandé.
-    const prixM2Vendus = vendus.map((b) => b.prixM2).filter((n) => Number.isFinite(n));
+    const prixM2Vendus = prixPublies ? vendusFiables.map((b) => b.prixM2) : [];
     let paliers = [];
     if (prixM2Vendus.length >= 5) {
       const min = Math.min(...prixM2Vendus);
@@ -1157,7 +1186,18 @@ export default function CompteRendu() {
     const vendusProches = vendus.slice().sort(parDistance).slice(0, 6);
     const dMax = vendusProches[vendusProches.length - 1]?.distance || 0.5;
     const rayonCarteKm = PALIERS_RAYON.find((d) => d >= dMax) || Math.ceil(dMax);
-    const idsLabellises = new Set(vendusProches.map((b) => b.id));
+    /* Seules les ventes au prix vraisemblable portent une étiquette : une
+     * pastille « 0 €/m² » sur un plan remis au mandant est pire que pas
+     * d'étiquette du tout. Les autres restent visibles comme points. */
+    const idsLabellises = new Set(
+      prixPublies
+        ? vendusFiables
+            .slice()
+            .sort(parDistance)
+            .slice(0, 6)
+            .map((b) => b.id)
+        : []
+    );
 
     const pointsCarte = perimetre
       .filter((b) => b.distance <= rayonCarteKm)
@@ -1187,7 +1227,11 @@ export default function CompteRendu() {
       compromis: compromis.length,
       enVente: enVente.length,
       delaiMoyen,
-      prixM2MedianVendus: mediane(prixM2Vendus),
+      prixPublies,
+      // Nombre de ventes réellement exploitables : à afficher avec la
+      // médiane, sinon le lecteur croit qu'elle porte sur les 17 ventes.
+      nbVentesFiables: vendusFiables.length,
+      prixM2MedianVendus: prixPublies ? mediane(prixM2Vendus) : null,
       paliers,
       carte: {
         rayonKm: rayonCarteKm,
@@ -1769,7 +1813,10 @@ export default function CompteRendu() {
               {marcheLocal.prixM2MedianVendus && (
                 <p className="distrib-caption">
                   La médiane des ventes signées de notre réseau ressort à{' '}
-                  <strong>{marcheLocal.prixM2MedianVendus.toLocaleString('fr-FR')} €/m²</strong>.
+                  <strong>{marcheLocal.prixM2MedianVendus.toLocaleString('fr-FR')} €/m²</strong>,
+                  sur {marcheLocal.nbVentesFiables} vente
+                  {plural(marcheLocal.nbVentesFiables)} dont la surface est
+                  renseignée.
                 </p>
               )}
             </div>
