@@ -598,7 +598,7 @@ export default function Mandat() {
         <button
           type="button"
           className="mandat-cancel-link"
-          onClick={() => navigate('/step/5')}
+          onClick={() => navigate('/step/6')}
         >
           ← Retour à l&rsquo;étude de marché
         </button>
@@ -690,7 +690,7 @@ function CreationMode({ mandat, bienTitre, update, setMandat, navigate }) {
   const canEnregistrer = mandat.type && prixVenteCalc > 0;
 
   /* Actions */
-  const handleAnnuler = () => navigate('/step/5');
+  const handleAnnuler = () => navigate('/step/6');
 
   const handleSupprimer = () => {
     if (!window.confirm('Supprimer ce mandat ? Cette action est irréversible.')) return;

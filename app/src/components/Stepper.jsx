@@ -1,11 +1,12 @@
 import { useNavigate } from 'react-router-dom';
 
 const steps = [
-  { num: 1, label: 'Relev\u00e9 d\u2019informations' },
-  { num: 2, label: 'Contexte zone' },
-  { num: 3, label: 'Comparables' },
-  { num: 4, label: 'Tension marché' },
-  { num: 5, label: 'Avis de valeur' },
+  { num: 1, label: 'Ouverture' },
+  { num: 2, label: 'Relev\u00e9 d\u2019informations' },
+  { num: 3, label: 'Contexte zone' },
+  { num: 4, label: 'Comparables' },
+  { num: 5, label: 'Tension marché' },
+  { num: 6, label: 'Avis de valeur' },
 ];
 
 const styles = {

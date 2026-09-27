@@ -4351,7 +4351,7 @@ function SourceRow({
   );
 }
 
-export default function Step3Comparables() {
+export default function Step4Comparables() {
   const navigate = useNavigate();
 
   /* Bien actif (Step1) — donne le citycode + coords pour brancher DVF live.
@@ -5738,7 +5738,7 @@ export default function Step3Comparables() {
       <style>{cssStyles}</style>
 
       <PropertyCard />
-      <Stepper currentStep={3} />
+      <Stepper currentStep={4} />
 
       {/* ═══════════════════════════════════════════════════════════════
         * BANDEAU FILTRES COMPACT
@@ -6732,11 +6732,11 @@ export default function Step3Comparables() {
 
       {/* Footer */}
       <div className="footer-buttons">
-        <button className="btn btn-ghost" onClick={() => navigate('/step/2')}>
+        <button className="btn btn-ghost" onClick={() => navigate('/step/3')}>
           &larr; &Eacute;tape pr&eacute;c&eacute;dente : Contexte zone
         </button>
         <div style={{ textAlign: 'right' }}>
-          <button className="btn btn-primary" onClick={() => navigate('/step/4')}>
+          <button className="btn btn-primary" onClick={() => navigate('/step/5')}>
             &Eacute;tape suivante : Tension march&eacute; &rarr;
           </button>
           <div className="min-note">&#10003; Minimum recommand&eacute; : 3 comparables s&eacute;lectionn&eacute;s</div>

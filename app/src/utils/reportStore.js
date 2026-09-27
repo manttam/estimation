@@ -66,7 +66,6 @@
  *   customPrice: number,
  *   selectedStrategy: number,
  *   displayConfig: {
- *     hideConfiance?: boolean,
  *     hideStrategie?: boolean,
  *     hideDemo?: boolean,
  *   },

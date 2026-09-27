@@ -1241,7 +1241,7 @@ function mixColor(a, b, t) {
 }
 
 /* ==================== Component ==================== */
-export default function Step5AvisValeur() {
+export default function Step6AvisValeur() {
   const navigate = useNavigate();
 
   /* ─── Mode live : récupération du bien actif et des acquéreurs réels ─── */
@@ -2005,7 +2005,7 @@ export default function Step5AvisValeur() {
     <div className="step5-page">
       <style>{cssStyles}</style>
       <PropertyCard />
-      <Stepper currentStep={5} />
+      <Stepper currentStep={6} />
 
       <div className="step5-section">
         {/* ============ R\u00c9CAPITULATIF DES \u00c9TAPES ============ */}
@@ -2512,7 +2512,7 @@ export default function Step5AvisValeur() {
 
         {/* ============ FOOTER ============ */}
         <div className="footer-buttons">
-          <button className="btn btn-ghost" onClick={() => navigate('/step/4')}>
+          <button className="btn btn-ghost" onClick={() => navigate('/step/5')}>
             &larr; &Eacute;tape pr&eacute;c&eacute;dente : Tension march&eacute;
           </button>
           <button className="btn btn-primary" onClick={() => navigate('/mandat')}>
