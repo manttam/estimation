@@ -1203,7 +1203,9 @@ export default function CompteRendu() {
    * Ce que le mode express retire aujourd'hui :
    *   - les prix au m² des ventes du réseau, tant que les surfaces saisies
    *     produisent des « 0 €/m² » ;
-   *   - la section « Le marché et le financement ».
+   *   - la section « Le marché et le financement » ;
+   *   - la section « Plan de commercialisation », frise des jalons et
+   *     engagements de suivi compris.
    *
    * Chaque retrait reste pilotable séparément, pour pouvoir en réactiver un
    * sans tout réactiver. Le document complet, lui, ne change pas : c'est la
@@ -1220,6 +1222,10 @@ export default function CompteRendu() {
   const sansPrixM2 = modeExpress || params.get('sansPrixM2') === '1';
   /* Section « Le marché et le financement ». */
   const sansFinancement = modeExpress || params.get('sansFinancement') === '1';
+  /* Section « Plan de commercialisation ». Emporte avec elle la frise des
+   * jalons, les engagements de suivi et le second rappel vers l'app, qui y
+   * est logé. */
+  const sansPlan = modeExpress || params.get('sansPlan') === '1';
 
   // Mode partage : le rapport est ouvert via un lien sécurisé (?t=JWT).
   // On masque les actions agent (bouton Retour, Partager) pour le mandant.
@@ -2192,6 +2198,7 @@ export default function CompteRendu() {
           Jalons posés par l'agent (reportStore.rdvPlanner) sinon plan type
           calé sur la date d'édition du document.
           ============================================================= */}
+      {!sansPlan && (
       <section className="plan page-break">
         <h2 className="section-title">Plan de commercialisation</h2>
         <p className="section-intro">
@@ -2249,6 +2256,7 @@ export default function CompteRendu() {
             : 'Rendez-vous convenus avec vous et inscrits à notre agenda.'}
         </p>
       </section>
+      )}
 
       {/* =============================================================
           SECTION 11 — Votre interlocuteur
