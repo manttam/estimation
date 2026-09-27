@@ -14,6 +14,7 @@ import { getAcquereurs } from '../utils/acquereursStore';
 import { getPhotosForCarousel, revokePhotoUrls } from '../utils/photosStore';
 import { getReportState } from '../utils/reportStore';
 import CarteCommodites from '../components/CarteCommodites';
+import CartesCadastre from '../components/CartesCadastre';
 import {
   buildMarcheLocal,
   STATUTS,
@@ -799,6 +800,31 @@ export default function CompteRendu() {
     return merged;
   }, [reportState]);
 
+  /* Coordonnées du bien, partagées par la carte des commodités et les
+   * cartes cadastre / zonage. */
+  const coordsBien = useMemo(
+    () =>
+      isLive && Array.isArray(activeBien?.adresse?.coords)
+        ? activeBien.adresse.coords
+        : DEMO_COORDS,
+    [isLive, activeBien]
+  );
+
+  /* Descriptif du bien : texte brut saisi par l'agent, jusqu'à 1 500
+   * caractères. Même traitement que la présentation d'agence — découpage en
+   * paragraphes sur les lignes vides, aucune mise en forme devinée. */
+  const paragraphesDescriptif = useMemo(() => {
+    const brut = isLive
+      ? findDetail(reportState.bienDetails || {}, 'commentaire', 'description')
+      : property.descriptif;
+    if (Array.isArray(brut)) return brut.map((p) => String(p).trim()).filter(Boolean);
+    if (typeof brut !== 'string') return [];
+    return brut
+      .split(/\n\s*\n/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+  }, [isLive, reportState]);
+
   /* Texte de présentation de l'agence : saisi brut, découpé en paragraphes
    * sur les lignes vides. On tolère un tableau au cas où un appelant en
    * fournirait un, mais le contrat est une chaîne. */
@@ -1531,21 +1557,26 @@ export default function CompteRendu() {
               </div>
             ))}
 
-            {!isLive && (
-              <p className="property-desc">
-                Bel appartement T{effProperty.pieces} de {fmtNb(effProperty.surface)} m² traversant,
-                situé au {effProperty.etage}ᵉ étage avec ascenseur d'un immeuble des années 1970 en
-                bon état d'entretien. La cuisine ouverte sur le séjour lumineux offre un espace de
-                vie agréable. Les menuiseries double vitrage performant et la chaudière gaz à
-                condensation de 2018 permettent une consommation maîtrisée.
-              </p>
-            )}
           </div>
         </div>
 
-        {/* Renvoi vers l'app : le document ne peut pas tout porter, le releve
-            piece par piece y tiendrait dix pages. On oriente vers l'outil
-            plutot que de le resumer mal. */}
+        {/* Description en pleine largeur, sous les deux colonnes.
+            Elle peut aller jusqu'à 1 500 caractères : coincée sous dix-sept
+            lignes techniques dans une colonne de 470 px, elle allongeait la
+            fiche sans fin pendant que la colonne photo restait vide. Ici
+            elle a toute la largeur, et le bloc se lit en deux temps —
+            les chiffres, puis le récit.
+            Texte brut saisi par l'agent : on le découpe en paragraphes sur
+            les lignes vides et on n'y touche pas. */}
+        {paragraphesDescriptif.length > 0 && (
+          <div className="card bien-description">
+            <div className="eyebrow">Description</div>
+            {paragraphesDescriptif.map((p, i) => (
+              <p key={i}>{p}</p>
+            ))}
+          </div>
+        )}
+
         {/* Renvoi vers l'app : le document ne peut pas tout porter, le
             relevé pièce par pièce y tiendrait dix pages. */}
         <BlocAppIdeeri
@@ -1661,6 +1692,24 @@ export default function CompteRendu() {
           })()}
         </section>
       )}
+
+      {/* =============================================================
+          SECTION 4 ter — Cadastre et plan de zone
+          Parcelle cadastrale (DGFiP) et zonage d'urbanisme (Géoportail de
+          l'urbanisme), interrogés sur les coordonnées du bien. Placée juste
+          après la fiche : c'est encore le bien qu'on décrit, avant de parler
+          du marché. Disparaît si aucune des deux sources ne répond — toutes
+          les communes n'ont pas publié leur PLU.
+          ============================================================= */}
+      <section className="cadastre page-break">
+        <h2 className="section-title">Cadastre et plan de zone</h2>
+        <CartesCadastre centre={coordsBien} />
+        <p className="note">
+          Sources : parcellaire cadastral (DGFiP) et Géoportail de l&apos;urbanisme
+          (IGN). Le zonage est donné à titre indicatif : seul le document
+          d&apos;urbanisme en vigueur en mairie fait foi.
+        </p>
+      </section>
 
       {/* =============================================================
           SECTION 5 — Votre marché local
@@ -2563,7 +2612,18 @@ const reportCss = `
   .dpe-texte { font-size: 12px; color: var(--muted); line-height: 1.65; margin: 0; }
   .dpe-texte strong { color: var(--secondary); font-weight: 700; }
 
-  .property-desc { font-size: 13.5px; line-height: 1.7; color: var(--secondary); margin: 18px 0 0; }
+  /* ====== 4 ter. Cadastre et zonage ====== */
+  .cad-grille { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .cad-bloc { padding: 18px 20px; }
+  .cad-carte { height: 230px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 12px; background: #f2f2f2; }
+  .cad-carte .leaflet-container { font-family: inherit; }
+  .cad-bloc .kv-row { grid-template-columns: 92px 1fr; padding: 6px 0; }
+
+  /* Description : pleine largeur sous les deux colonnes, mesure confortable
+     pour un texte qui peut atteindre 1 500 caractères. */
+  .bien-description { margin-top: 16px; }
+  .bien-description p { font-size: 13.5px; line-height: 1.75; color: var(--secondary); margin: 0 0 12px; }
+  .bien-description p:last-child { margin-bottom: 0; }
 
   /* ── Renvoi vers l'app Ideeri ─────────────────────────────────────────
      Seul bloc de marque du document, donc seul endroit où l'on sort de la
