@@ -22,6 +22,11 @@ import { POI_DEMO } from '../data/poiCategories';
 import { PROPERTY_PHOTOS } from '../data/propertyPhotos';
 import { pickDocumentPhotos } from '../utils/photosDocument';
 import BlocAppIdeeri from '../components/BlocAppIdeeri';
+import {
+  MARCHE_FINANCEMENT_DEMO,
+  mensualite,
+  fetchMarcheFinancement,
+} from '../data/marcheFinancement';
 import { getCompPhotos } from '../utils/compPhotos';
 
 /* ───── Marché local Ideeri ─────────────────────────────────────────────
@@ -861,6 +866,35 @@ export default function CompteRendu() {
     return s.charAt(0).toUpperCase() + s.slice(1);
   }, [isLive, activeBien]);
 
+  /* Marché communal et conditions de financement (DVF + INSEE + Banque de
+   * France, via /api/marche-financement). En démo on affiche l'extrait réel
+   * du millésime pour Lyon 3e. Échec silencieux : la section disparaît
+   * plutôt que d'afficher des tirets. */
+  const [marcheFi, setMarcheFi] = useState(isLive ? null : MARCHE_FINANCEMENT_DEMO);
+  useEffect(() => {
+    if (!isLive) return undefined;
+    const citycode = activeBien?.adresse?.citycode;
+    if (!citycode) return undefined;
+    const ctrl = new AbortController();
+    fetchMarcheFinancement(citycode, ctrl.signal).then((data) => {
+      if (!ctrl.signal.aborted) setMarcheFi(data);
+    });
+    return () => ctrl.abort();
+  }, [isLive, activeBien]);
+
+  /* Simulation d'emprunt sur le prix retenu, au taux du millésime assurance
+   * comprise. Sans apport ni frais d'acquisition : on annonce l'hypothèse
+   * dans la note plutôt que de la masquer dans le calcul. */
+  const simulation = useMemo(() => {
+    const taux = marcheFi?.taux?.avecAssurance;
+    const prix = recommendedStrategy?.prix;
+    if (!Number.isFinite(taux) || !Number.isFinite(prix) || prix <= 0) return null;
+    return {
+      taux,
+      durees: [20, 25].map((annees) => ({ annees, montant: mensualite(prix, taux, annees) })),
+    };
+  }, [marcheFi, recommendedStrategy]);
+
   // Lien encodé dans le QR : réglage d'agence si renseigné, défaut sinon.
   const lienApp = effAgence.lienApp || LIEN_APP_DEFAUT;
 
@@ -1159,20 +1193,33 @@ export default function CompteRendu() {
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('print') === '1';
 
-  /* Mode d'attente : ?sansPrixM2=1 retire du document tout prix au m² issu
-   * des ventes du réseau — la distribution et les étiquettes du plan.
+  /* ── Document express : ?express=1 ────────────────────────────────────
    *
-   * Palliatif assumé, le temps que la saisie des surfaces soit fiabilisée en
-   * amont : mieux vaut un document qui compte les ventes sans les chiffrer
-   * qu'un document qui affiche « 0 €/m² » à côté d'un avis de valeur à
-   * 2 000 €/m². À supprimer une fois la donnée corrigée.
+   * Version allégée, à produire tant que les données amont ne sont pas
+   * fiabilisées. Elle retire ce qui ne tient pas encore la route plutôt que
+   * de l'afficher faux — mieux vaut un document plus court qu'un document
+   * qui se contredit devant le mandant.
    *
-   * Ne touche pas à la médiane DVF de « Votre marché local » : autre source,
-   * déjà filtrée par api/dvf.js.
+   * Ce que le mode express retire aujourd'hui :
+   *   - les prix au m² des ventes du réseau, tant que les surfaces saisies
+   *     produisent des « 0 €/m² » ;
+   *   - la section « Le marché et le financement ».
+   *
+   * Chaque retrait reste pilotable séparément, pour pouvoir en réactiver un
+   * sans tout réactiver. Le document complet, lui, ne change pas : c'est la
+   * cible, l'express n'est qu'une étape.
    */
-  const sansPrixM2 =
-    typeof window !== 'undefined' &&
-    new URLSearchParams(window.location.search).get('sansPrixM2') === '1';
+  const params =
+    typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search)
+      : new URLSearchParams();
+  const modeExpress = params.get('express') === '1';
+
+  /* Prix au m² du réseau. Ne touche pas à la médiane DVF de « Votre marché
+   * local » : autre source, déjà filtrée par api/dvf.js. */
+  const sansPrixM2 = modeExpress || params.get('sansPrixM2') === '1';
+  /* Section « Le marché et le financement ». */
+  const sansFinancement = modeExpress || params.get('sansFinancement') === '1';
 
   // Mode partage : le rapport est ouvert via un lien sécurisé (?t=JWT).
   // On masque les actions agent (bouton Retour, Partager) pour le mandant.
@@ -2016,6 +2063,131 @@ export default function CompteRendu() {
       )}
 
       {/* =============================================================
+          SECTION 10 ter — Le marché et le financement
+          Source : /api/marche-financement (DVF + INSEE + Banque de France).
+          Placé après le prix : ces chiffres l'éclairent, ils ne le
+          construisent pas — la construction est dans « Définition du prix ».
+          ============================================================= */}
+      {marcheFi && !sansFinancement && (
+        <section className="financement page-break">
+          <h2 className="section-title">Le marché et le financement</h2>
+
+          <div className="split">
+            <div className="card">
+              <div className="eyebrow">Le secteur en chiffres</div>
+              <div className="kv-row">
+                <span className="kv-key">Prix médian au m²</span>
+                <span className="kv-val">
+                  {marcheFi.marche.prixM2Median?.toLocaleString('fr-FR')} €/m²
+                </span>
+              </div>
+              <div className="kv-row">
+                <span className="kv-key">Vente médiane</span>
+                <span className="kv-val">
+                  {marcheFi.marche.valeurMediane?.toLocaleString('fr-FR')} € ·{' '}
+                  {marcheFi.marche.surfaceMediane} m²
+                </span>
+              </div>
+              <div className="kv-row">
+                <span className="kv-key">Ventes en 2025</span>
+                <span className="kv-val">{marcheFi.marche.nbVentes?.toLocaleString('fr-FR')}</span>
+              </div>
+              <div className="kv-row">
+                <span className="kv-key">Revenu du foyer médian</span>
+                <span className="kv-val">
+                  {marcheFi.foyer.revenuMensuel?.toLocaleString('fr-FR')} € / mois
+                </span>
+              </div>
+              {marcheFi.acheteurs.partLocaux != null && (
+                <div className="kv-row">
+                  <span className="kv-key">Acheteurs récents</span>
+                  <span className="kv-val">
+                    {marcheFi.acheteurs.partLocaux} % habitaient déjà {marcheFi.commune}
+                  </span>
+                </div>
+              )}
+              {marcheFi.acheteurs.ageDominant && (
+                <div className="kv-row">
+                  <span className="kv-key">Profil dominant</span>
+                  <span className="kv-val">
+                    {marcheFi.acheteurs.ageDominant}
+                    {marcheFi.acheteurs.categorieDominante
+                      ? `, ${marcheFi.acheteurs.categorieDominante}`
+                      : ''}
+                  </span>
+                </div>
+              )}
+              {marcheFi.acheteurs.origines.length > 0 && (
+                <div className="kv-row">
+                  <span className="kv-key">Viennent surtout de</span>
+                  <span className="kv-val">
+                    {marcheFi.acheteurs.origines
+                      .map((o) => `${o.commune} (${o.pct} %)`)
+                      .join(', ')}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="card">
+              <div className="eyebrow">Financer votre bien</div>
+              <div className="kv-row">
+                <span className="kv-key">Taux moyen des crédits</span>
+                <span className="kv-val">
+                  {marcheFi.taux.banqueDeFrance?.toLocaleString('fr-FR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })} %
+                </span>
+              </div>
+              <div className="kv-row">
+                <span className="kv-key">Taux de la simulation</span>
+                <span className="kv-val">
+                  {marcheFi.taux.avecAssurance?.toLocaleString('fr-FR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })} % assurance comprise
+                </span>
+              </div>
+
+              {simulation && (
+                <div className="fi-simu">
+                  {simulation.durees.map((d) => (
+                    <div className="fi-simu-item" key={d.annees}>
+                      <div className="fi-simu-montant">
+                        {d.montant?.toLocaleString('fr-FR')} €
+                      </div>
+                      <div className="fi-simu-label">par mois sur {d.annees} ans</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Le rapprochement qui parle vraiment au mandant : la
+                  mensualité de son bien face à la capacité du foyer médian
+                  de sa commune. */}
+              {marcheFi.foyer.mensualiteMax != null && (
+                <p className="fi-lecture">
+                  Le foyer médian de {marcheFi.commune} peut consacrer{' '}
+                  <strong>{marcheFi.foyer.mensualiteMax.toLocaleString('fr-FR')} € par mois</strong>{' '}
+                  à un crédit, soit un budget d'achat de{' '}
+                  <strong>{marcheFi.foyer.budgetAchat?.toLocaleString('fr-FR')} €</strong> sur 25 ans.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <p className="note">
+            Mensualités calculées sans apport ni frais d'acquisition, à titre
+            indicatif : elles ne valent pas offre de prêt. Données par commune —
+            à distinguer de la médiane du secteur immédiat, en section « Votre
+            marché local ». Millésime {marcheFi.millesime}. Source :{' '}
+            {marcheFi.source}
+          </p>
+        </section>
+      )}
+
+      {/* =============================================================
           SECTION 10 bis — Plan de commercialisation
           Jalons posés par l'agent (reportStore.rdvPlanner) sinon plan type
           calé sur la date d'édition du document.
@@ -2546,6 +2718,14 @@ const reportCss = `
   .prop-aside { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 22px; text-align: center; background: #fff; border-left: 1px solid var(--border); }
   .prop-stat { font-size: 44px; font-weight: 700; color: var(--secondary); line-height: 1; }
   .prop-stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; line-height: 1.55; margin-top: 10px; }
+
+  /* ====== 10 ter. Marché et financement ====== */
+  .fi-simu { display: flex; gap: 12px; margin: 18px 0 0; }
+  .fi-simu-item { flex: 1; text-align: center; padding: 14px 10px; border: 1px solid var(--border); border-radius: 12px; background: #fafafa; }
+  .fi-simu-montant { font-size: 24px; font-weight: 700; color: var(--primary); line-height: 1.1; }
+  .fi-simu-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-top: 6px; }
+  .fi-lecture { font-size: 12.5px; color: var(--secondary); line-height: 1.65; margin: 16px 0 0; }
+  .fi-lecture strong { color: var(--primary); }
 
   /* ====== 11. Contact ====== */
   .contact-card { display: grid; grid-template-columns: auto 1fr 1fr; gap: 24px; align-items: start; padding: 20px; border: 1px solid var(--border); border-radius: 10px; }
