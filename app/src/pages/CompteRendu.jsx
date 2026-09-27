@@ -871,6 +871,70 @@ export default function CompteRendu() {
     const s = parts.join(', ');
     return s.charAt(0).toUpperCase() + s.slice(1);
   }, [isLive, activeBien]);
+  /* ── Fiche technique du bien ─────────────────────────────────────────
+   * Une ligne par élément réellement renseigné. Construite en tableau
+   * plutôt qu'écrite en dur : la moitié de ces champs n'existe que pour une
+   * maison ou que pour un appartement, et une fiche pleine de tirets donne
+   * l'impression d'un relevé bâclé. Une ligne vide ne s'affiche pas.
+   *
+   * En mode live les valeurs viennent du relevé de l'étape 2 (bienDetails),
+   * interrogé par slug de champ ; en démo, de propertyData.
+   */
+  const lignesBien = useMemo(() => {
+    const bd = reportState.bienDetails || {};
+    const live = (...slugs) => (isLive ? findDetail(bd, ...slugs) : undefined);
+    const demo = (v) => (isLive ? undefined : v);
+    const euros = (v) => (Number.isFinite(Number(v)) ? `${Number(v).toLocaleString('fr-FR')} € / an` : null);
+
+    const typeBien = isLive
+      ? (activeBien?.bien?.type === 'maison' ? 'Maison' : 'Appartement')
+      : 'Appartement';
+    const estMaison = typeBien === 'Maison';
+
+    const surfaceTerrain = live('surface_cadastrale_m') ?? demo(property.surfaceTerrain);
+
+    const lignes = [
+      {
+        cle: 'Type',
+        val: `${typeBien} T${effProperty.pieces}, ${effProperty.chambres} chambre${plural(effProperty.chambres)}`,
+      },
+      { cle: 'Surface', val: `${fmtNb(effProperty.surface)} m² Carrez` },
+      { cle: 'Terrain', val: surfaceTerrain ? `${fmtNb(Number(surfaceTerrain))} m²` : null },
+      // L'étage ne veut rien dire pour une maison.
+      { cle: 'Étage', val: estMaison ? null : `${effProperty.etage}${isLive ? '' : ' / 6'}` },
+      { cle: 'Année', val: effProperty.annee },
+      { cle: 'Exposition', val: isLive ? activeBien?.bien?.exposition : 'Sud-Est' },
+      { cle: 'Mitoyenneté', val: live('mitoyennete') ?? demo(property.mitoyennete) },
+      { cle: 'État', val: isLive ? effProperty.etat : 'Bon état' },
+      { cle: 'Chauffage', val: isLive ? effProperty.chauffage : 'Individuel gaz' },
+      { cle: 'Eau chaude', val: live('chauffe_eau', 'energie_ecs') ?? demo(property.eauChaude) },
+      {
+        cle: 'Menuiseries',
+        val: live('vitrages_fenetres', 'materiaux_fenetres') ?? demo(property.menuiseries),
+      },
+      { cle: 'Ventilation', val: live('ventilation') ?? demo(property.ventilation) },
+      { cle: 'Assainissement', val: live('type_assainissement') ?? demo(property.assainissement) },
+      { cle: 'Annexes', val: annexes },
+      { cle: 'Occupation', val: live('statut') ?? demo(property.occupation) },
+      {
+        cle: 'Charges de copropriété',
+        val: estMaison ? null : euros(live('charges_copropriete') ?? demo(property.chargesCopropriete)),
+      },
+      { cle: 'Taxe foncière', val: euros(live('taxe_fonciere') ?? demo(property.taxeFonciere)) },
+      {
+        cle: 'Parcelle',
+        val: live('references_cadastrales') ?? demo(property.referenceCadastrale),
+        mono: true,
+      },
+      { cle: 'Référence', val: effProperty.reference, mono: true },
+    ];
+
+    return lignes.filter(
+      (l) => l.val !== null && l.val !== undefined && l.val !== '' && l.val !== '—'
+    );
+  }, [isLive, activeBien, reportState, effProperty, annexes]);
+
+
 
   /* Marché communal et conditions de financement (DVF + INSEE + Banque de
    * France, via /api/marche-financement). En démo on affiche l'extrait réel
@@ -1460,45 +1524,12 @@ export default function CompteRendu() {
           </aside>
 
           <div className="card">
-            <div className="kv-row">
-              <span className="kv-key">Type</span>
-              <span className="kv-val">
-                {isLive ? (activeBien?.bien?.type === 'maison' ? 'Maison' : 'Appartement') : 'Appartement'}{' '}
-                T{effProperty.pieces}, {effProperty.chambres} chambre{plural(effProperty.chambres)}
-              </span>
-            </div>
-            <div className="kv-row">
-              <span className="kv-key">Surface</span>
-              <span className="kv-val">{fmtNb(effProperty.surface)} m² Carrez</span>
-            </div>
-            <div className="kv-row">
-              <span className="kv-key">Étage</span>
-              <span className="kv-val">{effProperty.etage}{isLive ? '' : ' / 6'}</span>
-            </div>
-            <div className="kv-row">
-              <span className="kv-key">Année</span>
-              <span className="kv-val">{effProperty.annee}</span>
-            </div>
-            <div className="kv-row">
-              <span className="kv-key">Exposition</span>
-              <span className="kv-val">{isLive ? (activeBien?.bien?.exposition || '—') : 'Sud-Est'}</span>
-            </div>
-            <div className="kv-row">
-              <span className="kv-key">Chauffage</span>
-              <span className="kv-val">{isLive ? (effProperty.chauffage || '—') : 'Individuel gaz'}</span>
-            </div>
-            <div className="kv-row">
-              <span className="kv-key">Annexes</span>
-              <span className="kv-val">{annexes}</span>
-            </div>
-            <div className="kv-row">
-              <span className="kv-key">État</span>
-              <span className="kv-val">{isLive ? (effProperty.etat || '—') : 'Bon état'}</span>
-            </div>
-            <div className="kv-row">
-              <span className="kv-key">Référence</span>
-              <span className="kv-val mono">{effProperty.reference}</span>
-            </div>
+            {lignesBien.map((l) => (
+              <div className="kv-row" key={l.cle}>
+                <span className="kv-key">{l.cle}</span>
+                <span className={`kv-val${l.mono ? ' mono' : ''}`}>{l.val}</span>
+              </div>
+            ))}
 
             {!isLive && (
               <p className="property-desc">

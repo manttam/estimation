@@ -142,6 +142,21 @@ export const property = {
   annee: 1972,
   prix_m2_estime: 4138,
 
+  /* Éléments techniques repris dans la fiche « Votre bien ». En mode live
+   * ils viennent du relevé de l'étape 2 (bienDetails) ; ici ce sont les
+   * valeurs de démonstration. Chaque champ est optionnel : la ligne
+   * correspondante n'apparaît pas s'il est vide, plutôt qu'un tiret. */
+  surfaceTerrain: null,            // appartement : pas de terrain
+  mitoyennete: null,               // idem, notion de maison
+  menuiseries: "Double vitrage PVC, volets roulants",
+  eauChaude: "Chaudière gaz à condensation (2018)",
+  ventilation: "VMC simple flux",
+  assainissement: "Tout à l'égout",
+  occupation: "Libre à la vente",
+  chargesCopropriete: 1850,        // € / an
+  taxeFonciere: 1240,              // € / an
+  referenceCadastrale: "Section 000 BM n° 412",
+
   // --- Avis de valeur (document mandant) -----------------------------
   dateAvisValeur: "31 mars 2026",
 
