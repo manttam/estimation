@@ -948,11 +948,13 @@ export default function CompteRendu() {
       },
       { cle: 'Taxe foncière', val: euros(live('taxe_fonciere') ?? demo(property.taxeFonciere)) },
       {
-        cle: 'Parcelle',
-        val: live('references_cadastrales') ?? demo(property.referenceCadastrale),
+        // La parcelle n'est plus listée ici : la section « Cadastre et plan
+        // de zone », juste en dessous, la donne avec son plan, et sa valeur
+        // vient de l'API plutôt que d'une saisie qui pouvait la contredire.
+        cle: 'Référence',
+        val: effProperty.reference,
         mono: true,
       },
-      { cle: 'Référence', val: effProperty.reference, mono: true },
     ];
 
     return lignes.filter(

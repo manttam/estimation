@@ -155,7 +155,8 @@ export const property = {
   occupation: "Libre à la vente",
   chargesCopropriete: 1850,        // € / an
   taxeFonciere: 1240,              // € / an
-  referenceCadastrale: "Section 000 BM n° 412",
+  // Pas de référence cadastrale en dur : la section « Cadastre et plan de
+  // zone » la tient de l'API, une valeur saisie ici la contredirait.
 
   // --- Avis de valeur (document mandant) -----------------------------
   dateAvisValeur: "31 mars 2026",
