@@ -1632,43 +1632,14 @@ export default function CompteRendu() {
       )}
 
       {/* =============================================================
-          SECTION 5 — Votre marché local (V2, factuel uniquement)
+          SECTION 5 — Votre marché local
+          Le bloc de KPI DVF (médiane secteur, évolution, transactions,
+          fourchette) a été retiré : les chiffres de marché vivent en section
+          « Notre activité dans votre secteur », calculés sur des ventes que
+          le document montre. Il reste ici ce qui situe le bien.
           ============================================================= */}
       <section className="market page-break">
         <h2 className="section-title">Votre marché local</h2>
-        <p className="market-zone">
-          {effContexteZone.zoneLabel} · rayon {effContexteZone.rayonMetres} m autour du bien
-        </p>
-
-        <div className="card">
-        <div className="market-kpis">
-          <div className="kpi">
-            <div className="kpi-value">{effContexteZone.market.prixM2} €/m²</div>
-            <div className="kpi-label">Médiane secteur</div>
-          </div>
-          <div className="kpi">
-            <div className="kpi-value">{effContexteZone.market.evolution}</div>
-            <div className="kpi-label">Évolution 12 mois</div>
-          </div>
-          <div className="kpi">
-            <div className="kpi-value">{effContexteZone.market.transactions}</div>
-            <div className="kpi-label">Transactions 12 mois</div>
-          </div>
-        </div>
-
-        <p className="note">
-          Source : DVF — transactions publiées par l'administration fiscale sur
-          les 12 derniers mois dans le périmètre ci-dessus. Le délai de vente
-          constaté et les ventes de notre réseau figurent en section
-          « Notre activité dans votre secteur ».
-        </p>
-
-        <p className="market-caption">
-          Fourchette de prix observée sur la typologie T{effProperty.pieces} dans votre secteur :
-          <strong> {effContexteZone.market.fourchette} €/m²</strong>.
-        </p>
-        </div>
-
         {/* Carte du secteur : commodités relevées autour du bien et risques
             répertoriés sur la commune. En mode live les POI viennent
             d'Overpass via l'étape 3 ; en démo, du jeu fictif Lyon 3ᵉ. */}
@@ -2626,12 +2597,10 @@ const reportCss = `
   .dpe-G { background: #d63024; }
 
   /* ====== 5. Market ====== */
-  .market-zone { margin: -16px 0 18px; font-size: 13px; color: var(--muted); font-style: italic; }
   /* Flex plutôt que grid : la grille sert à 3 tuiles (marché local) et à 4
      (activité réseau), et auto-fit créait des colonnes vides. */
   .market-kpis { display: flex; gap: 16px; margin-bottom: 20px; }
   .market-source { font-size: 11px; color: var(--muted); line-height: 1.6; margin: 0 0 20px; }
-  .market-caption { font-size: 13px; color: var(--secondary); margin: 16px 0 0; }
   .market-commodites { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--border); }
   .market-commodites > h3 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--secondary); margin: 0 0 14px; }
   .commod-cat { margin-bottom: 12px; }
