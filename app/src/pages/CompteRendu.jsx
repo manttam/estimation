@@ -329,7 +329,7 @@ function HistogrammeConcurrence({ tranches, vignettes = [], trancheProche }) {
  * pourquoi aucun nom n'est porté par les rues — les libellés de voie sont
  * attachés aux points, donc à la donnée.
  */
-function CarteSecteur({ carte, libelleBien = 'Votre bien' }) {
+function CarteSecteur({ carte, libelleBien = 'Votre bien', masquerPrix = false }) {
   const { points = [], rayonKm = 1, seed = 1 } = carte || {};
 
   const CX = CARTE_W / 2;
@@ -429,12 +429,16 @@ function CarteSecteur({ carte, libelleBien = 'Votre bien' }) {
   const etiquettes = pts.map((pt) => {
     if (!pt.labellise) return { ...pt, pastille: null, voieBoite: null };
 
-    const texte = `${(pt.prixM2 || 0).toLocaleString('fr-FR')} €/m²`;
-    const w = texte.length * 8.4 + 22;
-    const pastille = placer(pt.cx, pt.cy, w, 30, [
-      [0, -32], [0, 34], [-w / 2 - 22, 0], [w / 2 + 22, 0],
-      [0, -66], [0, 68], [-w / 2 - 22, -36], [w / 2 + 22, -36],
-    ]);
+    // Mode d'attente : le point et le nom de voie restent, seule la pastille
+    // de prix disparaît.
+    const texte = masquerPrix ? null : `${(pt.prixM2 || 0).toLocaleString('fr-FR')} €/m²`;
+    const w = texte ? texte.length * 8.4 + 22 : 0;
+    const pastille = texte
+      ? placer(pt.cx, pt.cy, w, 30, [
+          [0, -32], [0, 34], [-w / 2 - 22, 0], [w / 2 + 22, 0],
+          [0, -66], [0, 68], [-w / 2 - 22, -36], [w / 2 + 22, -36],
+        ])
+      : null;
 
     // Nom de voie : accroché à la pastille (elle a déjà trouvé sa place, donc
     // le dessous est presque toujours libre) et, à défaut, autour du point.
@@ -1303,6 +1307,21 @@ export default function CompteRendu() {
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('print') === '1';
 
+  /* Mode d'attente : ?sansPrixM2=1 retire du document tout prix au m² issu
+   * des ventes du réseau — la distribution et les étiquettes du plan.
+   *
+   * Palliatif assumé, le temps que la saisie des surfaces soit fiabilisée en
+   * amont : mieux vaut un document qui compte les ventes sans les chiffrer
+   * qu'un document qui affiche « 0 €/m² » à côté d'un avis de valeur à
+   * 2 000 €/m². À supprimer une fois la donnée corrigée.
+   *
+   * Ne touche pas à la médiane DVF de « Votre marché local » : autre source,
+   * déjà filtrée par api/dvf.js.
+   */
+  const sansPrixM2 =
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('sansPrixM2') === '1';
+
   // Mode partage : le rapport est ouvert via un lien sécurisé (?t=JWT).
   // On masque les actions agent (bouton Retour, Partager) pour le mandant.
   const shareToken =
@@ -1763,7 +1782,10 @@ export default function CompteRendu() {
           <p className="section-intro">
             {marcheLocal.total} biens suivis par notre réseau dans un rayon de{' '}
             {marcheLocal.rayonKm} km autour du vôtre, sur les {marcheLocal.periodeMois}{' '}
-            derniers mois. Ce sont des prix réellement signés — pas des prix affichés.
+            derniers mois.
+            {/* Sans les prix, la phrase « ce sont des prix réellement signés »
+                promettrait ce que la section ne montre plus. */}
+            {!sansPrixM2 && ' Ce sont des prix réellement signés — pas des prix affichés.'}
           </p>
 
           <div className="card">
@@ -1796,7 +1818,7 @@ export default function CompteRendu() {
           )}
           </div>
 
-          {marcheLocal.paliers.length > 0 && (
+          {marcheLocal.paliers.length > 0 && !sansPrixM2 && (
             <div className="card reseau-distrib">
               <div className="eyebrow">Prix au m² des ventes signées</div>
               {/* Distribution purement factuelle : aucun repère sur le prix
@@ -1828,6 +1850,7 @@ export default function CompteRendu() {
               <div className="carte-wrap">
                 <CarteSecteur
                   carte={marcheLocal.carte}
+                  masquerPrix={sansPrixM2}
                   libelleBien={
                     String(activeBien?.bien?.type || '').toLowerCase().startsWith('maison')
                       ? 'Votre maison'
@@ -1836,9 +1859,9 @@ export default function CompteRendu() {
                 />
               </div>
               <p className="note carte-legende">
-                Chaque pastille porte le prix au m² réellement signé. Les points
-                cerclés de blanc sont les ventes conclues par notre agence. Le
-                plan est cadré sur les ventes les plus proches
+                {!sansPrixM2 && 'Chaque pastille porte le prix au m² réellement signé. '}
+                Les points cerclés de blanc sont les ventes conclues par notre
+                agence. Le plan est cadré sur les ventes les plus proches
                 ({fmtKm(marcheLocal.carte.rayonKm)}) ; le périmètre analysé,
                 lui, s'étend à {fmtKm(marcheLocal.rayonKm)}. Positions à
                 l'échelle d'après les coordonnées des biens ; la trame de rues
