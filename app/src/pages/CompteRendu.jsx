@@ -1478,7 +1478,7 @@ export default function CompteRendu() {
           sera écrit. Sans texte, pas de section plutôt qu'une page à trous.
           ============================================================= */}
       {paragraphesAgence.length > 0 && (
-        <section className="agence page-break">
+        <section className="agence">
           <h2 className="section-title">Notre agence</h2>
 
           <div className="agence-tete">
@@ -1525,7 +1525,7 @@ export default function CompteRendu() {
       {/* =============================================================
           SECTION 4 — Votre bien
           ============================================================= */}
-      <section className="property page-break">
+      <section className="property">
         <h2 className="section-title">Votre bien</h2>
 
         {/* Photo et DPE sur une même ligne : ce sont les deux repères
@@ -1663,7 +1663,7 @@ export default function CompteRendu() {
           regroupées par catégorie. Seuls les champs non vides sont rendus.
           ============================================================= */}
       {isLive && reportState.bienDetails && Object.keys(reportState.bienDetails).length > 0 && (
-        <section className="fiche-technique page-break">
+        <section className="fiche-technique">
           <h2 className="section-title">Fiche technique du bien</h2>
           <p className="section-intro" style={{ marginBottom: 24, color: '#666' }}>
             Ensemble des caractéristiques relevées lors de la visite et de la saisie
@@ -1771,7 +1771,7 @@ export default function CompteRendu() {
           du marché. Disparaît si aucune des deux sources ne répond — toutes
           les communes n'ont pas publié leur PLU.
           ============================================================= */}
-      <section className="cadastre page-break">
+      <section className="cadastre">
         <h2 className="section-title">Cadastre et plan de zone</h2>
         <CartesCadastre centre={coordsBien} />
         <p className="note">
@@ -1788,7 +1788,7 @@ export default function CompteRendu() {
           « Notre activité dans votre secteur », calculés sur des ventes que
           le document montre. Il reste ici ce qui situe le bien.
           ============================================================= */}
-      <section className="market page-break">
+      <section className="market">
         <h2 className="section-title">Votre marché local</h2>
         {/* Carte du secteur : commodités relevées autour du bien et risques
             répertoriés sur la commune. En mode live les POI viennent
@@ -1817,7 +1817,7 @@ export default function CompteRendu() {
           prix réellement signés, offre concurrente, délais constatés.
           ============================================================= */}
       {marcheLocal.total > 0 && (
-        <section className="reseau page-break">
+        <section className="reseau">
           <h2 className="section-title">Notre activité dans votre secteur</h2>
           <p className="section-intro">
             {marcheLocal.total} biens suivis par notre réseau dans un rayon de{' '}
@@ -1954,7 +1954,7 @@ export default function CompteRendu() {
           SECTION 6 — Profils d'acquéreurs en recherche
           (5 personas, reprend Acte 2 de Step4 — interactif en web, déplié en PDF)
           ============================================================= */}
-      <section className="personas page-break">
+      <section className="personas">
         <h2 className="section-title">Profils d'acquéreurs en recherche</h2>
         <p className="section-intro">
           {isLive ? (
@@ -2108,7 +2108,7 @@ export default function CompteRendu() {
           restent dans l'outil, elles ne sortent pas dans le document.
           ============================================================= */}
       {!reportState.displayConfig?.hideStrategie && recommendedStrategy && (
-      <section className="strategies page-break">
+      <section className="strategies">
         <h2 className="section-title">Notre proposition</h2>
 
         {/* Définition du prix : la valeur des comparables, puis chaque point
@@ -2207,7 +2207,7 @@ export default function CompteRendu() {
           construisent pas — la construction est dans « Définition du prix ».
           ============================================================= */}
       {marcheFi && !sansFinancement && (
-        <section className="financement page-break">
+        <section className="financement">
           <h2 className="section-title">Le marché et le financement</h2>
 
           <div className="split">
@@ -2331,7 +2331,7 @@ export default function CompteRendu() {
           calé sur la date d'édition du document.
           ============================================================= */}
       {!sansPlan && (
-      <section className="plan page-break">
+      <section className="plan">
         <h2 className="section-title">Plan de commercialisation</h2>
         <p className="section-intro">
           Le déroulé de la mise en vente et nos engagements de suivi, à compter
@@ -2418,7 +2418,7 @@ export default function CompteRendu() {
       {/* =============================================================
           SECTION 12 — Mentions légales
           ============================================================= */}
-      <footer className="legal page-break">
+      <footer className="legal">
         <div className="eyebrow">Mentions légales</div>
         <ul>
           {(effAvisValeur.mentionsLegales || []).map((m, i) => (
@@ -2978,7 +2978,22 @@ const reportCss = `
     body { margin: 0; padding: 0; background: #fff !important; }
     .report-root { max-width: none; background: #fff; }
     .no-print { display: none !important; }
-    .page-break { page-break-before: always; }
+
+    /* Le contenu s'enchaîne. Forcer un saut avant chaque section donnait des
+       pages à moitié vides : onze sauts pour douze sections, chacune
+       démarrant une page neuve quelle que soit la place restante. On laisse
+       couler et on protège seulement ce qui ne doit pas être coupé. */
+    .report-root section, .report-root footer { padding: 22px 32px; }
+    /* Un titre de section ne reste jamais seul en bas de page. */
+    .section-title { break-after: avoid; page-break-after: avoid; }
+    /* Ni une carte, ni un graphique, ni un plan coupés en deux. */
+    .card, .plan-engagements, .app-renvoi, .bien-grid, .carte-wrap,
+    .cc-map-col, .conc-liste li, .plan-step, .proposition {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    /* La couverture garde sa page à elle. */
+    .cover { break-after: page; page-break-after: always; }
 
     /* Couverture : le min-height de 900 px + le gabarit d'écran la faisaient
        déborder sur une seconde page quasi vide. On resserre pour tenir sur
@@ -2994,10 +3009,7 @@ const reportCss = `
     .cover-meta { margin: 22px 0; line-height: 1.65; }
     .cover-footer { padding-top: 22px; }
     .report-root section, .report-root footer { padding: 24px 32px; }
-    .card, .plan-engagements { break-inside: avoid; page-break-inside: avoid; }
-    .plan-step, .conc-list li, .carte-wrap { break-inside: avoid; page-break-inside: avoid; }
-    .market-carte, .cc-card, .cc-map-col { break-inside: avoid; page-break-inside: avoid; }
-    .proposition { break-inside: avoid; page-break-inside: avoid; }
+    .market-carte, .cc-card { break-inside: avoid; page-break-inside: avoid; }
     .leaflet-control-zoom, .leaflet-popup { display: none !important; }
     .cc-map { height: 320px; }
   }
