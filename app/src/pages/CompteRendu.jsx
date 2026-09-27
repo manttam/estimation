@@ -1501,8 +1501,10 @@ export default function CompteRendu() {
       <section className="property page-break">
         <h2 className="section-title">Votre bien</h2>
 
+        {/* Photo et DPE sur une même ligne : ce sont les deux repères
+            visuels du bien, ils se répondent mieux côte à côte que l'un
+            sous l'autre dans une colonne étroite. */}
         <div className="bien-grid">
-          <aside>
             <div className="bien-photo">
               {photoPrincipale ? (
                 <img className="bien-photo-img" src={photoPrincipale} alt="Photo du bien" />
@@ -1549,17 +1551,20 @@ export default function CompteRendu() {
                 </p>
               </div>
             )}
-          </aside>
+        </div>
 
-          <div className="card">
-            {lignesBien.map((l) => (
-              <div className="kv-row" key={l.cle}>
-                <span className="kv-key">{l.cle}</span>
-                <span className={`kv-val${l.mono ? ' mono' : ''}`}>{l.val}</span>
-              </div>
-            ))}
-
-          </div>
+        {/* Fiche technique en pleine largeur, sur deux colonnes.
+            Dans une colonne étroite à côté de la photo, seize lignes
+            faisaient 580 px face à 360 px d'aside : un vide sous le DPE que
+            rien ne venait combler. Étalée sur la largeur, la fiche fait
+            deux fois moins haut et la ligne du dessus est équilibrée. */}
+        <div className="card bien-fiche">
+          {lignesBien.map((l) => (
+            <div className="kv-row" key={l.cle}>
+              <span className="kv-key">{l.cle}</span>
+              <span className={`kv-val${l.mono ? ' mono' : ''}`}>{l.val}</span>
+            </div>
+          ))}
         </div>
 
         {/* Description en pleine largeur, sous les deux colonnes.
@@ -2597,7 +2602,17 @@ const reportCss = `
   .kpi.kpi-highlight .kpi-value { color: var(--primary); }
 
   /* ====== 4. Votre bien ====== */
-  .bien-grid { display: grid; grid-template-columns: 268px 1fr; gap: 16px; align-items: start; }
+  .bien-grid { display: grid; grid-template-columns: 268px 1fr; gap: 16px; align-items: stretch; }
+
+  /* Fiche technique en deux colonnes : seize lignes en pleine largeur
+     tiennent en huit, et la ligne photo + DPE au-dessus reste équilibrée.
+     Colonnes CSS plutôt qu'une grille, pour que la liste se lise de haut en
+     bas dans la première colonne puis dans la seconde. */
+  .bien-fiche { margin-top: 16px; columns: 2; column-gap: 34px; }
+  /* Largeur de libellé inchangée : la resserrer fait passer « Charges de
+     copropriété » à la ligne, ce qui se voit plus qu'une valeur longue qui
+     se replie. */
+  .bien-fiche .kv-row { break-inside: avoid; }
   .bien-photo { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: #f8f8f8; }
   .bien-photo-img { display: block; width: 100%; height: 196px; object-fit: cover; }
   .bien-photo-vide { height: 196px; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 11px; letter-spacing: 1px; color: var(--muted); }
@@ -2606,7 +2621,7 @@ const reportCss = `
 
   /* Échelle DPE : la lettre du bien est remplie de sa couleur officielle,
      les autres restent en gris. */
-  .dpe-card { margin-top: 14px; padding: 18px 20px; }
+  .dpe-card { padding: 18px 20px; display: flex; flex-direction: column; justify-content: center; }
   .dpe-echelle { display: flex; gap: 4px; margin-bottom: 12px; }
   .dpe-lettre { flex: 1; text-align: center; padding: 6px 0; border-radius: 5px; background: #eeeff0; color: #a9adb1; font-family: var(--mono); font-size: 12px; font-weight: 700; }
   .dpe-lettre.active { color: #fff; }
